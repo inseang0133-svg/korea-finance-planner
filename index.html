@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#d4af37">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="เป้าการเก็บเงิน">
+    
+    <title>เป้าการเก็บเงิน</title>
+
+    <link rel="stylesheet" href="style.css">
+    
+    <link rel="manifest" href="manifest.json">
+</head>
+<body>
+
+<div class="container">
+
+    <h1>สู้หน่อยดิว้ะ</h1>
+    <p class="subtitle">วางแผนการเงินจะได้เติบโตสักที</p>
+
+    <div class="card">
+
+        <label>เงินเดือนสุทธิ (KRW)</label>
+        <input
+            type="number"
+            id="salary"
+            placeholder="เช่น 2567890">
+            <p id="salaryTHBPreview" class="salary-preview">
+    -
+</p>
+
+        <label>อัตราแลกเปลี่ยน (1 KRW = ? THB)</label>
+        <input
+            type="number"
+            step="0.0001"
+            id="rate"
+            value="0.0240">
+            <button onclick="updateExchangeRate()">
+        🔄 อัปเดตค่าเงินล่าสุด
+        </button>
+
+        <button onclick="calculate()">
+            คำนวณ
+        </button>
+        <p id="exchangeStatus"></p>
+
+    </div> <div class="results">
+
+        <div class="result-card">
+            <h3>💰 เงินเก็บ 45%</h3>
+            <p id="saving">-</p>
+        </div>
+
+        <div class="result-card">
+            <h3>🥇 ออมทอง 15%</h3>
+            <p id="gold">-</p>
+        </div>
+
+        <div class="result-card">
+            <h3>🏠 ส่งบ้าน 25%</h3>
+            <p id="family">-</p>
+        </div>
+
+        <div class="result-card">
+            <h3>🛒 ใช้ส่วนตัว 10%</h3>
+            <p id="personal">-</p>
+        </div>
+
+        <div class="result-card">
+            <h3>✈️ เที่ยว 5%</h3>
+            <p id="travel">-</p>
+        </div>
+
+        <div class="stat-box gold-portfolio-card">
+
+    <span>🪙 ดูกำไร-ขาดทุน ทองคำ</span>
+
+    <p>
+        ติดตามต้นทุนและกำไรทองคำ
+    </p>
+
+    <button
+        class="gold-btn"
+        onclick="location.href='gold.html'"
+    >
+        📊 ดูพอร์ตทอง
+    </button>
+
+</div>
+
+    </div> <div class="card">
+        <h2>🥧 สัดส่วนการเงิน</h2>
+        <div class="pie-chart-container">
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>💱 ตัวแปลงสกุลเงิน</h2>
+        <label>แปลงจาก</label>
+        <select id="convertType" onchange="convertCurrency()">
+            <option value="KRW_TO_THB">KRW ➜ THB</option>
+            <option value="THB_TO_KRW">THB ➜ KRW</option>
+        </select>
+
+        <label>จำนวนเงิน</label>
+        <input type="number" id="convertAmount" oninput="convertCurrency()">
+
+        <div class="button-group">
+            <button onclick="swapConverter()">🔄 สลับ</button>
+            <button onclick="convertCurrency()">คำนวณ</button>
+        </div>
+
+        <div id="convertResult">-</div>
+    </div>
+
+    <div class="card">
+        <h2>🏦 คำนวณเงินส่งกลับบ้าน</h2>
+        <label>ต้องการให้ปลายทางได้รับ (บาท)</label>
+        <input type="number" id="receiveTHB" oninput="calculateRemit()">
+
+        <label>ค่าธรรมเนียมโอน (KRW)</label>
+        <input type="number" id="transferFee" value="5000" oninput="calculateRemit()">
+
+        <div id="remitResult">-</div>
+    </div>
+
+    <div class="card">
+        <h2>🎯 เป้าหมายเงินเก็บ</h2>
+        <label>เป้าหมาย (บาท)</label>
+        <input type="number" id="goal" value="2000000">
+
+        <label>เงินสะสมปัจจุบัน (บาท)</label>
+        <input type="number" id="currentSaving" value="0">
+
+        <div class="progress-container">
+            <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <p id="progressText">0%</p>
+        <p id="goalInfo">-</p>
+    </div>
+
+
+
+    <div class="card">
+    <h2>สัญญาทำงานเกาหลี</h2>
+
+    <label>วันที่เริ่มงาน</label>
+
+    <input
+        type="date"
+        id="startDate"
+    >
+
+    <button onclick="saveContract()">
+        💾 บันทึกวันเริ่มงาน
+    </button>
+
+    <div
+        id="contractResult"
+        style="margin-top:20px;"
+    >
+        -
+    </div>
+
+    <button
+        onclick="deleteContract()"
+        style="
+        background:#dd4b39;
+        color:white;
+        margin-top:15px;
+        "
+    >
+        ❌ ลบข้อมูลสัญญา
+    </button>
+</div>
+
+    <div class="card">
+        <h2>📅 บันทึกเงินเดือนรายเดือน</h2>
+        <label>เดือน</label>
+        <input type="month" id="salaryMonth">
+
+        <label>รายได้สุทธิ (KRW)</label>
+        <input type="number" id="salaryRecord">
+
+        <button onclick="addSalaryRecord()">➕ เพิ่มรายการ</button>
+        
+        <div class="history-header" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px;">
+            <h3 style="color: #d4af37; font-size: 16px;">📜 ประวัติการบันทึก</h3>
+            <select id="filterYear" class="year-filter" onchange="loadSalaryRecords()" style="width: auto; margin-bottom: 0; padding: 6px 12px; background: #222; border: 1px solid #d4af37; color: white;">
+                <option value="latest">3 เดือนล่าสุด</option>
+                </select>
+        </div>
+
+        <div id="salaryHistory" style="margin-top: 15px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>📊 สถิติการเงิน</h2>
+        <button onclick="exportExcel()" style="margin-bottom: 20px;">📁 Export Excel</button>
+        
+        <div class="stats-grid" style="margin-top:20px;">
+
+    <div class="stat-box">
+        <span>🎯 รายได้ทั้งหมด</span>
+        <h3 id="totalSalaryKRW">0 KRW</h3>
+        <p id="totalSalaryTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>💰 เงินเก็บ 45%</span>
+        <h3 id="totalSavingKRW">0 KRW</h3>
+        <p id="totalSavingTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>🏠 ส่งบ้าน 25%</span>
+        <h3 id="totalFamilyKRW">0 KRW</h3>
+        <p id="totalFamilyTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>🥇 ออมทอง 15%</span>
+        <h3 id="totalGoldKRW">0 KRW</h3>
+        <p id="totalGoldTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>🛒 ใช้ส่วนตัว 10%</span>
+        <h3 id="totalPersonalKRW">0 KRW</h3>
+        <p id="totalPersonalTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>✈️ เที่ยว 5%</span>
+        <h3 id="totalTravelKRW">0 KRW</h3>
+        <p id="totalTravelTHB">0 THB</p>
+    </div>
+
+</div>
+
+        <canvas id="salaryChart"></canvas>
+        <h3 style="margin-top:40px; margin-bottom:15px; color:#d4af37;">📈 กราฟเงินเก็บสะสม</h3>
+        <canvas id="savingChart"></canvas>
+    </div>
+
+</div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="script.js"></script>
+<!--
+<script>
+    // ลงทะเบียน Service Worker สำหรับระบบ PWA ให้ใช้งานออฟไลน์และติดตั้งลงเครื่องได้
+    if ('serviceWorker' in navigator) {
+        
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('PWA Service Worker Registered!', reg))
+                .catch(err => console.log('Service Worker Registration Failed:', err));
+        });
+    }
+</script>
+-->
+</body>
+</html>

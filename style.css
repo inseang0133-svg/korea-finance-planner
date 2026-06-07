@@ -1,0 +1,383 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#0f0f0f;
+    color:white;
+    font-family:Arial,sans-serif;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:30px 20px;
+}
+
+h1{
+    text-align:center;
+    color:#d4af37;
+}
+
+.subtitle{
+    text-align:center;
+    color:#aaa;
+    margin-top:10px;
+    margin-bottom:30px;
+}
+
+.card {
+    background: #181818;
+    padding: 25px;
+    border-radius: 15px;
+    margin-bottom: 30px;
+    border: 1px solid #d4af37;
+    
+    /* V13: เพิ่มเงาออร่าแสงสีทองสะท้อนแบบ Premium */
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.2);
+    
+    /* เสริมการแสดงผลเวลากดบนมือถือไม่ให้มีไฮไลต์สีฟ้า */
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* เพิ่มส่วนนี้ต่อท้ายไฟล์ เพื่อช่วยให้การแสดงผลบนจอมือถือเต็มนิ้วจับง่ายขึ้น */
+input, select, button {
+    font-size: 16px !important; /* ป้องกันไม่ให้ iOS ซูมหน้าจออัตโนมัติเวลาโฟกัสช่องกรอก */
+}
+
+label{
+    display:block;
+    margin-bottom:8px;
+    color:#d4af37;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin-bottom:20px;
+    border:none;
+    border-radius:10px;
+    background:#222;
+    color:white;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    background:#d4af37;
+    color:black;
+    border:none;
+    border-radius:10px;
+    font-weight:bold;
+    cursor:pointer;
+    margin-bottom: 12px;
+}
+
+button:last-of-type {
+    margin-bottom: 0;
+}
+
+button:hover{
+    opacity:.9;
+}
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+    margin-bottom: 30px; /* 🟢 เพิ่มบรรทัดนี้เพื่อผลักช่องไฟดันการ์ด Pie Chart ลงไปครับ */
+}
+
+.result-card{
+    background:#181818;
+    padding:20px;
+    border-radius:15px;
+    border:1px solid #d4af37;
+}
+
+.result-card h3{
+    margin-bottom:10px;
+    color:#d4af37;
+}
+.progress-container{
+    width:100%;
+    height:28px;
+    background:#2a2a2a;
+    border-radius:999px;
+    overflow:hidden;
+    margin-top:15px;
+}
+
+.progress-bar{
+    width:0%;
+    height:100%;
+    background:linear-gradient(
+        90deg,
+        #b8860b,
+        #d4af37,
+        #ffd700
+    );
+    transition:.5s;
+}
+
+#progressText{
+    margin-top:12px;
+    font-size:20px;
+    font-weight:bold;
+    color:#d4af37;
+}
+
+#goalInfo{
+    margin-top:10px;
+    color:#ddd;
+}
+#salaryHistory{
+    margin-top:20px;
+}
+
+.salary-item{
+    background:#222;
+    padding:15px;
+    margin-top:10px;
+    border-radius:10px;
+    border-left:4px solid #d4af37;
+}
+
+.salary-item button{
+    margin-top:10px;
+    width:auto;
+    padding:8px 15px;
+}
+.stats-grid{
+    display:grid;
+    gap:15px;
+    margin-bottom:25px;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(250px,1fr)
+        );
+}
+@media(max-width:768px){
+
+    .stats-grid{
+
+        grid-template-columns:
+            repeat(2,1fr);
+
+    }
+
+}
+.stat-box{
+
+    min-height:140px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+}
+.stat-box{
+    background:#222;
+    padding:20px;
+    border-radius:12px;
+    text-align:center;
+    border:1px solid #d4af37;
+}
+
+.stat-box span{
+    color:#bbb;
+    font-size:14px;
+}
+
+.stat-box h3{
+    margin-top:10px;
+    color:#d4af37;
+}
+
+#salaryChart{
+    margin-top:25px;
+}
+.prediction-card{
+    margin-top:20px;
+    background:#222;
+    padding:20px;
+    border-radius:12px;
+    border:1px solid #d4af37;
+    text-align:center;
+}
+
+.prediction-card h3{
+    color:#d4af37;
+    margin-bottom:10px;
+}
+
+#goalDate{
+    font-size:20px;
+    font-weight:bold;
+}
+#exchangeStatus{
+    margin-top:10px;
+    color:#37d478;
+    font-size:14px;
+}
+
+
+#convertResult{
+
+    margin-top:20px;
+
+    font-size:28px;
+
+    font-weight:bold;
+
+    color:#d4af37;
+
+}
+#quickConvertGrid{
+
+    display:grid;
+
+    grid-template-columns:
+    repeat(
+        auto-fit,
+        minmax(180px,1fr)
+    );
+
+    gap:12px;
+
+    margin-top:20px;
+
+}
+
+.quick-card{
+
+    background:#1b1b1b;
+
+    border:1px solid #d4af37;
+
+    border-radius:12px;
+
+    padding:15px;
+
+    text-align:center;
+
+}
+
+
+#remitResult{
+
+    margin-top:20px;
+
+    font-size:24px;
+
+    font-weight:bold;
+
+    color:#d4af37;
+
+}
+/* เพิ่มหรือแทนที่สไตล์ของส่วน pieChart และ section ที่หุ้ม */
+#pieChart {
+    max-width: 320px; /* จำกัดขนาดให้เล็กลงมาเป็นขนาดการ์ด */
+    margin: 20px auto 0 auto; /* จัดให้อยู่กึ่งกลาง */
+}
+
+/* หากต้องการให้กล่องข้อความอธิบาย (Legend) ของ Chart.js เรียงตัวสวยๆ */
+.card canvas {
+    display: block;
+}
+
+/* ลบสไตล์เก่าของคลาส .converter-card, .remit-card ออก (เพราะเราใช้ .card ตัวกลางแล้ว) */
+
+/* เพิ่มตัวสไตล์ควบคุมกลุ่มปุ่มกดให้แบ่งพื้นที่เท่ากัน 2 ฝั่ง และเว้นช่องไฟ */
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.button-group button {
+    flex: 1;
+}
+
+/* ควบคุมสัดส่วนของพายชาร์ตย่อส่วนให้เป็นการ์ดขนาดกะทัดรัด */
+.pie-chart-container {
+    max-width: 320px;
+    margin: 20px auto 0 auto;
+    display: block;
+}
+
+/* เพิ่มเติมสไตล์ของ select ในส่วนของตัวแปลงสกุลเงิน */
+select {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: none;
+    border-radius: 10px;
+    background: #222;
+    color: white;
+    font-size: 15px;
+}
+
+/* เคลียร์วงเล็บปีกกาที่อาจเกินมาตรงท้ายไฟล์ */
+.year-filter{
+    width:auto;
+    min-width:130px;
+
+    padding:8px 12px;
+
+    border:2px solid #fff;
+
+    border-radius:14px;
+
+    background:#222;
+    color:#fff;
+
+    font-weight:600;
+
+    margin-bottom:0;
+}
+.stat-box p{
+    margin-top:8px;
+    color:#37d478;
+    font-size:14px;
+    font-weight:bold;
+}
+.salary-preview{
+    margin-top:-10px;
+    margin-bottom:20px;
+
+    font-size:16px;
+    font-weight:bold;
+
+    color:#999;
+}
+
+.salary-preview.success{
+    color:#37d478;
+}
+.gold-portfolio-card{
+
+    justify-content:space-between;
+
+}
+
+.gold-btn{
+
+    margin-top:15px;
+
+    background:#d4af37;
+
+    color:#000;
+
+    font-size:14px;
+
+    padding:10px;
+
+}

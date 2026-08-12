@@ -1,53 +1,260 @@
 <!DOCTYPE html>
 <html lang="th">
-
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>พอร์ตทองคำ</title>
-
-<link rel="stylesheet" href="style.css">
-
+<link rel="stylesheet" href="gold.css">
 </head>
-
 <body>
+<div class="gold-container">
 
-<div class="container">
-
-    <div class="card">
-
-        <h1>
-            🪙 พอร์ตทองคำ
-        </h1>
-
-        <p class="subtitle">
-            ระบบคำนวณกำไร-ขาดทุนทองคำ
-        </p>
-
-        <button
-            onclick="location.href='index.html'"
-        >
-            ⬅️ กลับหน้าหลัก
-        </button>
-
+  <section class="gold-card gold-hero">
+    <div class="hero-top">
+      <div>
+        <div class="eyebrow">GOLD PORTFOLIO</div>
+        <h1>🪙 พอร์ตทองคำ</h1>
+        <p class="gold-subtitle">ติดตามการซื้อแต่ละรอบ · ต้นทุน · กำไร/ขาดทุน</p>
+      </div>
+      <button class="gold-back-btn" onclick="location.href='index.html'">⬅️ หน้าหลัก</button>
     </div>
 
-    <div class="card">
-
-        <h2>
-            🚧 อยู่ระหว่างพัฒนา
-        </h2>
-
-        <p>
-            หน้านี้ใช้สำหรับคำนวณ
-            กำไร / ขาดทุน / ต้นทุนเฉลี่ยทองคำ
-        </p>
-
+    <div class="market-status">
+      <span id="marketDot" class="status-dot offline"></span>
+      <span id="marketStatus">กำลังโหลดราคาทอง...</span>
+      <span class="status-sep">•</span>
+      <span id="marketUpdated">-</span>
     </div>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>📈 ราคาทองปัจจุบัน</h2>
+        <p>ราคาตลาดสำหรับประเมินพอร์ต ไม่ใช่ราคา Gold Wallet โดยตรง</p>
+      </div>
+      <button class="small-gold-btn" id="refreshGoldBtn">🔄 อัปเดต</button>
+    </div>
+
+    <div class="market-grid">
+      <div class="market-box">
+        <span>Gold Spot</span>
+        <strong id="spotUsd">-</strong>
+        <small>USD / troy oz</small>
+      </div>
+      <div class="market-box">
+        <span>USD/THB</span>
+        <strong id="usdThb">-</strong>
+        <small>อัตราแลกเปลี่ยน</small>
+      </div>
+      <div class="market-box featured">
+        <span>ทอง 99.99% โดยประมาณ</span>
+        <strong id="goldThbGram">-</strong>
+        <small>THB / gram</small>
+      </div>
+      <div class="market-box">
+        <span>ทอง 99.99% โดยประมาณ</span>
+        <strong id="goldThbOz">-</strong>
+        <small>THB / troy oz</small>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-toolbar">
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-range="1D">1D</button>
+          <button class="chart-tab" data-range="7D">7D</button>
+          <button class="chart-tab" data-range="30D">30D</button>
+        </div>
+        <span id="chartHint">กราฟจะสะสมข้อมูลราคาที่เว็บเปิดใช้งาน</span>
+      </div>
+      <canvas id="goldChart"></canvas>
+    </div>
+  </section>
+
+  <section class="gold-stats-grid">
+    <div class="gold-stat">
+      <span>ทองทั้งหมด</span>
+      <strong id="totalGold">0.0000 g</strong>
+      <small id="totalGoldOz">0.000000 oz</small>
+    </div>
+    <div class="gold-stat">
+      <span>ต้นทุนสะสม</span>
+      <strong id="totalCost">฿0</strong>
+      <small id="lotCount">0 รอบ</small>
+    </div>
+    <div class="gold-stat">
+      <span>มูลค่าปัจจุบัน</span>
+      <strong id="currentValue">฿0</strong>
+      <small>ประเมินจากราคาตลาด</small>
+    </div>
+    <div class="gold-stat" id="netPLCard">
+      <span>P/L สุทธิ</span>
+      <strong id="netPL">฿0</strong>
+      <small id="netPLPct">0.00%</small>
+    </div>
+  </section>
+
+  <section class="gold-stats-grid compact">
+    <div class="gold-stat">
+      <span>🟢 กำไรรวมของรอบที่บวก</span>
+      <strong id="positivePL">฿0</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🔴 ขาดทุนรวมของรอบที่ลบ</span>
+      <strong id="negativePL">฿0</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🎯 ต้นทุนเฉลี่ย</span>
+      <strong id="avgCost">฿0/g</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🏆 รอบที่กำไร</span>
+      <strong id="winRate">0 / 0</strong>
+      <small id="winRatePct">0.00%</small>
+    </div>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>➕ บันทึกรอบซื้อ</h2>
+        <p>ข้อมูลการซื้อจะเก็บในเครื่องนี้ด้วย LocalStorage และไม่แตะ logic เดิม</p>
+      </div>
+    </div>
+
+    <form id="lotForm" class="lot-form">
+      <div class="form-row">
+        <div>
+          <label for="buyDate">วันที่ซื้อ</label>
+          <input id="buyDate" type="date" required>
+        </div>
+        <div>
+          <label for="buyTime">เวลา</label>
+          <input id="buyTime" type="time">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="goldType">ประเภททอง</label>
+          <select id="goldType">
+            <option value="99.99">99.99%</option>
+            <option value="96.5">96.5%</option>
+          </select>
+        </div>
+        <div>
+          <label for="quantity">จำนวนทอง</label>
+          <input id="quantity" type="number" min="0" step="0.000001" placeholder="เช่น 0.10" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="unit">หน่วย</label>
+          <select id="unit">
+            <option value="oz">troy oz</option>
+            <option value="gram">gram</option>
+            <option value="baht">บาททองคำ (น้ำหนัก)</option>
+          </select>
+        </div>
+        <div>
+          <label for="cost">เงินที่จ่ายจริง (THB)</label>
+          <input id="cost" type="number" min="0" step="0.01" placeholder="เช่น 5000" required>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label for="buyPrice">ราคาซื้ออ้างอิง (THB / gram)</label>
+          <input id="buyPrice" type="number" min="0" step="0.0001" placeholder="ใส่ได้ถ้ามี">
+        </div>
+        <div>
+          <label for="buyFx">USD/THB ตอนซื้อ (ถ้ามี)</label>
+          <input id="buyFx" type="number" min="0" step="0.0001" placeholder="เช่น 32.50">
+        </div>
+      </div>
+
+      <div>
+        <label for="note">หมายเหตุ</label>
+        <input id="note" type="text" maxlength="160" placeholder="เช่น ซื้อรอบเงินเดือน / ซื้อหลังราคาลง">
+      </div>
+
+      <div id="lotPreview" class="lot-preview">กรอกข้อมูลเพื่อดูน้ำหนักทองและต้นทุนเฉลี่ย</div>
+
+      <button class="primary-gold-btn" type="submit">💾 บันทึกรอบนี้</button>
+    </form>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>📊 จำลองขาย</h2>
+        <p>ดูว่าถ้าขายบางส่วนหรือทั้งหมดด้วยราคาตลาดตอนนี้ จะได้เท่าไหร่</p>
+      </div>
+    </div>
+
+    <div class="simulate-grid">
+      <button class="simulate-btn" data-percent="25">ขาย 25%</button>
+      <button class="simulate-btn" data-percent="50">ขาย 50%</button>
+      <button class="simulate-btn" data-percent="75">ขาย 75%</button>
+      <button class="simulate-btn" data-percent="100">ขายทั้งหมด</button>
+    </div>
+
+    <div id="simulateResult" class="simulate-result">
+      เลือกสัดส่วนเพื่อจำลองการขาย
+    </div>
+
+    <div class="override-box">
+      <label class="check-row">
+        <input id="useSellOverride" type="checkbox">
+        <span>ใช้ราคาขายจริงจาก Gold Wallet แทนราคาตลาดประมาณ</span>
+      </label>
+      <div class="form-row">
+        <div>
+          <label for="sellOverride">ราคาขายคืนจริง (THB / gram)</label>
+          <input id="sellOverride" type="number" min="0" step="0.0001" placeholder="ใส่เมื่อคุณต้องการล็อก quote จากแอป">
+        </div>
+        <div class="override-note">
+          ถ้าไม่เปิดใช้งาน ระบบจะใช้ราคาตลาด XAU/THB จาก API และจะติดป้ายว่า “ประมาณการ”
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>📋 รายการซื้อแต่ละรอบ</h2>
+        <p>แต่ละรอบจะคำนวณ P/L แยกกัน ไม่เอารอบเก่ามาปนกับรอบใหม่</p>
+      </div>
+      <div class="table-actions">
+        <button class="small-gold-btn" id="exportGoldBtn">⬇️ Export</button>
+        <button class="small-danger-btn" id="clearGoldBtn">ล้างทั้งหมด</button>
+      </div>
+    </div>
+
+    <div id="lotSummary" class="lot-summary"></div>
+    <div id="lotsList" class="lots-list"></div>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>📌 วิธีอ่านพอร์ต</h2>
+        <p>ระบบแยก “กำไรรวมของรอบที่บวก” และ “ขาดทุนรวมของรอบที่ลบ” เพื่อให้เห็นพฤติกรรมการทยอยซื้อชัดเจน</p>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div><b>🟢 กำไรรอบ</b><span>มูลค่าปัจจุบันของ Lot มากกว่าต้นทุน Lot</span></div>
+      <div><b>🔴 ขาดทุนรอบ</b><span>มูลค่าปัจจุบันของ Lot ต่ำกว่าต้นทุน Lot</span></div>
+      <div><b>⚪ จุดคุ้มทุน</b><span>ราคาปัจจุบันเท่ากับต้นทุนเฉลี่ยของ Lot</span></div>
+      <div><b>🎯 P/L สุทธิ</b><span>กำไรรวมลบขาดทุนรวมของทุก Lot</span></div>
+    </div>
+  </section>
 
 </div>
 
+<script src="gold.js"></script>
 </body>
 </html>

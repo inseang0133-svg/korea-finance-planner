@@ -1,0 +1,140 @@
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:#0b0d0e;
+  color:#f5f5f5;
+  font-family:Arial,"Noto Sans Thai",sans-serif;
+}
+button,input,select{font:inherit}
+button{-webkit-tap-highlight-color:transparent}
+.gold-container{max-width:1050px;margin:auto;padding:28px 18px 70px}
+.gold-card{
+  background:#151819;
+  border:1px solid #a98617;
+  border-radius:18px;
+  padding:24px;
+  margin-bottom:20px;
+  box-shadow:0 0 26px rgba(212,175,55,.10);
+}
+.gold-hero{background:linear-gradient(145deg,#151819,#111313)}
+.hero-top,.section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.eyebrow{font-size:12px;letter-spacing:2px;color:#a99143;margin-bottom:6px}
+h1,h2{margin:0;color:#d4af37}
+h1{font-size:34px}
+h2{font-size:22px}
+.gold-subtitle,.section-head p{margin:8px 0 0;color:#9d9d9d;line-height:1.55}
+.gold-back-btn,.small-gold-btn,.small-danger-btn,.primary-gold-btn,.simulate-btn{
+  border:0;border-radius:11px;cursor:pointer;font-weight:700;
+}
+.gold-back-btn,.small-gold-btn,.primary-gold-btn,.simulate-btn{
+  background:#b18d21;color:#080808;
+}
+.gold-back-btn{padding:12px 16px}
+.small-gold-btn,.small-danger-btn{padding:10px 13px}
+.small-danger-btn{background:#2b1717;color:#ff8f8f;border:1px solid #6d2c2c}
+.market-status{
+  margin-top:22px;padding:11px 14px;border-radius:10px;background:#101213;
+  display:flex;align-items:center;gap:8px;color:#aaa;font-size:14px
+}
+.status-dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:#777}
+.status-dot.online{background:#39d17a;box-shadow:0 0 10px #39d17a}
+.status-dot.offline{background:#777}
+.status-sep{color:#555}
+.market-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px
+}
+.market-box,.gold-stat{
+  background:#101314;border:1px solid #3d351d;border-radius:14px;padding:18px
+}
+.market-box span,.gold-stat span{display:block;color:#aaa;font-size:14px}
+.market-box strong,.gold-stat strong{display:block;color:#eee;font-size:22px;margin-top:9px}
+.market-box small,.gold-stat small{display:block;color:#777;margin-top:6px}
+.market-box.featured{border-color:#b89224;background:linear-gradient(145deg,#191812,#111313)}
+.market-box.featured strong{color:#6fe08f}
+.chart-wrap{margin-top:22px;background:#0f1112;border:1px solid #29291f;border-radius:14px;padding:14px}
+.chart-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px}
+.chart-tabs{display:flex;gap:7px}
+.chart-tab{
+  border:1px solid #4b4328;background:#171817;color:#aaa;padding:7px 12px;border-radius:9px;cursor:pointer
+}
+.chart-tab.active{background:#b18d21;color:#000;border-color:#b18d21}
+#chartHint{font-size:12px;color:#777}
+#goldChart{display:block;width:100%;height:300px}
+.gold-stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px
+}
+.gold-stats-grid.compact .gold-stat{min-height:110px}
+.gold-stat{text-align:center;border-color:#3d351d}
+.gold-stat strong{font-size:21px}
+.gold-stat.positive strong{color:#64d98b}
+.gold-stat.negative strong{color:#ff7474}
+#netPLCard.positive{border-color:#2f8750}
+#netPLCard.negative{border-color:#8d3838}
+.lot-form{margin-top:20px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;color:#d4af37;margin:0 0 7px;font-size:14px}
+input,select{
+  width:100%;padding:13px 14px;margin-bottom:16px;
+  border:1px solid #292b2b;border-radius:11px;background:#202223;color:#fff;outline:none;
+}
+input:focus,select:focus{border-color:#b18d21}
+.primary-gold-btn{width:100%;padding:14px;margin-top:3px}
+.lot-preview{
+  background:#111415;border:1px dashed #51451f;border-radius:11px;padding:12px 14px;margin:2px 0 16px;color:#aaa;line-height:1.6
+}
+.simulate-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}
+.simulate-btn{padding:12px}
+.simulate-result{
+  margin-top:14px;padding:17px;border-radius:13px;background:#101314;border:1px solid #35301d;line-height:1.8
+}
+.simulate-result .big{font-size:25px;font-weight:700}
+.override-box{margin-top:16px;padding:15px;border-radius:13px;background:#111415;border:1px solid #302d21}
+.check-row{display:flex;align-items:center;gap:9px;color:#ddd}
+.check-row input{width:auto;margin:0}
+.override-note{color:#777;font-size:13px;line-height:1.6;padding-top:24px}
+.table-actions{display:flex;gap:8px}
+.lot-summary{margin:16px 0;color:#999;font-size:14px}
+.lots-list{display:grid;gap:10px}
+.lot-item{
+  background:#101213;border:1px solid #2b2c2b;border-radius:14px;padding:16px;
+}
+.lot-item.positive{border-color:#2c6943}
+.lot-item.negative{border-color:#6e3030}
+.lot-main{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.lot-title{font-weight:700;color:#eee}
+.lot-meta{font-size:13px;color:#777;margin-top:5px}
+.lot-pl{text-align:right;font-weight:700;font-size:19px}
+.positive-text{color:#62db8a}.negative-text{color:#ff7474}.neutral-text{color:#d0c28b}
+.lot-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:13px}
+.lot-cell{background:#171919;border-radius:9px;padding:10px}
+.lot-cell span{display:block;color:#777;font-size:12px}.lot-cell b{display:block;margin-top:4px}
+.lot-note{margin-top:10px;color:#999;font-size:13px}
+.lot-actions{margin-top:12px;display:flex;justify-content:flex-end}
+.delete-lot{background:#281616;color:#ff8e8e;border:1px solid #5a2929;padding:7px 11px;border-radius:8px;cursor:pointer}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}
+.info-grid>div{background:#101213;border-radius:12px;padding:14px}
+.info-grid b{display:block;color:#d4af37;margin-bottom:6px}.info-grid span{display:block;color:#999;line-height:1.5}
+.empty-state{text-align:center;padding:30px 15px;color:#777;border:1px dashed #383838;border-radius:12px}
+@media(max-width:800px){
+  .market-grid,.gold-stats-grid{grid-template-columns:repeat(2,1fr)}
+  .lot-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+  .gold-container{padding:14px 10px 50px}
+  .gold-card{padding:17px;border-radius:15px}
+  .hero-top,.section-head{flex-direction:column}
+  h1{font-size:29px}.h2,h2{font-size:20px}
+  .gold-back-btn{width:100%}
+  .market-grid,.gold-stats-grid,.form-row,.simulate-grid,.info-grid{grid-template-columns:1fr 1fr}
+  .market-box strong,.gold-stat strong{font-size:18px}
+  .chart-toolbar{align-items:flex-start;flex-direction:column}
+  #goldChart{height:250px}
+  .lot-main{flex-direction:column}
+  .lot-pl{text-align:left}
+  .lot-grid{grid-template-columns:1fr 1fr}
+  .table-actions{width:100%}.table-actions button{flex:1}
+}
+@media(max-width:390px){
+  .market-grid,.gold-stats-grid,.form-row,.simulate-grid,.info-grid{grid-template-columns:1fr}
+}

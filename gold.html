@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
@@ -68,7 +69,12 @@
         </div>
         <span id="chartHint">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</span>
       </div>
-      <canvas id="goldChart"></canvas>
+      <div class="chart-actions">
+        <button type="button" id="chartFitBtn" class="chart-action-btn">↔ Fit</button>
+        <button type="button" id="chartResetBtn" class="chart-action-btn">⟳ Reset</button>
+        <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
+      </div>
+      <div id="goldChart"></div>
       <div class="chart-info-row">
         <span id="chartCurrent">ปัจจุบัน: -</span>
         <span id="chartHigh">สูงสุด: -</span>

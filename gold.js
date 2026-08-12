@@ -30,6 +30,12 @@ let state = {
   timer: null
 };
 
+let tvChart = null;
+let tvSeries = null;
+let tvChartReadyRange = null;
+let tvCrosshairBound = false;
+const CHART_VIEW_KEY = "kfp_gold_chart_view_v1";
+
 const $ = id => document.getElementById(id);
 const money = n => Number.isFinite(n) ? new Intl.NumberFormat("th-TH",{style:"currency",currency:"THB",maximumFractionDigits:2}).format(n) : "฿0";
 const num = (n,d=4) => Number.isFinite(n) ? new Intl.NumberFormat("en-US",{maximumFractionDigits:d}).format(n) : "-";
@@ -387,167 +393,157 @@ function getChartPoints(){
   return dedup.sort((a,b)=>a.ts-b.ts);
 }
 
-function renderChart(){
-  const canvas=$("goldChart"); if(!canvas)return;
-  const ctx=canvas.getContext("2d");
-  const dpr=window.devicePixelRatio||1;
-  const rect=canvas.getBoundingClientRect();
-  const w=Math.max(300,rect.width),h=Math.max(220,rect.height);
-  canvas.width=w*dpr;canvas.height=h*dpr;
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.clearRect(0,0,w,h);
-
-  const pts=getChartPoints();
-  canvas._chartPoints=pts;
-
-  if(pts.length<2){
+function loadChartViews(){
+  try{return JSON.parse(localStorage.getItem(CHART_VIEW_KEY)||"{}")}catch{return {}}
+}
+function saveChartView(range){
+  if(!tvChart)return;
+  try{
+    const visible=tvChart.timeScale().getVisibleRange();
+    if(!visible)return;
+    const views=loadChartViews();
+    views[range]={from:visible.from,to:visible.to};
+    localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));
+  }catch(_){ }
+}
+function restoreChartView(range,points){
+  if(!tvChart||!points.length)return;
+  const views=loadChartViews();
+  const saved=views[range];
+  try{
+    if(saved && Number.isFinite(Number(saved.from)) && Number.isFinite(Number(saved.to))){
+      tvChart.timeScale().setVisibleRange({from:saved.from,to:saved.to});
+    }else{
+      tvChart.timeScale().fitContent();
+    }
+  }catch(_){tvChart.timeScale().fitContent()}
+}
+function chartTime(ts){return Math.floor(Number(ts)/1000)}
+function chartPointData(pts){
+  const out=[]; let lastTime=0;
+  for(const p of pts){
+    const time=chartTime(p.ts), value=Number(p.price);
+    if(!Number.isFinite(time)||!Number.isFinite(value)||value<=0)continue;
+    if(time<=lastTime){
+      if(time===lastTime) out[out.length-1]={time,value};
+      continue;
+    }
+    out.push({time,value}); lastTime=time;
+  }
+  return out;
+}
+function ensureTradingViewChart(){
+  if(tvChart) return true;
+  if(!window.LightweightCharts){
+    const hint=$("chartHint");
+    if(hint)hint.textContent="กำลังโหลดระบบกราฟ…";
+    return false;
+  }
+  const el=$("goldChart"); if(!el)return false;
+  tvChart=LightweightCharts.createChart(el,{
+    autoSize:true,
+    layout:{background:{type:"solid",color:"#0f1112"},textColor:"#777"},
+    grid:{vertLines:{color:"#171919"},horzLines:{color:"#292b2b"}},
+    rightPriceScale:{borderColor:"#292b2b",scaleMargins:{top:0.08,bottom:0.08}},
+    timeScale:{borderColor:"#292b2b",timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:5,minBarSpacing:2},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"},horzLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"}},
+    handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+    handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true},
+    localization:{priceFormatter:v=>`฿${Number(v).toLocaleString("th-TH",{maximumFractionDigits:2})}`}
+  });
+  tvSeries=tvChart.addAreaSeries({
+    topColor:"rgba(212,175,55,.24)",
+    bottomColor:"rgba(212,175,55,.015)",
+    lineColor:"#d4af37",
+    lineWidth:2,
+    priceLineVisible:true,
+    lastValueVisible:true,
+    crosshairMarkerVisible:true,
+    crosshairMarkerRadius:4,
+    priceFormat:{type:"price",precision:2,minMove:0.01}
+  });
+  tvChart.timeScale().subscribeVisibleTimeRangeChange(()=>saveChartView(state.range));
+  tvChart.subscribeCrosshairMove(param=>{
+    const tooltip=$("chartTooltip");
+    if(!tooltip)return;
+    if(!param.time || !param.seriesData || !tvSeries){return;}
+    const row=param.seriesData.get(tvSeries);
+    if(!row || !Number.isFinite(Number(row.value)))return;
+    const d=new Date(Number(param.time)*1000);
+    const dateText=state.range==="1D"
+      ? d.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+      : d.toLocaleDateString("th-TH",{day:"2-digit",month:"short",year:"numeric"});
+    tooltip.textContent=`${dateText} · ${money(Number(row.value))}/g`;
+  });
+  return true;
+}
+function updateChartStats(pts){
+  if(!pts.length){
     $("chartCurrent").textContent="ปัจจุบัน: -";
     $("chartHigh").textContent="สูงสุด: -";
     $("chartLow").textContent="ต่ำสุด: -";
     $("chartChange").textContent="เปลี่ยนแปลง: -";
-    const hint=$("chartHint");
-    if(hint)hint.textContent=state.range==="1D"
-      ?"กำลังโหลดกราฟ 1D จาก XAUS…"
-      :"กำลังโหลดข้อมูลย้อนหลังจาก XAUS…";
-    ctx.fillStyle="#686868";
-    ctx.font="14px Arial";
-    ctx.textAlign="center";
-    ctx.fillText(
-      state.range==="1D"?"กำลังโหลดข้อมูลกราฟ 1D…":"กำลังโหลดข้อมูลย้อนหลัง…",
-      w/2,h/2-8
-    );
-    ctx.font="12px Arial";
-    ctx.fillText(
-      state.range==="1D"
-        ?"ราคาจะถูกบันทึกประมาณทุก 2 นาที"
-        :"ถ้า API ไม่พร้อม ระบบจะใช้ข้อมูลที่เคยบันทึกไว้",
-      w/2,h/2+16
-    );
     return;
   }
-
-  const values=pts.map(x=>x.price);
-  const current=values[values.length-1];
-  const first=values[0];
-  const high=Math.max(...values);
-  const low=Math.min(...values);
-  const change=first ? ((current-first)/first)*100 : 0;
-
+  const values=pts.map(x=>Number(x.price)).filter(Number.isFinite);
+  const current=values[values.length-1],first=values[0],high=Math.max(...values),low=Math.min(...values);
+  const change=first?((current-first)/first)*100:0;
   $("chartCurrent").textContent=`ปัจจุบัน: ${money(current)}/g`;
   $("chartHigh").textContent=`สูงสุด: ${money(high)}/g`;
   $("chartLow").textContent=`ต่ำสุด: ${money(low)}/g`;
   $("chartChange").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
-
-  const valuesWithPad=values.slice();
-  let min=Math.min(...valuesWithPad),max=Math.max(...valuesWithPad);
-  const spread=Math.max(max-min,1);
-  min-=spread*.08;max+=spread*.08;
-
-  const pad={l:52,r:14,t:18,b:30};
-  const cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
-
-  ctx.strokeStyle="#292b2b";
-  ctx.lineWidth=1;
-  for(let i=0;i<4;i++){
-    const y=pad.t+ch*i/3;
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
-  }
-
-  ctx.fillStyle="#777";
-  ctx.font="11px Arial";
-  ctx.textAlign="right";
-  for(let i=0;i<4;i++){
-    const v=max-(max-min)*i/3;
-    ctx.fillText(`฿${Math.round(v).toLocaleString()}`,pad.l-7,pad.t+ch*i/3+4);
-  }
-
-  const xFor=i=>pad.l+cw*(i/(pts.length-1));
-  const yFor=p=>pad.t+ch*(1-(Number(p.price)-min)/(max-min));
-
-  ctx.beginPath();
-  pts.forEach((p,i)=>{
-    if(i)ctx.lineTo(xFor(i),yFor(p));
-    else ctx.moveTo(xFor(i),yFor(p));
-  });
-  ctx.strokeStyle="#d4af37";
-  ctx.lineWidth=2;
-  ctx.stroke();
-
-  ctx.lineTo(xFor(pts.length-1),pad.t+ch);
-  ctx.lineTo(pad.l,pad.t+ch);
-  ctx.closePath();
-
-  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
-  grad.addColorStop(0,"rgba(212,175,55,.22)");
-  grad.addColorStop(1,"rgba(212,175,55,0)");
-  ctx.fillStyle=grad;
-  ctx.fill();
-
-  const last=pts[pts.length-1];
-  ctx.fillStyle="#6fe08f";
-  ctx.beginPath();
-  ctx.arc(xFor(pts.length-1),yFor(last),4,0,Math.PI*2);
-  ctx.fill();
-
-  ctx.textAlign="left";
-  ctx.fillStyle="#aaa";
-  ctx.font="11px Arial";
-  ctx.fillText(
-    new Date(pts[0].ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),
-    pad.l,h-8
-  );
-  ctx.textAlign="right";
-  ctx.fillText(
-    new Date(last.ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),
-    w-pad.r,h-8
-  );
-
-  canvas._chartGeometry={pad,cw,ch,min,max,xFor,yFor,w,h};
-
-  const tooltip=$("chartTooltip");
-  if(tooltip)tooltip.textContent=
-    `แตะ/เลื่อนบนกราฟเพื่อดูราคา · ${state.range} · จุดข้อมูล ${pts.length.toLocaleString()} จุด`;
 }
+function renderChart(){
+  const el=$("goldChart"); if(!el)return;
+  const pts=getChartPoints();
+  updateChartStats(pts);
 
-function showChartPoint(clientX){
-  const canvas=$("goldChart");
-  const pts=canvas?canvas._chartPoints:null;
-  const geo=canvas?canvas._chartGeometry:null;
-  if(!canvas||!pts||pts.length<2||!geo)return;
+  if(!ensureTradingViewChart())return;
+  const data=chartPointData(pts);
+  const hint=$("chartHint");
+  if(!data.length){
+    if(hint)hint.textContent=state.range==="1D"?"กำลังโหลดกราฟ 1D จาก XAUS…":"กำลังโหลดข้อมูลย้อนหลังจาก XAUS…";
+    tvSeries.setData([]);
+    return;
+  }
 
-  const rect=canvas.getBoundingClientRect();
-  const x=Math.max(geo.pad.l,Math.min(rect.width-geo.pad.r,clientX-rect.left));
-  const ratio=(x-geo.pad.l)/geo.cw;
-  const index=Math.max(0,Math.min(pts.length-1,Math.round(ratio*(pts.length-1))));
-  const p=pts[index];
-
-  renderChart();
-
-  const ctx=canvas.getContext("2d");
-  const dpr=window.devicePixelRatio||1;
-  const drawX=geo.xFor(index);
-  const drawY=geo.yFor(p);
-
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  ctx.strokeStyle="rgba(212,175,55,.35)";
-  ctx.lineWidth=1;
-  ctx.beginPath();
-  ctx.moveTo(drawX,geo.pad.t);
-  ctx.lineTo(drawX,geo.pad.t+geo.ch);
-  ctx.stroke();
-
-  ctx.fillStyle="#d4af37";
-  ctx.beginPath();
-  ctx.arc(drawX,drawY,5,0,Math.PI*2);
-  ctx.fill();
-
-  const date=new Date(p.ts);
-  const dateText=state.range==="1D"
-    ? date.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
-    : date.toLocaleDateString("th-TH",{day:"2-digit",month:"short",year:"numeric"});
-
+  tvSeries.setData(data);
+  if(tvChartReadyRange!==state.range){
+    restoreChartView(state.range,data);
+    tvChartReadyRange=state.range;
+  }
+  if(hint){
+    hint.textContent=state.range==="1D"
+      ?`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${data.length.toLocaleString()} จุด`
+      :`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${data.length.toLocaleString()} จุด`;
+  }
   const tooltip=$("chartTooltip");
-  if(tooltip)tooltip.textContent=`${dateText} · ${money(p.price)}/g`;
+  if(tooltip && !tooltip.textContent)tooltip.textContent="แตะ/ลากบนกราฟเพื่อดูราคา · Pinch เพื่อซูม";
+}
+function resetChartZoom(){
+  if(!tvChart)return;
+  const views=loadChartViews();
+  delete views[state.range];
+  localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));
+  tvChart.timeScale().fitContent();
+}
+function fitChart(){if(tvChart)tvChart.timeScale().fitContent()}
+function toggleChartFullscreen(){
+  const wrap=$("goldChart")?.closest(".chart-wrap"); if(!wrap)return;
+  wrap.classList.toggle("chart-fullscreen");
+  const btn=$("chartFullscreenBtn");
+  if(btn)btn.textContent=wrap.classList.contains("chart-fullscreen")?"✕ ออกจากเต็มจอ":"⛶ เต็มจอ";
+  setTimeout(()=>{if(tvChart)tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);},50);
+}
+function showChartPoint(clientX){
+  // Kept for backward compatibility with older saved page code.
+  if(tvChart){
+    const rect=$("goldChart")?.getBoundingClientRect();
+    if(rect){
+      const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
+      tvChart.setCrosshairPosition(undefined,undefined,tvSeries);
+    }
+  }
 }
 
 function updateLotPreview(){
@@ -653,7 +649,11 @@ function setup(){
     btn.addEventListener("click",()=>{
       document.querySelectorAll(".chart-tab").forEach(x=>x.classList.remove("active"));
       btn.classList.add("active");
-      state.range=btn.dataset.range;
+      if(state.range!==btn.dataset.range){
+        if(tvChart)saveChartView(state.range);
+        state.range=btn.dataset.range;
+        tvChartReadyRange=null;
+      }
       renderChart();
       if(state.range!=="1D") fetchHistoricalGold();
     });
@@ -670,18 +670,14 @@ function setup(){
   $("useSellOverride").addEventListener("change",saveOverride);
   $("sellOverride").addEventListener("input",saveOverride);
 
-  const chart=$("goldChart");
-  if(chart){
-    chart.addEventListener("mousemove",e=>showChartPoint(e.clientX));
-    chart.addEventListener("touchstart",e=>{
-      if(e.touches[0])showChartPoint(e.touches[0].clientX);
-    },{passive:true});
-    chart.addEventListener("touchmove",e=>{
-      if(e.touches[0])showChartPoint(e.touches[0].clientX);
-    },{passive:true});
-  }
+  $("chartFitBtn").addEventListener("click",fitChart);
+  $("chartResetBtn").addEventListener("click",resetChartZoom);
+  $("chartFullscreenBtn").addEventListener("click",toggleChartFullscreen);
 
-  window.addEventListener("resize",renderChart);
+  window.addEventListener("resize",()=>{
+    if(tvChart && $("goldChart")) tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);
+    renderChart();
+  });
   loadLastMarket();
   renderPortfolio();
   renderLots();

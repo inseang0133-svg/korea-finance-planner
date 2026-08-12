@@ -60,7 +60,14 @@ h2{font-size:22px}
 }
 .chart-tab.active{background:#b18d21;color:#000;border-color:#b18d21}
 #chartHint{font-size:12px;color:#777}
-#goldChart{display:block;width:100%;height:300px}
+#goldChart{display:block;width:100%;height:320px;min-height:260px;overflow:hidden;border-radius:10px}
+.chart-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
+.chart-action-btn{border:1px solid #4b4328;background:#171817;color:#aaa;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
+.chart-action-btn:active,.chart-action-btn:hover{border-color:#b18d21;color:#d4af37}
+.chart-wrap.chart-fullscreen{position:fixed;inset:10px;z-index:9999;margin:0;padding:16px;background:#0b0d0e;border:1px solid #b18d21;border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.7);height:auto}
+.chart-wrap.chart-fullscreen #goldChart{height:calc(100vh - 175px);min-height:360px}
+.chart-wrap.chart-fullscreen .chart-info-row{margin-bottom:0}
+@media(max-width:600px){#goldChart{height:310px}.chart-action-btn{padding:6px 9px}.chart-wrap.chart-fullscreen{inset:0;border-radius:0;padding:12px}.chart-wrap.chart-fullscreen #goldChart{height:calc(100vh - 170px)}}
 .gold-stats-grid{
   display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px
 }

@@ -138,3 +138,29 @@ input:focus,select:focus{border-color:#b18d21}
 @media(max-width:390px){
   .market-grid,.gold-stats-grid,.form-row,.simulate-grid,.info-grid{grid-template-columns:1fr}
 }
+
+.chart-info-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 14px;
+  margin-top:10px;
+  color:#8f8f8f;
+  font-size:12px;
+}
+.chart-info-row span{
+  background:#111415;
+  border:1px solid #292b2b;
+  border-radius:8px;
+  padding:6px 8px;
+}
+.chart-tooltip{
+  min-height:18px;
+  margin-top:8px;
+  color:#d4af37;
+  font-size:12px;
+  text-align:center;
+}
+#goldChart{
+  touch-action:pan-y;
+  cursor:crosshair;
+}

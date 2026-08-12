@@ -363,12 +363,9 @@ function escapeHTML(s){
   return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
 
-function renderChart(){
-  const canvas=$("goldChart"); if(!canvas)return;
-  const ctx=canvas.getContext("2d"),dpr=window.devicePixelRatio||1,rect=canvas.getBoundingClientRect();
-  const w=Math.max(300,rect.width),h=Math.max(220,rect.height);
-  canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-  const now=Date.now(); let pts=[];
+function getChartPoints(){
+  const now=Date.now();
+  let pts=[];
   if(state.range==="1D"){
     const remote=(()=>{try{return JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY)||"[]")}catch{return []}})();
     pts=remote.filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price)));
@@ -377,23 +374,180 @@ function renderChart(){
     const days=state.range==="7D"?7:30,start=now-days*86400000;
     pts=loadDailyHistory().filter(x=>x.ts>=start&&Number.isFinite(Number(x.price)));
     const local=loadHistory().filter(x=>x.ts>=start&&Number.isFinite(Number(x.price)));
-    if(local.length)pts=pts.concat(local.slice(-1)); pts.sort((a,b)=>a.ts-b.ts);
+    if(local.length)pts=pts.concat(local.slice(-1));
   }
-  const dedup=[]; for(const p of pts){const prev=dedup[dedup.length-1];if(prev&&Math.abs(prev.ts-p.ts)<60000)dedup[dedup.length-1]=p;else dedup.push(p)} pts=dedup;
+  const dedup=[];
+  for(const p of pts){
+    const item={ts:Number(p.ts),price:Number(p.price)};
+    if(!Number.isFinite(item.ts)||!Number.isFinite(item.price)||item.price<=0)continue;
+    const prev=dedup[dedup.length-1];
+    if(prev&&Math.abs(prev.ts-item.ts)<60000)dedup[dedup.length-1]=item;
+    else dedup.push(item);
+  }
+  return dedup.sort((a,b)=>a.ts-b.ts);
+}
+
+function renderChart(){
+  const canvas=$("goldChart"); if(!canvas)return;
+  const ctx=canvas.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  const rect=canvas.getBoundingClientRect();
+  const w=Math.max(300,rect.width),h=Math.max(220,rect.height);
+  canvas.width=w*dpr;canvas.height=h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+
+  const pts=getChartPoints();
+  canvas._chartPoints=pts;
+
   if(pts.length<2){
-    ctx.fillStyle="#686868";ctx.font="14px Arial";ctx.textAlign="center";
-    ctx.fillText(state.range==="1D"?"กำลังโหลดข้อมูลกราฟ 1D…":"กำลังโหลดข้อมูลย้อนหลัง…",w/2,h/2-8);
-    ctx.font="12px Arial";ctx.fillText(state.range==="1D"?"XAUS บันทึกจุดราคาประมาณทุก 2 นาที":"ถ้า API ไม่พร้อม ระบบจะใช้ข้อมูลที่เคยบันทึกไว้",w/2,h/2+16);return;
+    $("chartCurrent").textContent="ปัจจุบัน: -";
+    $("chartHigh").textContent="สูงสุด: -";
+    $("chartLow").textContent="ต่ำสุด: -";
+    $("chartChange").textContent="เปลี่ยนแปลง: -";
+    const hint=$("chartHint");
+    if(hint)hint.textContent=state.range==="1D"
+      ?"กำลังโหลดกราฟ 1D จาก XAUS…"
+      :"กำลังโหลดข้อมูลย้อนหลังจาก XAUS…";
+    ctx.fillStyle="#686868";
+    ctx.font="14px Arial";
+    ctx.textAlign="center";
+    ctx.fillText(
+      state.range==="1D"?"กำลังโหลดข้อมูลกราฟ 1D…":"กำลังโหลดข้อมูลย้อนหลัง…",
+      w/2,h/2-8
+    );
+    ctx.font="12px Arial";
+    ctx.fillText(
+      state.range==="1D"
+        ?"ราคาจะถูกบันทึกประมาณทุก 2 นาที"
+        :"ถ้า API ไม่พร้อม ระบบจะใช้ข้อมูลที่เคยบันทึกไว้",
+      w/2,h/2+16
+    );
+    return;
   }
-  const values=pts.map(x=>Number(x.price));let min=Math.min(...values),max=Math.max(...values),spread=Math.max(max-min,1);min-=spread*.08;max+=spread*.08;
-  const pad={l:52,r:14,t:18,b:30},cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
-  ctx.strokeStyle="#292b2b";ctx.lineWidth=1;for(let i=0;i<4;i++){const y=pad.t+ch*i/3;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke()}
-  ctx.fillStyle="#777";ctx.font="11px Arial";ctx.textAlign="right";for(let i=0;i<4;i++){const v=max-(max-min)*i/3;ctx.fillText(`฿${Math.round(v).toLocaleString()}`,pad.l-7,pad.t+ch*i/3+4)}
-  const xFor=i=>pad.l+cw*(i/(pts.length-1)),yFor=p=>pad.t+ch*(1-(Number(p.price)-min)/(max-min));
-  ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(xFor(i),yFor(p)):ctx.moveTo(xFor(i),yFor(p)));ctx.strokeStyle="#d4af37";ctx.lineWidth=2;ctx.stroke();
-  ctx.lineTo(xFor(pts.length-1),pad.t+ch);ctx.lineTo(pad.l,pad.t+ch);ctx.closePath();const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+ch);grad.addColorStop(0,"rgba(212,175,55,.22)");grad.addColorStop(1,"rgba(212,175,55,0)");ctx.fillStyle=grad;ctx.fill();
-  const last=pts[pts.length-1];ctx.fillStyle="#6fe08f";ctx.beginPath();ctx.arc(xFor(pts.length-1),yFor(last),4,0,Math.PI*2);ctx.fill();
-  ctx.textAlign="left";ctx.fillStyle="#aaa";ctx.font="11px Arial";ctx.fillText(new Date(pts[0].ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),pad.l,h-8);ctx.textAlign="right";ctx.fillText(new Date(last.ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),w-pad.r,h-8);
+
+  const values=pts.map(x=>x.price);
+  const current=values[values.length-1];
+  const first=values[0];
+  const high=Math.max(...values);
+  const low=Math.min(...values);
+  const change=first ? ((current-first)/first)*100 : 0;
+
+  $("chartCurrent").textContent=`ปัจจุบัน: ${money(current)}/g`;
+  $("chartHigh").textContent=`สูงสุด: ${money(high)}/g`;
+  $("chartLow").textContent=`ต่ำสุด: ${money(low)}/g`;
+  $("chartChange").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
+
+  const valuesWithPad=values.slice();
+  let min=Math.min(...valuesWithPad),max=Math.max(...valuesWithPad);
+  const spread=Math.max(max-min,1);
+  min-=spread*.08;max+=spread*.08;
+
+  const pad={l:52,r:14,t:18,b:30};
+  const cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
+
+  ctx.strokeStyle="#292b2b";
+  ctx.lineWidth=1;
+  for(let i=0;i<4;i++){
+    const y=pad.t+ch*i/3;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();
+  }
+
+  ctx.fillStyle="#777";
+  ctx.font="11px Arial";
+  ctx.textAlign="right";
+  for(let i=0;i<4;i++){
+    const v=max-(max-min)*i/3;
+    ctx.fillText(`฿${Math.round(v).toLocaleString()}`,pad.l-7,pad.t+ch*i/3+4);
+  }
+
+  const xFor=i=>pad.l+cw*(i/(pts.length-1));
+  const yFor=p=>pad.t+ch*(1-(Number(p.price)-min)/(max-min));
+
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    if(i)ctx.lineTo(xFor(i),yFor(p));
+    else ctx.moveTo(xFor(i),yFor(p));
+  });
+  ctx.strokeStyle="#d4af37";
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  ctx.lineTo(xFor(pts.length-1),pad.t+ch);
+  ctx.lineTo(pad.l,pad.t+ch);
+  ctx.closePath();
+
+  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
+  grad.addColorStop(0,"rgba(212,175,55,.22)");
+  grad.addColorStop(1,"rgba(212,175,55,0)");
+  ctx.fillStyle=grad;
+  ctx.fill();
+
+  const last=pts[pts.length-1];
+  ctx.fillStyle="#6fe08f";
+  ctx.beginPath();
+  ctx.arc(xFor(pts.length-1),yFor(last),4,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.textAlign="left";
+  ctx.fillStyle="#aaa";
+  ctx.font="11px Arial";
+  ctx.fillText(
+    new Date(pts[0].ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),
+    pad.l,h-8
+  );
+  ctx.textAlign="right";
+  ctx.fillText(
+    new Date(last.ts).toLocaleDateString("th-TH",{day:"2-digit",month:"short"}),
+    w-pad.r,h-8
+  );
+
+  canvas._chartGeometry={pad,cw,ch,min,max,xFor,yFor,w,h};
+
+  const tooltip=$("chartTooltip");
+  if(tooltip)tooltip.textContent=
+    `แตะ/เลื่อนบนกราฟเพื่อดูราคา · ${state.range} · จุดข้อมูล ${pts.length.toLocaleString()} จุด`;
+}
+
+function showChartPoint(clientX){
+  const canvas=$("goldChart");
+  const pts=canvas?canvas._chartPoints:null;
+  const geo=canvas?canvas._chartGeometry:null;
+  if(!canvas||!pts||pts.length<2||!geo)return;
+
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.max(geo.pad.l,Math.min(rect.width-geo.pad.r,clientX-rect.left));
+  const ratio=(x-geo.pad.l)/geo.cw;
+  const index=Math.max(0,Math.min(pts.length-1,Math.round(ratio*(pts.length-1))));
+  const p=pts[index];
+
+  renderChart();
+
+  const ctx=canvas.getContext("2d");
+  const dpr=window.devicePixelRatio||1;
+  const drawX=geo.xFor(index);
+  const drawY=geo.yFor(p);
+
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.strokeStyle="rgba(212,175,55,.35)";
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(drawX,geo.pad.t);
+  ctx.lineTo(drawX,geo.pad.t+geo.ch);
+  ctx.stroke();
+
+  ctx.fillStyle="#d4af37";
+  ctx.beginPath();
+  ctx.arc(drawX,drawY,5,0,Math.PI*2);
+  ctx.fill();
+
+  const date=new Date(p.ts);
+  const dateText=state.range==="1D"
+    ? date.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+    : date.toLocaleDateString("th-TH",{day:"2-digit",month:"short",year:"numeric"});
+
+  const tooltip=$("chartTooltip");
+  if(tooltip)tooltip.textContent=`${dateText} · ${money(p.price)}/g`;
 }
 
 function updateLotPreview(){
@@ -515,6 +669,17 @@ function setup(){
   $("sellOverride").value=settings.sellOverride||"";
   $("useSellOverride").addEventListener("change",saveOverride);
   $("sellOverride").addEventListener("input",saveOverride);
+
+  const chart=$("goldChart");
+  if(chart){
+    chart.addEventListener("mousemove",e=>showChartPoint(e.clientX));
+    chart.addEventListener("touchstart",e=>{
+      if(e.touches[0])showChartPoint(e.touches[0].clientX);
+    },{passive:true});
+    chart.addEventListener("touchmove",e=>{
+      if(e.touches[0])showChartPoint(e.touches[0].clientX);
+    },{passive:true});
+  }
 
   window.addEventListener("resize",renderChart);
   loadLastMarket();

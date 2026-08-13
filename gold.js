@@ -42,6 +42,339 @@ let tvChartReadyKey = null;
 const CHART_VIEW_KEY = "kfp_gold_chart_view_v2";
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};
 
+const $ = id => document.getElementById(id);
+const money = n => Number.isFinite(n) ? new Intl.NumberFormat("th-TH",{style:"currency",currency:"THB",maximumFractionDigits:2}).format(n) : "฿0";
+const num = (n,d=4) => Number.isFinite(n) ? new Intl.NumberFormat("en-US",{maximumFractionDigits:d}).format(n) : "-";
+const pct = n => `${n >= 0 ? "+" : ""}${Number(n || 0).toFixed(2)}%`;
+const isoDate = d => new Date(d).toISOString().slice(0,10);
+
+function loadLots(){
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+  catch { return []; }
+}
+function saveLots(lots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(lots)); }
+
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch { return []; }
+}
+function saveHistory(history){ localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+
+function loadSettings(){
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); }
+  catch { return {}; }
+}
+function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+
+function unitToGrams(quantity, unit){
+  if (!Number.isFinite(quantity)) return 0;
+  if(unit === "oz") return quantity * OZ_TO_GRAM;
+  if(unit === "baht") return quantity * BAHT_GOLD_GRAM;
+  return quantity;
+}
+
+function formatDateTime(date, time){
+  if(!date) return "-";
+  const d = new Date(`${date}T${time || "00:00"}`);
+  return Number.isNaN(d.getTime()) ? date : d.toLocaleString("th-TH",{dateStyle:"medium",timeStyle:time ? "short" : undefined});
+}
+
+function getEffectiveSellPrice(){
+  const settings = loadSettings();
+  if(settings.useSellOverride && Number(settings.sellOverride) > 0){
+    return {price:Number(settings.sellOverride), exact:true};
+  }
+  return {price:state.priceThbGram || 0, exact:false};
+}
+
+function calculateLot(lot){
+  const quote = getEffectiveSellPrice();
+  const purity = Number(lot.goldType || 99.99) / 99.99;
+  const sell = quote.exact ? quote.price : quote.price * purity;
+  const grams = Number(lot.grams) || 0;
+  const cost = Number(lot.costThb) || 0;
+  const value = grams * sell;
+  const pl = value - cost;
+  const plPct = cost ? (pl / cost) * 100 : 0;
+  const avgCost = grams ? cost / grams : 0;
+  return {...lot, grams, cost, value, pl, plPct, avgCost};
+}
+
+function calculatePortfolio(){
+  const lots = loadLots().map(calculateLot);
+  const totalGrams = lots.reduce((s,l)=>s+l.grams,0);
+  const totalCost = lots.reduce((s,l)=>s+l.cost,0);
+  const currentValue = lots.reduce((s,l)=>s+l.value,0);
+  const netPL = currentValue - totalCost;
+  const positivePL = lots.filter(l=>l.pl>0).reduce((s,l)=>s+l.pl,0);
+  const negativePL = lots.filter(l=>l.pl<0).reduce((s,l)=>s+l.pl,0);
+  const wins = lots.filter(l=>l.pl>0).length;
+  const losses = lots.filter(l=>l.pl<0).length;
+  return {
+    lots,totalGrams,totalCost,currentValue,netPL,
+    netPLPct:totalCost ? netPL/totalCost*100 : 0,
+    positivePL,negativePL,wins,losses,
+    avgCost:totalGrams ? totalCost/totalGrams : 0
+  };
+}
+
+async function fetchJSON(url){
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 9000);
+  try{
+    const r = await fetch(url,{cache:"no-store",signal:controller.signal});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally { clearTimeout(timeout); }
+}
+
+async function fetchGold(){
+  /*
+    Browser-safe primary source: XAUS.
+    - CORS open
+    - no API key
+    - direct THB/gram conversion
+    - also exposes FX and freshness state
+
+    Fallback: Gold API (also CORS-enabled), then the last cached market value.
+  */
+  const errors=[];
+  try{
+    const url=`https://xaus.com/api/v1/spot?currency=THB&unit=gram&compact=1&fresh=${Date.now()}`;
+    const data=await fetchJSON(url);
+    const price=Number(data?.xau?.price);
+    const spot=Number(data?.spot_usd_oz);
+    const fx=Number(data?.fx_rate);
+    if(!Number.isFinite(price)||price<=0) throw new Error("XAUS: invalid THB/gram price");
+
+    state.priceThbGram=price*(99.99/100);
+    state.priceThbOz=state.priceThbGram*OZ_TO_GRAM;
+    state.spotUsdOz=Number.isFinite(spot)?spot:null;
+    state.usdThb=Number.isFinite(fx)?fx:null;
+    state.updatedAt=data.price_as_of||data.updated_at||new Date().toISOString();
+    state.source=data.stale?"XAUS · stale cache":"XAUS · live";
+    persistLastMarket();
+    appendHistory();
+    await fetchIntradayGold();
+    renderMarket();renderPortfolio();renderLots();renderChart();
+    return true;
+  }catch(e){ errors.push(`XAUS: ${e.message}`); }
+
+  try{
+    const data=await fetchJSON(`https://api.gold-api.com/price/XAU?fresh=${Date.now()}`);
+    const spot=Number(data?.price);
+    if(!Number.isFinite(spot)||spot<=0) throw new Error("invalid Gold API price");
+    const fxData=await fetchJSON("https://api.frankfurter.app/latest?from=USD&to=THB");
+    const fx=Number(fxData?.rates?.THB);
+    if(!Number.isFinite(fx)||fx<=0) throw new Error("invalid USD/THB");
+    applyMarket(spot,fx,"Gold API + Frankfurter");
+    await fetchIntradayGold();
+    return true;
+  }catch(e){ errors.push(`Gold API: ${e.message}`); }
+
+  setMarketOffline(errors.join(" | ")||"API unavailable");
+  return false;
+}
+
+async function fetchIntradayGold(){
+  try{
+    const data=await fetchJSON(`https://xaus.com/api/v1/intraday?symbol=xau&hours=24&fresh=${Date.now()}`);
+    const raw=Array.isArray(data?.points)?data.points:[];
+    if(!raw.length) return false;
+    const rows=raw.map(p=>{
+      const ts=typeof p.t==="number" ? (p.t<1e12?p.t*1000:p.t) : Date.parse(p.t);
+      const price=Number(p.p);
+      if(!Number.isFinite(ts)||!Number.isFinite(price)||price<=0)return null;
+      // Intraday endpoint is XAU/USD. Convert with the current FX as a
+      // reference; live THB price above remains the authoritative portfolio quote.
+      const fx=Number(state.usdThb);
+      const thb=Number.isFinite(fx)&&fx>0 ? price*fx/OZ_TO_GRAM*(99.99/100) : null;
+      return thb?{ts,price:thb,usd:price,source:"xaus-intraday"}:null;
+    }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
+    if(rows.length){
+      localStorage.setItem(INTRADAY_HISTORY_KEY,JSON.stringify(rows.slice(-1500)));
+      renderChart();
+    }
+    return true;
+  }catch(_){ return false; }
+}
+function persistLastMarket(){
+  localStorage.setItem("kfp_gold_last_market",JSON.stringify({
+    spotUsdOz:state.spotUsdOz,usdThb:state.usdThb,
+    priceThbOz:state.priceThbOz,priceThbGram:state.priceThbGram,
+    updatedAt:state.updatedAt,source:state.source
+  }));
+}
+
+function applyMarket(spotUsdOz,fx,source){
+  state.spotUsdOz=spotUsdOz;
+  state.usdThb=fx;
+  state.priceThbOz=spotUsdOz*fx;
+  state.priceThbGram=state.priceThbOz/OZ_TO_GRAM;
+  state.updatedAt=new Date().toISOString();
+  state.source=source;
+  localStorage.setItem("kfp_gold_last_market",JSON.stringify({
+    spotUsdOz:state.spotUsdOz,usdThb:state.usdThb,
+    priceThbOz:state.priceThbOz,priceThbGram:state.priceThbGram,
+    updatedAt:state.updatedAt,source
+  }));
+  appendHistory();
+  renderMarket();
+  renderPortfolio();
+  renderLots();
+  renderChart();
+}
+
+function loadLastMarket(){
+  try{
+    const x=JSON.parse(localStorage.getItem("kfp_gold_last_market")||"null");
+    if(x && Number.isFinite(Number(x.priceThbGram))){
+      state={...state,...x,priceThbGram:Number(x.priceThbGram),priceThbOz:Number(x.priceThbOz)};
+      renderMarket();
+      return x;
+    }
+  }catch{}
+  return null;
+}
+
+function setMarketOffline(message){
+  $("marketDot").className="status-dot offline";
+  $("marketStatus").textContent="API ราคาทองไม่ตอบสนอง — ใช้ค่าที่บันทึกไว้";
+  $("marketUpdated").textContent=state.updatedAt
+    ? `ล่าสุด ${new Date(state.updatedAt).toLocaleString("th-TH")}` : "ยังไม่มีข้อมูล";
+  const hint=$("chartHint");
+  if(hint){
+    hint.textContent=state.priceThbGram
+      ? "ออฟไลน์ชั่วคราว · ใช้ราคาล่าสุดที่บันทึกไว้"
+      : "ยังเชื่อมต่อ API ไม่ได้ · กด 🔄 อัปเดตอีกครั้ง";
+    hint.title=message || "API unavailable";
+  }
+  renderMarket(); renderPortfolio(); renderLots(); renderChart();
+}
+function renderMarket(){
+  $("marketDot").className="status-dot online";
+  $("marketStatus").textContent=state.source ? `LIVE · ${state.source}` : "LIVE";
+  $("marketUpdated").textContent=state.updatedAt ? `อัปเดต ${new Date(state.updatedAt).toLocaleTimeString("th-TH")}` : "-";
+  $("spotUsd").textContent=state.spotUsdOz ? `$${num(state.spotUsdOz,2)}` : "-";
+  $("usdThb").textContent=state.usdThb ? num(state.usdThb,4) : "-";
+  $("goldThbGram").textContent=state.priceThbGram ? money(state.priceThbGram) : "-";
+  $("goldThbOz").textContent=state.priceThbOz ? money(state.priceThbOz) : "-";
+}
+
+function appendHistory(){
+  if(!Number.isFinite(Number(state.priceThbGram)) || Number(state.priceThbGram)<=0) return;
+  const history=loadHistory(); const now=Date.now(); const last=history[history.length-1];
+  if(last && now-last.ts<50_000) return;
+  history.push({ts:now,price:Number(state.priceThbGram),usd:Number(state.spotUsdOz)||null});
+  const cutoff=now-31*86400000;
+  saveHistory(history.filter(x=>x.ts>=cutoff).slice(-5000));
+}
+function loadDailyHistory(){try{return JSON.parse(localStorage.getItem(DAILY_HISTORY_KEY)||"[]")}catch{return []}}
+function saveDailyHistory(rows){localStorage.setItem(DAILY_HISTORY_KEY,JSON.stringify(rows.slice(-400)))}
+function ymd(d){return new Date(d).toISOString().slice(0,10)}
+
+async function fetchHistoricalGold(){
+  const now=new Date(), from=new Date(now.getTime()-31*86400000);
+  const fromDate=ymd(from),toDate=ymd(now);
+  try{
+    const data=await fetchJSON(`https://xaus.com/api/v1/history?fresh=${Date.now()}`);
+    const points=Array.isArray(data?.points)?data.points:[];
+    if(!points.length) throw new Error("ไม่มี daily history");
+    const fx=Number(state.usdThb);
+    const rows=points.map(p=>{
+      const date=String(p.d||"").slice(0,10), usd=Number(p.c);
+      if(!date||!Number.isFinite(usd))return null;
+      const thb=Number.isFinite(fx)&&fx>0 ? usd*fx/OZ_TO_GRAM*(99.99/100) : null;
+      return thb?{ts:new Date(`${date}T12:00:00Z`).getTime(),price:thb,usd, date,source:"xaus-daily"}:null;
+    }).filter(Boolean).filter(x=>x.ts>=from.getTime()).sort((a,b)=>a.ts-b.ts);
+    if(rows.length){
+      saveDailyHistory(rows);
+      renderChart();
+      const hint=$("chartHint");
+      if(hint&&state.range!=="1D") hint.textContent=`ข้อมูลย้อนหลัง ${rows.length} วัน · XAU/USD × FX ปัจจุบัน (ประมาณ)`;
+    }
+    return true;
+  }catch(_){
+    // Secondary historical source. Kept as a fallback if XAUS history is unavailable.
+    try{
+      const data=await fetchJSON(`https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${fromDate}&to=${toDate}&limit=100`);
+      const bars=Array.isArray(data?.bars)?data.bars:[];
+      const fx=Number(state.usdThb);
+      const rows=bars.map(b=>{
+        const date=String(b.bar_start||"").slice(0,10),usd=Number(b.close);
+        const thb=Number.isFinite(fx)&&fx>0?usd*fx/OZ_TO_GRAM*(99.99/100):null;
+        return date&&Number.isFinite(usd)&&thb?{ts:new Date(`${date}T12:00:00Z`).getTime(),price:thb,usd,date,source:"goldprice-daily"}:null;
+      }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
+      if(rows.length){saveDailyHistory(rows);renderChart();return true;}
+    }catch(_){ }
+    const hint=$("chartHint");
+    if(hint&&state.range!=="1D")hint.textContent="โหลดข้อมูลย้อนหลังไม่ได้ · แสดงข้อมูลที่เคยบันทึกไว้แทน";
+    return false;
+  }
+}
+
+function renderPortfolio(){
+  const p=calculatePortfolio();
+  $("totalGold").textContent=`${num(p.totalGrams,4)} g`;
+  $("totalGoldOz").textContent=`${num(p.totalGrams/OZ_TO_GRAM,6)} oz`;
+  $("totalCost").textContent=money(p.totalCost);
+  $("currentValue").textContent=money(p.currentValue);
+  $("lotCount").textContent=`${p.lots.length} รอบ`;
+  $("netPL").textContent=`${p.netPL>=0?"+":""}${money(p.netPL)}`;
+  $("netPLPct").textContent=pct(p.netPLPct);
+  $("positivePL").textContent=`+${money(p.positivePL)}`;
+  $("negativePL").textContent=money(p.negativePL);
+  $("avgCost").textContent=money(p.avgCost)+"/g";
+  $("winRate").textContent=`${p.wins} / ${p.lots.length}`;
+  $("winRatePct").textContent=p.lots.length ? `${(p.wins/p.lots.length*100).toFixed(2)}%` : "0.00%";
+
+  const card=$("netPLCard");
+  card.classList.toggle("positive",p.netPL>0);
+  card.classList.toggle("negative",p.netPL<0);
+}
+
+function renderLots(){
+  const p=calculatePortfolio();
+  $("lotSummary").textContent=p.lots.length
+    ? `ทั้งหมด ${p.lots.length} รอบ · 🟢 ${p.wins} รอบกำไร · 🔴 ${p.losses} รอบขาดทุน · เรียงจากล่าสุด`
+    : "";
+  const box=$("lotsList");
+  if(!p.lots.length){
+    box.innerHTML=`<div class="empty-state">ยังไม่มีรายการซื้อ<br>เริ่มจากบันทึกรอบแรกด้านบนได้เลย</div>`;
+    return;
+  }
+  box.innerHTML=p.lots.slice().reverse().map((l,i)=>{
+    const cls=l.pl>0?"positive":l.pl<0?"negative":"";
+    const text=l.pl>0?"positive-text":l.pl<0?"negative-text":"neutral-text";
+    const status=l.pl>0?"🟢 กำไร":l.pl<0?"🔴 ขาดทุน":"⚪ จุดคุ้มทุน";
+    return `
+      <article class="lot-item ${cls}">
+        <div class="lot-main">
+          <div>
+            <div class="lot-title">#${String(p.lots.length-i).padStart(3,"0")} · ${l.goldType||"99.99"}% · ${status}</div>
+            <div class="lot-meta">${formatDateTime(l.date,l.time)} · ${num(l.grams,6)} g</div>
+          </div>
+          <div class="lot-pl ${text}">
+            ${l.pl>=0?"+":""}${money(l.pl)}<br>
+            <small>${pct(l.plPct)}</small>
+          </div>
+        </div>
+        <div class="lot-grid">
+          <div class="lot-cell"><span>ต้นทุน</span><b>${money(l.cost)}</b></div>
+          <div class="lot-cell"><span>มูลค่าปัจจุบัน</span><b>${money(l.value)}</b></div>
+          <div class="lot-cell"><span>ต้นทุนเฉลี่ย</span><b>${money(l.avgCost)}/g</b></div>
+          <div class="lot-cell"><span>ราคาประเมินขาย</span><b>${money(l.goldType === "96.5" && !getEffectiveSellPrice().exact ? getEffectiveSellPrice().price * 0.965 : getEffectiveSellPrice().price)}/g</b></div>
+        </div>
+        ${l.note ? `<div class="lot-note">📝 ${escapeHTML(l.note)}</div>` : ""}
+        <div class="lot-actions"><button class="delete-lot" data-id="${l.id}">ลบรอบนี้</button></div>
+      </article>`;
+  }).join("");
+}
+
+function escapeHTML(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+}
+
 function loadChartViews(){
   try{return JSON.parse(localStorage.getItem(CHART_VIEW_KEY)||"{}")}catch{return {}}
 }
@@ -83,15 +416,25 @@ function rawIntradayPoints(){
   const remote=(()=>{try{return JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY)||"[]")}catch{return []}})();
   return remote.filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price)))
     .concat(loadHistory().filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price))))
-    .map(x=>({ts:Number(x.ts),price:Number(x.price)}))
+    .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
     .filter(x=>Number.isFinite(x.ts)&&Number.isFinite(x.price)&&x.price>0)
     .sort((a,b)=>a.ts-b.ts);
 }
 function rawDailyPoints(){
   const now=Date.now(),days=state.range==="7D"?7:30,start=now-days*86400000;
   return loadDailyHistory().filter(x=>x.ts>=start&&Number.isFinite(Number(x.price)))
-    .map(x=>({ts:Number(x.ts),price:Number(x.price)}))
+    .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
     .sort((a,b)=>a.ts-b.ts);
+}
+function chartFx(){
+  if(Number.isFinite(Number(state.usdThb))&&Number(state.usdThb)>0)return Number(state.usdThb);
+  if(Number.isFinite(Number(state.priceThbOz))&&Number(state.priceThbOz)>0&&Number.isFinite(Number(state.spotUsdOz))&&Number(state.spotUsdOz)>0) return Number(state.priceThbOz)/Number(state.spotUsdOz);
+  return null;
+}
+function pointUsdOz(p){
+  if(Number.isFinite(p.usd)&&p.usd>0)return p.usd;
+  const fx=chartFx();
+  return fx&&p.price>0 ? (p.price*OZ_TO_GRAM/fx)/(99.99/100) : NaN;
 }
 function dedupPoints(points){
   const out=[];
@@ -128,10 +471,18 @@ function getChartOHLC(){
   if(!points.length)return [];
   return state.range==="1D" ? aggregateIntraday(dedupPoints(points),chartInterval) : aggregateDaily(points);
 }
+function getChartUSD_OHLC(){
+  const points=state.range==="1D" ? rawIntradayPoints() : rawDailyPoints();
+  if(!points.length)return [];
+  const usdPoints=points.map(p=>({ts:p.ts,price:pointUsdOz(p)})).filter(p=>Number.isFinite(p.price)&&p.price>0);
+  if(!usdPoints.length)return [];
+  return state.range==="1D" ? aggregateIntraday(dedupPoints(usdPoints),chartInterval) : aggregateDaily(usdPoints);
+}
 function lineDataFromOHLC(data){return data.map(x=>({time:x.time,value:x.close}));}
 function scaleOHLC(data,factor){return data.map(x=>({time:x.time,open:x.open*factor,high:x.high*factor,low:x.low*factor,close:x.close*factor}));}
 function chartTime(ts){return Math.floor(Number(ts)/1000)}
 function formatChartPrice(v,dec=2){return `฿${Number(v).toLocaleString("th-TH",{minimumFractionDigits:dec,maximumFractionDigits:dec})}`}
+function formatUsdPrice(v,dec=2){return `$${Number(v).toLocaleString("en-US",{minimumFractionDigits:dec,maximumFractionDigits:dec})}`}
 
 function ensureTradingViewChart(){
   if(tvChart&&tvChartOz)return true;
@@ -151,16 +502,18 @@ function ensureTradingViewChart(){
   setChartMode(chartMode);
   tvChart.timeScale().subscribeVisibleTimeRangeChange(()=>{saveChartView();drawPurchaseOverlays();});
   tvChartOz.timeScale().subscribeVisibleTimeRangeChange(()=>drawPurchaseOverlays());
-  const cross=(chart,series,tip,factor)=>chart.subscribeCrosshairMove(param=>{
+  const cross=(chart,series,tip,isUsd)=>chart.subscribeCrosshairMove(param=>{
     if(!param.time||!param.seriesData)return;
-    const row=param.seriesData.get(chartMode==="candle"?(factor===1?tvCandleSeriesOz:tvCandleSeries):series);
+    const target=chart===tvChartOz ? (chartMode==="candle"?tvCandleSeriesOz:tvSeriesOz) : (chartMode==="candle"?tvCandleSeries:tvSeries);
+    const row=param.seriesData.get(target);
     const value=row?.value ?? row?.close;
     if(!Number.isFinite(Number(value)))return;
     const d=new Date(Number(param.time)*1000);
-    $(tip).textContent=`${d.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} · ${money(Number(value))}${factor===1?"/g":"/troy oz"}`;
+    const label=isUsd?formatUsdPrice(Number(value))+"/troy oz":money(Number(value))+"/g";
+    $(tip).textContent=`${d.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} · ${label}`;
   });
-  cross(tvChart,tvSeries,"chartTooltip",OZ_TO_GRAM); // gram chart
-  cross(tvChartOz,tvSeriesOz,"chartTooltipOz",1);
+  cross(tvChart,tvSeries,"chartTooltip",false);
+  cross(tvChartOz,tvSeriesOz,"chartTooltipOz",true);
   return true;
 }
 function setChartMode(mode){
@@ -173,16 +526,23 @@ function setChartMode(mode){
 }
 function updateChartStats(pts){
   const values=pts.map(x=>Number(x.close)).filter(Number.isFinite);
-  if(!values.length){["chartCurrent","chartHigh","chartLow","chartChange"].forEach(id=>$(id).textContent="ปัจจุบัน: -");return;}
+  if(!values.length){["chartCurrent","chartHigh","chartLow","chartChange","chartCurrentOz","chartHighOz","chartLowOz","chartChangeOz"].forEach(id=>$(id).textContent="ปัจจุบัน: -");return;}
   const current=values.at(-1),first=values[0],high=Math.max(...values),low=Math.min(...values),change=first?((current-first)/first)*100:0;
   $("chartCurrent").textContent=`ปัจจุบัน: ${money(current)}/g`;
   $("chartHigh").textContent=`สูงสุด: ${money(high)}/g`;
   $("chartLow").textContent=`ต่ำสุด: ${money(low)}/g`;
   $("chartChange").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
-  $("chartCurrentOz").textContent=`ปัจจุบัน: ${money(current*OZ_TO_GRAM)}/troy oz`;
-  $("chartHighOz").textContent=`สูงสุด: ${money(high*OZ_TO_GRAM)}/troy oz`;
-  $("chartLowOz").textContent=`ต่ำสุด: ${money(low*OZ_TO_GRAM)}/troy oz`;
-  $("chartChangeOz").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
+  const usd=getChartUSD_OHLC(),uv=usd.map(x=>Number(x.close)).filter(Number.isFinite);
+  if(uv.length){
+    const uc=uv.at(-1),uf=uv[0],uh=Math.max(...uv),ul=Math.min(...uv),uchange=uf?((uc-uf)/uf)*100:0;
+    $("chartCurrentOz").textContent=`ปัจจุบัน: ${formatUsdPrice(uc)}/troy oz`;
+    $("chartHighOz").textContent=`สูงสุด: ${formatUsdPrice(uh)}/troy oz`;
+    $("chartLowOz").textContent=`ต่ำสุด: ${formatUsdPrice(ul)}/troy oz`;
+    $("chartChangeOz").textContent=`เปลี่ยนแปลง: ${uchange>=0?"+":""}${uchange.toFixed(2)}%`;
+  }else{
+    ["chartCurrentOz","chartHighOz","chartLowOz"].forEach(id=>$(id).textContent="ปัจจุบัน: -");
+    $("chartChangeOz").textContent="เปลี่ยนแปลง: -";
+  }
 }
 function svgEl(tag,attrs){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,String(v));return e;}
 function drawPurchaseOverlay(chart,series,svgId,gramMode){
@@ -198,7 +558,9 @@ function drawPurchaseOverlay(chart,series,svgId,gramMode){
     if(!(grams>0))continue;
     const buyGram=Number(lot.buyPriceThbGram)>0?Number(lot.buyPriceThbGram):(Number(lot.costThb)>0?Number(lot.costThb)/grams:0);
     if(!(buyGram>0))continue;
-    const buy=gramMode?buyGram:buyGram*OZ_TO_GRAM;
+    const fx=chartFx();
+    const buy=gramMode?buyGram:(fx&&fx>0?buyGram*OZ_TO_GRAM/fx:0);
+    if(!buy)continue;
     const current=Number(state.priceThbGram)||0;
     if(!(current>0))continue;
     const pl=(current-buyGram)*grams;
@@ -209,7 +571,7 @@ function drawPurchaseOverlay(chart,series,svgId,gramMode){
     const dot=svgEl("circle",{cx:x,cy:y,r:6,fill:color,class:"purchase-dot"});
     const labelX=Math.min(Math.max(x+8,8),Math.max(8,w-145));
     const label=svgEl("text",{x:labelX,y:Math.max(16,y-9),fill:color,class:"purchase-label"});label.textContent=`${positive?"+":""}${money(pl)}`;
-    const price=svgEl("text",{x:labelX,y:Math.min(h-8,Math.max(30,y+15)),fill:"#d4af37",class:"purchase-sub"});price.textContent=`ซื้อ ${formatChartPrice(buy)}`;
+    const price=svgEl("text",{x:labelX,y:Math.min(h-8,Math.max(30,y+15)),fill:"#d4af37",class:"purchase-sub"});price.textContent=gramMode?`ซื้อ ${formatChartPrice(buy)}`:`ซื้อ ${formatUsdPrice(buy)}/oz`;
     const time=svgEl("text",{x:Math.min(Math.max(x+5,5),Math.max(5,w-125)),y:h-8,fill:"#bdbdbd",class:"purchase-sub"});time.textContent=`${lot.date} ${lot.time||""} · ${num(grams,4)}g`;
     svg.append(v,hl,dot,label,price,time);
   }
@@ -237,7 +599,7 @@ function restoreChartView(){
 function renderChart(){
   const pts=getChartOHLC();updateChartStats(pts);
   if(!ensureTradingViewChart())return;
-  const gramLine=lineDataFromOHLC(pts),gramCandle=pts,ozCandle=scaleOHLC(pts,OZ_TO_GRAM),ozLine=lineDataFromOHLC(ozCandle);
+  const gramLine=lineDataFromOHLC(pts),gramCandle=pts,ozCandle=getChartUSD_OHLC(),ozLine=lineDataFromOHLC(ozCandle);
   tvSeries.setData(gramLine);tvCandleSeries.setData(gramCandle);tvSeriesOz.setData(ozLine);tvCandleSeriesOz.setData(ozCandle);
   const key=chartRangeKey();
   if(tvChartReadyKey!==key){restoreChartView();tvChartReadyKey=key;}
@@ -245,7 +607,7 @@ function renderChart(){
   if(hint){
     const source=state.range==="1D"?`Intraday · ${chartInterval} · ${pts.length} แท่ง`:`ย้อนหลัง ${state.range} · ${pts.length} แท่ง`;
     const candleNote=chartMode==="candle"?(state.range==="1D"?" · OHLC จากจุด Intraday":" · แท่งรายวันเป็นค่าประมาณจากราคาปิด"):" · กราฟเส้น";
-    hint.textContent=`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${source}${candleNote}`;
+    hint.textContent=`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${source}${candleNote} · กราฟที่ 2 = USD/troy oz`;
   }
   drawPurchaseOverlays();
 }

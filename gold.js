@@ -437,14 +437,43 @@ function getLotBuyMarker(lot){
   };
 }
 
+function getChartWindowBounds(){
+  const now=Date.now();
+  const span=state.range==="1D" ? 86400000 : state.range==="7D" ? 7*86400000 : 30*86400000;
+  return {from:now-span,to:now};
+}
+
 function getVisibleLotMarkers(pts){
-  if(!pts.length)return [];
-  const firstTs=pts[0].ts,lastTs=pts[pts.length-1].ts;
+  const bounds=getChartWindowBounds();
   return loadLots()
     .map(getLotBuyMarker)
     .filter(Boolean)
-    .filter(m=>m.ts>=firstTs&&m.ts<=lastTs)
+    // Do NOT require the API chart data to contain a point at the purchase time.
+    // A purchase can be between/just before the first available API point.
+    .filter(m=>m.ts>=bounds.from&&m.ts<=bounds.to)
     .sort((a,b)=>a.ts-b.ts);
+}
+
+function expandVisibleRangeForPurchaseMarkers(pts){
+  if(!chartUI.chart || !pts.length)return;
+  const markers=getVisibleLotMarkers(pts);
+  if(!markers.length)return;
+
+  const dataFrom=Number(pts[0].ts)/1000;
+  const dataTo=Number(pts[pts.length-1].ts)/1000;
+  const markerTimes=markers.map(m=>Number(m.ts)/1000).filter(Number.isFinite);
+  if(!markerTimes.length)return;
+
+  let from=Math.min(dataFrom,...markerTimes);
+  let to=Math.max(dataTo,...markerTimes);
+  if(!(to>from))return;
+
+  // Small time padding so the purchase line/dot is never glued to the edge.
+  const pad=Math.max((to-from)*0.04,60);
+  from-=pad;
+  to+=pad;
+
+  try{chartUI.chart.timeScale().setVisibleRange({from,to});}catch{}
 }
 
 function chartTime(ts){
@@ -646,7 +675,10 @@ function renderChart(){
         restored=true;
       }
     }catch{}
-    if(!restored)chartUI.chart.timeScale().fitContent();
+    if(!restored){
+      chartUI.chart.timeScale().fitContent();
+      expandVisibleRangeForPurchaseMarkers(pts);
+    }
     chartUI.userInteracted=false;
   }
   const hint=$("chartHint");
@@ -691,7 +723,9 @@ function setChartMode(mode){
 
 function fitChart(){
   if(!chartUI.chart)return;
+  const pts=getChartPoints();
   chartUI.chart.timeScale().fitContent();
+  expandVisibleRangeForPurchaseMarkers(pts);
   chartUI.userInteracted=false;
   requestAnimationFrame(drawPurchaseOverlay);
 }
@@ -701,8 +735,30 @@ function resetChart(){
   try{
     ["1D","7D","30D"].forEach(r=>localStorage.removeItem(`kfp_gold_chart_range_${r}`));
   }catch{}
+  const pts=getChartPoints();
   chartUI.chart.timeScale().fitContent();
+  expandVisibleRangeForPurchaseMarkers(pts);
   chartUI.userInteracted=false;
+  requestAnimationFrame(drawPurchaseOverlay);
+}
+
+function ensurePurchaseMarkersVisible(){
+  if(!chartUI.chart)return;
+  const markers=getVisibleLotMarkers(getChartPoints());
+  if(!markers.length)return;
+  try{
+    const current=chartUI.chart.timeScale().getVisibleRange();
+    if(!current)return;
+    const markerTimes=markers.map(m=>Number(m.ts)/1000).filter(Number.isFinite);
+    if(!markerTimes.length)return;
+    const from=Math.min(Number(current.from),...markerTimes);
+    const to=Math.max(Number(current.to),...markerTimes);
+    if(from<Number(current.from)||to>Number(current.to)){
+      const span=Math.max(to-from,60);
+      const pad=Math.max(span*0.04,30);
+      chartUI.chart.timeScale().setVisibleRange({from:from-pad,to:to+pad});
+    }
+  }catch{}
   requestAnimationFrame(drawPurchaseOverlay);
 }
 
@@ -750,7 +806,8 @@ function addLot(e){
   saveLots(lots);
   $("lotForm").reset();
   $("buyDate").value=isoDate(new Date());
-  renderPortfolio();renderLots();
+  renderPortfolio();renderLots();renderChart();
+  requestAnimationFrame(ensurePurchaseMarkersVisible);
   alert("บันทึกรอบซื้อเรียบร้อยแล้ว");
 }
 
@@ -760,7 +817,8 @@ function deleteLot(id){
   if(!target)return;
   if(!confirm(`ลบรอบซื้อวันที่ ${target.date} ใช่หรือไม่?`))return;
   saveLots(lots.filter(x=>x.id!==id));
-  renderPortfolio();renderLots();
+  renderPortfolio();renderLots();renderChart();
+  requestAnimationFrame(drawPurchaseOverlay);
 }
 
 function simulate(percent){

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
+  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
 <link rel="stylesheet" href="gold.css">
-<script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 <div class="gold-container">
@@ -61,31 +61,63 @@
     </div>
 
     <div class="chart-wrap">
-      <div class="chart-toolbar">
+      <div class="chart-toolbar chart-toolbar-main">
         <div class="chart-tabs">
           <button class="chart-tab active" data-range="1D">1D</button>
           <button class="chart-tab" data-range="7D">7D</button>
           <button class="chart-tab" data-range="30D">30D</button>
         </div>
-        <div class="chart-tools">
-          <button class="chart-tool-btn" id="chartFitBtn" type="button">↔ Fit</button>
-          <button class="chart-tool-btn" id="chartCandleBtn" type="button">🕯️ แท่งเทียน</button>
-          <button class="chart-tool-btn" id="chartResetBtn" type="button">⟳ Reset</button>
-          <button class="chart-tool-btn" id="chartFullscreenBtn" type="button">⛶ เต็มจอ</button>
+        <span id="chartHint">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</span>
+      </div>
+
+      <div class="chart-toolbar chart-interval-toolbar">
+        <div class="chart-tabs chart-intervals">
+          <span class="chart-group-label">ช่วงแท่ง</span>
+          <button class="chart-tab chart-interval active" data-interval="5m">5m</button>
+          <button class="chart-tab chart-interval" data-interval="15m">15m</button>
+          <button class="chart-tab chart-interval" data-interval="30m">30m</button>
+          <button class="chart-tab chart-interval" data-interval="1H">1H</button>
+          <button class="chart-tab chart-interval" data-interval="1D">1D</button>
         </div>
+        <span class="chart-interval-note">5m–1H ใช้ข้อมูล Intraday ที่มีอยู่ · 1D ใช้ข้อมูลรายวัน</span>
       </div>
-      <div id="chartHint" class="chart-hint-line">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</div>
-      <div class="chart-stage" id="chartStage">
-        <div id="goldChart"></div>
-        <svg id="chartOverlay" class="chart-overlay" aria-hidden="true"></svg>
+
+      <div class="chart-actions">
+        <button type="button" id="chartFitBtn" class="chart-action-btn">↔ Fit</button>
+        <button type="button" id="chartCandleBtn" class="chart-tool-btn">🕯️ แท่งเทียน</button>
+        <button type="button" id="chartResetBtn" class="chart-action-btn">⟳ Reset</button>
+        <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
       </div>
-      <div class="chart-info-row">
-        <span id="chartCurrent">ปัจจุบัน: -</span>
-        <span id="chartHigh">สูงสุด: -</span>
-        <span id="chartLow">ต่ำสุด: -</span>
-        <span id="chartChange">เปลี่ยนแปลง: -</span>
+
+      <div class="chart-panel">
+        <div class="chart-panel-title">ทอง 99.99% · <b>THB / gram</b></div>
+        <div class="chart-stage" id="chartStageGram">
+          <div id="goldChart"></div>
+          <svg id="chartOverlayGram" class="chart-overlay" aria-hidden="true"></svg>
+        </div>
+        <div class="chart-info-row">
+          <span id="chartCurrent">ปัจจุบัน: -</span>
+          <span id="chartHigh">สูงสุด: -</span>
+          <span id="chartLow">ต่ำสุด: -</span>
+          <span id="chartChange">เปลี่ยนแปลง: -</span>
+        </div>
+        <div id="chartTooltip" class="chart-tooltip" aria-live="polite"></div>
       </div>
-      <div id="chartTooltip" class="chart-tooltip" aria-live="polite"></div>
+
+      <div class="chart-panel chart-panel-oz">
+        <div class="chart-panel-title">ทอง 99.99% · <b>THB / troy oz</b></div>
+        <div class="chart-stage" id="chartStageOz">
+          <div id="goldChartOz"></div>
+          <svg id="chartOverlayOz" class="chart-overlay" aria-hidden="true"></svg>
+        </div>
+        <div class="chart-info-row">
+          <span id="chartCurrentOz">ปัจจุบัน: -</span>
+          <span id="chartHighOz">สูงสุด: -</span>
+          <span id="chartLowOz">ต่ำสุด: -</span>
+          <span id="chartChangeOz">เปลี่ยนแปลง: -</span>
+        </div>
+        <div id="chartTooltipOz" class="chart-tooltip" aria-live="polite"></div>
+      </div>
     </div>
   </section>
 

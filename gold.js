@@ -30,11 +30,23 @@ let state = {
   timer: null
 };
 
-let tvChart = null;
-let tvSeries = null;
-let tvChartReadyRange = null;
-let tvCrosshairBound = false;
-const CHART_VIEW_KEY = "kfp_gold_chart_view_v1";
+const chartUI = {
+  chart: null,
+  lineSeries: null,
+  candleSeries: null,
+  mode: "line",
+  initialized: false,
+  rangeKey: "1D",
+  userInteracted: false
+};
+
+const chartColors = {
+  gold: "#d4af37",
+  green: "#62db8a",
+  red: "#ff7474",
+  grid: "#202326",
+  text: "#777"
+};
 
 const $ = id => document.getElementById(id);
 const money = n => Number.isFinite(n) ? new Intl.NumberFormat("th-TH",{style:"currency",currency:"THB",maximumFractionDigits:2}).format(n) : "฿0";
@@ -393,158 +405,315 @@ function getChartPoints(){
   return dedup.sort((a,b)=>a.ts-b.ts);
 }
 
-function loadChartViews(){
-  try{return JSON.parse(localStorage.getItem(CHART_VIEW_KEY)||"{}")}catch{return {}}
+function getLotBuyMarker(lot){
+  const date=String(lot?.date||"");
+  if(!date)return null;
+  const time=String(lot?.time||"00:00");
+  const ts=new Date(`${date}T${time}`).getTime();
+  if(!Number.isFinite(ts))return null;
+
+  const grams=Number(lot.grams)||0;
+  if(!(grams>0))return null;
+
+  const explicit=Number(lot.buyPriceThbGram);
+  const fallback=Number(lot.costThb)/grams;
+  const buyPrice=explicit>0?explicit:(Number.isFinite(fallback)&&fallback>0?fallback:0);
+  if(!(buyPrice>0))return null;
+
+  const quote=getEffectiveSellPrice();
+  const purity=Number(lot.goldType||99.99)/99.99;
+  const currentSell=quote.exact ? quote.price : quote.price*purity;
+  const pl=(currentSell-buyPrice)*grams;
+
+  return {
+    id:lot.id,
+    ts,
+    price:buyPrice,
+    grams,
+    pl,
+    label:lot.note||"",
+    goldType:lot.goldType||"99.99",
+    usedExplicit:explicit>0
+  };
 }
-function saveChartView(range){
-  if(!tvChart)return;
-  try{
-    const visible=tvChart.timeScale().getVisibleRange();
-    if(!visible)return;
-    const views=loadChartViews();
-    views[range]={from:visible.from,to:visible.to};
-    localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));
-  }catch(_){ }
+
+function getVisibleLotMarkers(pts){
+  if(!pts.length)return [];
+  const firstTs=pts[0].ts,lastTs=pts[pts.length-1].ts;
+  return loadLots()
+    .map(getLotBuyMarker)
+    .filter(Boolean)
+    .filter(m=>m.ts>=firstTs&&m.ts<=lastTs)
+    .sort((a,b)=>a.ts-b.ts);
 }
-function restoreChartView(range,points){
-  if(!tvChart||!points.length)return;
-  const views=loadChartViews();
-  const saved=views[range];
-  try{
-    if(saved && Number.isFinite(Number(saved.from)) && Number.isFinite(Number(saved.to))){
-      tvChart.timeScale().setVisibleRange({from:saved.from,to:saved.to});
-    }else{
-      tvChart.timeScale().fitContent();
-    }
-  }catch(_){tvChart.timeScale().fitContent()}
+
+function chartTime(ts){
+  return Math.floor(Number(ts)/1000);
 }
-function chartTime(ts){return Math.floor(Number(ts)/1000)}
-function chartPointData(pts){
-  const out=[]; let lastTime=0;
-  for(const p of pts){
-    const time=chartTime(p.ts), value=Number(p.price);
-    if(!Number.isFinite(time)||!Number.isFinite(value)||value<=0)continue;
-    if(time<=lastTime){
-      if(time===lastTime) out[out.length-1]={time,value};
-      continue;
-    }
-    out.push({time,value}); lastTime=time;
-  }
+
+function buildChartCandles(pts){
+  const bucketMs=state.range==="1D" ? 5*60*1000 : 24*60*60*1000;
+  const groups=new Map();
+  pts.forEach(p=>{
+    const bucket=Math.floor(Number(p.ts)/bucketMs)*bucketMs;
+    if(!groups.has(bucket))groups.set(bucket,[]);
+    groups.get(bucket).push(p);
+  });
+  const out=[];
+  let previousClose=null;
+  [...groups.entries()].sort((a,b)=>a[0]-b[0]).forEach(([bucket,items])=>{
+    items.sort((a,b)=>a.ts-b.ts);
+    const close=Number(items[items.length-1].price);
+    const open=Number(items[0].price);
+    const high=Math.max(...items.map(x=>Number(x.price)));
+    const low=Math.min(...items.map(x=>Number(x.price)));
+    // Historical 7D/30D data is close-only. When a bucket has one point,
+    // use the previous close as the synthetic open so the candle remains useful
+    // without pretending the API supplied true OHLC data.
+    const o=items.length>1 ? open : (previousClose ?? open);
+    out.push({time:chartTime(bucket),open:o,high:Math.max(high,o,close),low:Math.min(low,o,close),close});
+    previousClose=close;
+  });
   return out;
 }
-function ensureTradingViewChart(){
-  if(tvChart) return true;
+
+function ensureChart(){
+  if(chartUI.chart)return true;
+  const container=$("goldChart");
+  if(!container)return false;
   if(!window.LightweightCharts){
     const hint=$("chartHint");
-    if(hint)hint.textContent="กำลังโหลดระบบกราฟ…";
+    if(hint)hint.textContent="โหลดระบบกราฟแบบ TradingView ไม่สำเร็จ · ตรวจสอบอินเทอร์เน็ตแล้วรีเฟรช";
     return false;
   }
-  const el=$("goldChart"); if(!el)return false;
-  tvChart=LightweightCharts.createChart(el,{
-    autoSize:true,
-    layout:{background:{type:"solid",color:"#0f1112"},textColor:"#777"},
-    grid:{vertLines:{color:"#171919"},horzLines:{color:"#292b2b"}},
-    rightPriceScale:{borderColor:"#292b2b",scaleMargins:{top:0.08,bottom:0.08}},
-    timeScale:{borderColor:"#292b2b",timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:5,minBarSpacing:2},
-    crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"},horzLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"}},
+  chartUI.chart=LightweightCharts.createChart(container,{
+    width:container.clientWidth||600,
+    height:container.clientHeight||320,
+    layout:{background:{type:"solid",color:"#0b0d0e"},textColor:"#777"},
+    grid:{vertLines:{color:chartColors.grid},horzLines:{color:chartColors.grid}},
+    rightPriceScale:{borderColor:"#2b2d2f",scaleMargins:{top:0.08,bottom:0.10}},
+    timeScale:{borderColor:"#2b2d2f",timeVisible:true,secondsVisible:false,rightOffset:2,barSpacing:7,minBarSpacing:2},
+    crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#b18d21",style:LightweightCharts.LineStyle.Dashed,labelBackgroundColor:"#b18d21"},horzLine:{color:"#b18d21",style:LightweightCharts.LineStyle.Dashed,labelBackgroundColor:"#b18d21"}},
     handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
-    handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true},
-    localization:{priceFormatter:v=>`฿${Number(v).toLocaleString("th-TH",{maximumFractionDigits:2})}`}
+    handleScale:{axisPressedMouseMove:true,mouseWheel:true,pinch:true},
+    localization:{priceFormatter:price=>`฿${Number(price).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`}
   });
-  tvSeries=tvChart.addAreaSeries({
-    topColor:"rgba(212,175,55,.24)",
-    bottomColor:"rgba(212,175,55,.015)",
-    lineColor:"#d4af37",
-    lineWidth:2,
-    priceLineVisible:true,
-    lastValueVisible:true,
-    crosshairMarkerVisible:true,
-    crosshairMarkerRadius:4,
-    priceFormat:{type:"price",precision:2,minMove:0.01}
+  const markerAutoscale=original=>{
+    const base=original();
+    const markers=getVisibleLotMarkers(getChartPoints());
+    if(!markers.length)return base;
+    const prices=markers.map(m=>Number(m.price)).filter(Number.isFinite);
+    if(!prices.length)return base;
+    const baseRange=base?.priceRange;
+    const minValue=Math.min(baseRange?.minValue??prices[0],...prices);
+    const maxValue=Math.max(baseRange?.maxValue??prices[0],...prices);
+    return {...(base||{}),priceRange:{minValue,maxValue}};
+  };
+  chartUI.lineSeries=chartUI.chart.addLineSeries({
+    color:chartColors.gold,lineWidth:2,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:true,
+    autoscaleInfoProvider:markerAutoscale
   });
-  tvChart.timeScale().subscribeVisibleTimeRangeChange(()=>saveChartView(state.range));
-  tvChart.subscribeCrosshairMove(param=>{
-    const tooltip=$("chartTooltip");
-    if(!tooltip)return;
-    if(!param.time || !param.seriesData || !tvSeries){return;}
-    const row=param.seriesData.get(tvSeries);
-    if(!row || !Number.isFinite(Number(row.value)))return;
-    const d=new Date(Number(param.time)*1000);
-    const dateText=state.range==="1D"
-      ? d.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
-      : d.toLocaleDateString("th-TH",{day:"2-digit",month:"short",year:"numeric"});
-    tooltip.textContent=`${dateText} · ${money(Number(row.value))}/g`;
+  chartUI.candleSeries=chartUI.chart.addCandlestickSeries({
+    upColor:"#2fcb74",downColor:"#e45757",borderUpColor:"#2fcb74",borderDownColor:"#e45757",wickUpColor:"#2fcb74",wickDownColor:"#e45757",priceLineVisible:false,lastValueVisible:true,
+    autoscaleInfoProvider:markerAutoscale
   });
+  chartUI.candleSeries.applyOptions({visible:false});
+
+  const rangeChange=()=>{
+    chartUI.userInteracted=true;
+    try{
+      const vr=chartUI.chart.timeScale().getVisibleRange();
+      if(vr) localStorage.setItem(`kfp_gold_chart_range_${state.range}`,JSON.stringify(vr));
+    }catch{}
+    requestAnimationFrame(renderChartOverlay);
+  };
+  chartUI.chart.timeScale().subscribeVisibleLogicalRangeChange(rangeChange);
+  chartUI.chart.timeScale().subscribeVisibleTimeRangeChange(rangeChange);
+  chartUI.initialized=true;
   return true;
 }
-function updateChartStats(pts){
-  if(!pts.length){
+
+function updateChartSeries(pts){
+  if(!ensureChart())return;
+  const lineData=pts.map(p=>({time:chartTime(p.ts),value:Number(p.price)}));
+  const candleData=buildChartCandles(pts);
+  chartUI.lineSeries.setData(lineData);
+  chartUI.candleSeries.setData(candleData);
+  chartUI.lineSeries.applyOptions({visible:chartUI.mode==="line"});
+  chartUI.candleSeries.applyOptions({visible:chartUI.mode==="candle"});
+  chartUI.chart.timeScale().applyOptions({timeVisible:state.range==="1D",secondsVisible:false});
+}
+
+function drawPurchaseOverlay(){
+  const svg=$("chartOverlay"), stage=$("chartStage");
+  if(!svg||!stage||!chartUI.chart)return;
+  const pts=getChartPoints();
+  const markers=getVisibleLotMarkers(pts);
+  const width=stage.clientWidth,height=stage.clientHeight;
+  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  svg.innerHTML="";
+  if(!markers.length)return;
+
+  const series=chartUI.mode==="candle"?chartUI.candleSeries:chartUI.lineSeries;
+  const timeScale=chartUI.chart.timeScale();
+  const nearestTime=(ts)=>{
+    const exact=timeScale.timeToCoordinate(chartTime(ts));
+    if(exact!=null)return {x:exact,time:chartTime(ts)};
+    let nearest=null,best=Infinity;
+    pts.forEach(p=>{const d=Math.abs(Number(p.ts)-Number(ts));if(d<best){best=d;nearest=p;}});
+    if(!nearest)return null;
+    const x=timeScale.timeToCoordinate(chartTime(nearest.ts));
+    return x==null?null:{x,time:chartTime(nearest.ts)};
+  };
+  const ns="http://www.w3.org/2000/svg";
+  const make=(tag,attrs={})=>{const el=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,String(v)));return el;};
+  const plotRight=Math.max(0,width-64);
+
+  markers.forEach((m,idx)=>{
+    const tx=nearestTime(m.ts);
+    const x=tx?.x;
+    const y=series.priceToCoordinate(m.price);
+    if(x==null||y==null||x<0||x>plotRight||y<0||y>height)return;
+    const color=m.pl>0?chartColors.green:m.pl<0?chartColors.red:chartColors.gold;
+    const g=make("g");
+
+    g.appendChild(make("line",{x1:x,y1:0,x2:x,y2:height,class:"purchase-vline",stroke:color}));
+    g.appendChild(make("line",{x1:0,y1:y,x2:plotRight,y2:y,class:"purchase-hline",stroke:color}));
+    g.appendChild(make("circle",{cx:x,cy:y,r:5.5,class:"purchase-dot",fill:color}));
+
+    const tagW=92,tagH=24,tagX=Math.max(4,plotRight-tagW-2),tagY=Math.max(2,Math.min(height-tagH-2,y-tagH/2));
+    g.appendChild(make("rect",{x:tagX,y:tagY,width:tagW,height:tagH,rx:4,class:"price-tag"}));
+    const priceText=make("text",{x:tagX+tagW/2,y:tagY+16,"text-anchor":"middle",class:"price-tag-text"});
+    priceText.textContent=money(m.price);
+    g.appendChild(priceText);
+
+    const plText=`${m.pl>=0?"+":"-"}${Math.abs(m.pl).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}฿`;
+    const plX=Math.min(plotRight-8,Math.max(8,x+9));
+    let plY=y-10;
+    if(Math.abs(plY-tagY)<22)plY=tagY+tagH+14;
+    plY=Math.max(15,Math.min(height-7,plY));
+    const pl=make("text",{x:plX,y:plY,class:"purchase-label",fill:color});
+    pl.textContent=plText;
+    g.appendChild(pl);
+
+    const small=make("text",{x:Math.max(4,Math.min(plotRight-24,x+7)),y:Math.min(height-7,y+19),class:"purchase-sub"});
+    small.textContent=`#${String(idx+1).padStart(2,"0")}`;
+    g.appendChild(small);
+    svg.appendChild(g);
+  });
+}
+
+function renderChart(){
+  const container=$("goldChart");
+  if(!container)return;
+  const pts=getChartPoints();
+  container._chartPoints=pts;
+
+  if(pts.length<2){
     $("chartCurrent").textContent="ปัจจุบัน: -";
     $("chartHigh").textContent="สูงสุด: -";
     $("chartLow").textContent="ต่ำสุด: -";
     $("chartChange").textContent="เปลี่ยนแปลง: -";
+    const hint=$("chartHint");
+    if(hint)hint.textContent=state.range==="1D"?"กำลังโหลดกราฟ 1D จาก XAUS…":"กำลังโหลดข้อมูลย้อนหลังจาก XAUS…";
+    if(ensureChart()){
+      chartUI.lineSeries.setData([]);chartUI.candleSeries.setData([]);
+      requestAnimationFrame(drawPurchaseOverlay);
+    }
     return;
   }
-  const values=pts.map(x=>Number(x.price)).filter(Number.isFinite);
-  const current=values[values.length-1],first=values[0],high=Math.max(...values),low=Math.min(...values);
+
+  const values=pts.map(x=>x.price);
+  const current=values[values.length-1],first=values[0];
+  const high=Math.max(...values),low=Math.min(...values);
   const change=first?((current-first)/first)*100:0;
   $("chartCurrent").textContent=`ปัจจุบัน: ${money(current)}/g`;
   $("chartHigh").textContent=`สูงสุด: ${money(high)}/g`;
   $("chartLow").textContent=`ต่ำสุด: ${money(low)}/g`;
   $("chartChange").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
-}
-function renderChart(){
-  const el=$("goldChart"); if(!el)return;
-  const pts=getChartPoints();
-  updateChartStats(pts);
 
-  if(!ensureTradingViewChart())return;
-  const data=chartPointData(pts);
+  if(!ensureChart())return;
+  const rangeChanged=chartUI.rangeKey!==state.range;
+  updateChartSeries(pts);
+  chartUI.rangeKey=state.range;
+
+  if(rangeChanged || !chartUI.userInteracted){
+    let restored=false;
+    try{
+      const saved=JSON.parse(localStorage.getItem(`kfp_gold_chart_range_${state.range}`)||"null");
+      if(saved && saved.from!=null && saved.to!=null){
+        chartUI.chart.timeScale().setVisibleRange(saved);
+        restored=true;
+      }
+    }catch{}
+    if(!restored)chartUI.chart.timeScale().fitContent();
+    chartUI.userInteracted=false;
+  }
   const hint=$("chartHint");
-  if(!data.length){
-    if(hint)hint.textContent=state.range==="1D"?"กำลังโหลดกราฟ 1D จาก XAUS…":"กำลังโหลดข้อมูลย้อนหลังจาก XAUS…";
-    tvSeries.setData([]);
-    return;
-  }
-
-  tvSeries.setData(data);
-  if(tvChartReadyRange!==state.range){
-    restoreChartView(state.range,data);
-    tvChartReadyRange=state.range;
-  }
+  const markerCount=getVisibleLotMarkers(pts).length;
   if(hint){
-    hint.textContent=state.range==="1D"
-      ?`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${data.length.toLocaleString()} จุด`
-      :`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${data.length.toLocaleString()} จุด`;
+    const modeText=chartUI.mode==="candle"?"แท่งเทียนเขียว/แดง":"กราฟเส้น";
+    const dataText=state.range==="1D"?"ข้อมูล intraday":"ข้อมูลย้อนหลัง";
+    hint.textContent=`${dataText} · ${pts.length.toLocaleString()} จุด · ${modeText}${markerCount?` · ${markerCount} รอบซื้อบนกราฟ`:""}`;
   }
+  requestAnimationFrame(drawPurchaseOverlay);
+}
+
+function showChartPoint(clientX,clientY){
+  const container=$("goldChart");
+  if(!container||!chartUI.chart)return;
+  const rect=container.getBoundingClientRect();
+  const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
+  const time=chartUI.chart.timeScale().coordinateToTime(x);
+  if(time==null)return;
+  const series=chartUI.mode==="candle"?chartUI.candleSeries:chartUI.lineSeries;
+  const y=clientY==null ? rect.height/2 : Math.max(0,Math.min(rect.height,clientY-rect.top));
+  const price=series.coordinateToPrice(y);
+  if(price==null)return;
+  const date=new Date(Number(time)*1000);
+  const dateText=state.range==="1D"
+    ? date.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})
+    : date.toLocaleDateString("th-TH",{day:"2-digit",month:"short",year:"numeric"});
   const tooltip=$("chartTooltip");
-  if(tooltip && !tooltip.textContent)tooltip.textContent="แตะ/ลากบนกราฟเพื่อดูราคา · Pinch เพื่อซูม";
+  if(tooltip)tooltip.textContent=`${dateText} · ${money(Number(price))}/g`;
 }
-function resetChartZoom(){
-  if(!tvChart)return;
-  const views=loadChartViews();
-  delete views[state.range];
-  localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));
-  tvChart.timeScale().fitContent();
-}
-function fitChart(){if(tvChart)tvChart.timeScale().fitContent()}
-function toggleChartFullscreen(){
-  const wrap=$("goldChart")?.closest(".chart-wrap"); if(!wrap)return;
-  wrap.classList.toggle("chart-fullscreen");
-  const btn=$("chartFullscreenBtn");
-  if(btn)btn.textContent=wrap.classList.contains("chart-fullscreen")?"✕ ออกจากเต็มจอ":"⛶ เต็มจอ";
-  setTimeout(()=>{if(tvChart)tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);},50);
-}
-function showChartPoint(clientX){
-  // Kept for backward compatibility with older saved page code.
-  if(tvChart){
-    const rect=$("goldChart")?.getBoundingClientRect();
-    if(rect){
-      const x=Math.max(0,Math.min(rect.width,clientX-rect.left));
-      tvChart.setCrosshairPosition(undefined,undefined,tvSeries);
-    }
+
+function setChartMode(mode){
+  chartUI.mode=mode==="candle"?"candle":"line";
+  const btn=$("chartCandleBtn");
+  if(btn){
+    btn.classList.toggle("active",chartUI.mode==="candle");
+    btn.textContent=chartUI.mode==="candle"?"〰️ กราฟเส้น":"🕯️ แท่งเทียน";
   }
+  try{localStorage.setItem("kfp_gold_chart_mode_v1",chartUI.mode)}catch{}
+  renderChart();
 }
+
+function fitChart(){
+  if(!chartUI.chart)return;
+  chartUI.chart.timeScale().fitContent();
+  chartUI.userInteracted=false;
+  requestAnimationFrame(drawPurchaseOverlay);
+}
+
+function resetChart(){
+  if(!chartUI.chart)return;
+  try{
+    ["1D","7D","30D"].forEach(r=>localStorage.removeItem(`kfp_gold_chart_range_${r}`));
+  }catch{}
+  chartUI.chart.timeScale().fitContent();
+  chartUI.userInteracted=false;
+  requestAnimationFrame(drawPurchaseOverlay);
+}
+
+function toggleChartFullscreen(){
+  const stage=$("chartStage");
+  if(!stage)return;
+  if(document.fullscreenElement)document.exitFullscreen?.();
+  else stage.requestFullscreen?.();
+}
+
+function renderChartOverlay(){drawPurchaseOverlay();}
 
 function updateLotPreview(){
   const q=Number($("quantity").value);
@@ -649,11 +818,7 @@ function setup(){
     btn.addEventListener("click",()=>{
       document.querySelectorAll(".chart-tab").forEach(x=>x.classList.remove("active"));
       btn.classList.add("active");
-      if(state.range!==btn.dataset.range){
-        if(tvChart)saveChartView(state.range);
-        state.range=btn.dataset.range;
-        tvChartReadyRange=null;
-      }
+      state.range=btn.dataset.range;
       renderChart();
       if(state.range!=="1D") fetchHistoricalGold();
     });
@@ -670,13 +835,43 @@ function setup(){
   $("useSellOverride").addEventListener("change",saveOverride);
   $("sellOverride").addEventListener("input",saveOverride);
 
-  $("chartFitBtn").addEventListener("click",fitChart);
-  $("chartResetBtn").addEventListener("click",resetChartZoom);
-  $("chartFullscreenBtn").addEventListener("click",toggleChartFullscreen);
+  const savedMode=localStorage.getItem("kfp_gold_chart_mode_v1");
+  chartUI.mode=savedMode==="candle"?"candle":"line";
+  const candleBtn=$("chartCandleBtn");
+  if(candleBtn){
+    candleBtn.classList.toggle("active",chartUI.mode==="candle");
+    candleBtn.textContent=chartUI.mode==="candle"?"〰️ กราฟเส้น":"🕯️ แท่งเทียน";
+    candleBtn.addEventListener("click",()=>setChartMode(chartUI.mode==="candle"?"line":"candle"));
+  }
+  $("chartFitBtn")?.addEventListener("click",fitChart);
+  $("chartResetBtn")?.addEventListener("click",resetChart);
+  $("chartFullscreenBtn")?.addEventListener("click",toggleChartFullscreen);
+
+  const chart=$("goldChart");
+  if(chart){
+    chart.addEventListener("mousemove",e=>showChartPoint(e.clientX,e.clientY));
+    chart.addEventListener("touchstart",e=>{
+      if(e.touches[0])showChartPoint(e.touches[0].clientX,e.touches[0].clientY);
+    },{passive:true});
+    chart.addEventListener("touchmove",e=>{
+      if(e.touches[0])showChartPoint(e.touches[0].clientX,e.touches[0].clientY);
+    },{passive:true});
+  }
+
+  document.addEventListener("fullscreenchange",()=>{
+    setTimeout(()=>{
+      if(chartUI.chart){
+        chartUI.chart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);
+        requestAnimationFrame(drawPurchaseOverlay);
+      }
+    },50);
+  });
 
   window.addEventListener("resize",()=>{
-    if(tvChart && $("goldChart")) tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);
-    renderChart();
+    if(chartUI.chart){
+      chartUI.chart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);
+      requestAnimationFrame(drawPurchaseOverlay);
+    }
   });
   loadLastMarket();
   renderPortfolio();

@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
 <link rel="stylesheet" href="gold.css">
+<script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 <div class="gold-container">
@@ -67,14 +67,18 @@
           <button class="chart-tab" data-range="7D">7D</button>
           <button class="chart-tab" data-range="30D">30D</button>
         </div>
-        <span id="chartHint">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</span>
+        <div class="chart-tools">
+          <button class="chart-tool-btn" id="chartFitBtn" type="button">↔ Fit</button>
+          <button class="chart-tool-btn" id="chartCandleBtn" type="button">🕯️ แท่งเทียน</button>
+          <button class="chart-tool-btn" id="chartResetBtn" type="button">⟳ Reset</button>
+          <button class="chart-tool-btn" id="chartFullscreenBtn" type="button">⛶ เต็มจอ</button>
+        </div>
       </div>
-      <div class="chart-actions">
-        <button type="button" id="chartFitBtn" class="chart-action-btn">↔ Fit</button>
-        <button type="button" id="chartResetBtn" class="chart-action-btn">⟳ Reset</button>
-        <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
+      <div id="chartHint" class="chart-hint-line">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</div>
+      <div class="chart-stage" id="chartStage">
+        <div id="goldChart"></div>
+        <svg id="chartOverlay" class="chart-overlay" aria-hidden="true"></svg>
       </div>
-      <div id="goldChart"></div>
       <div class="chart-info-row">
         <span id="chartCurrent">ปัจจุบัน: -</span>
         <span id="chartHigh">สูงสุด: -</span>

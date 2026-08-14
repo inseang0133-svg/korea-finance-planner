@@ -81,10 +81,13 @@ function formatDateTime(date, time){
 
 function getEffectiveSellPrice(){
   const settings = loadSettings();
-  if(settings.useSellOverride && Number(settings.sellOverride) > 0){
-    return {price:Number(settings.sellOverride), exact:true};
+  const marketPrice = Number(state.priceThbGram);
+  // Use the live market quote by default. A manually entered Gold Wallet
+  // sell quote is used ONLY when the user explicitly enables the checkbox.
+  if(settings.useSellOverride === true && Number(settings.sellOverride) > 0){
+    return {price:Number(settings.sellOverride), exact:true, source:"wallet"};
   }
-  return {price:state.priceThbGram || 0, exact:false};
+  return {price:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0, exact:false, source:"market"};
 }
 
 function calculateLot(lot){
@@ -325,6 +328,13 @@ function renderPortfolio(){
   $("positivePL").textContent=`+${money(p.positivePL)}`;
   $("negativePL").textContent=money(p.negativePL);
   $("avgCost").textContent=money(p.avgCost)+"/g";
+  const sellQuote=getEffectiveSellPrice();
+  const valueHint=$("portfolioValueHint");
+  if(valueHint){
+    valueHint.textContent=sellQuote.exact
+      ? `ประเมินด้วยราคาขายคืนจริง ${money(sellQuote.price)}/g`
+      : `ประเมินด้วยราคาตลาด ${money(sellQuote.price)}/g`;
+  }
   $("winRate").textContent=`${p.wins} / ${p.lots.length}`;
   $("winRatePct").textContent=p.lots.length ? `${(p.wins/p.lots.length*100).toFixed(2)}%` : "0.00%";
 
@@ -393,9 +403,16 @@ function getLotsForChart(){
   const now=Date.now();
   const days=state.range==="1D"?1:(state.range==="7D"?7:30);
   const start=now-days*86400000;
+  const end=now+86400000;
   return loadLots().filter(l=>{
     const ts=Date.parse(`${l.date}T${l.time||"00:00"}`);
-    return Number.isFinite(ts)&&ts>=start&&ts<=now+86400000;
+    if(!Number.isFinite(ts)) return false;
+    // Keep the chart's 1D data window unchanged, but allow a purchase
+    // marker from the immediately preceding day to remain discoverable.
+    // This is important for a purchase such as yesterday 02:34 when the
+    // current time is today 07:xx: the marker should not silently vanish.
+    const markerStart = state.range==="1D" ? start-86400000 : start;
+    return ts>=markerStart && ts<=end;
   });
 }
 function extendRangeForLots(data){
@@ -563,7 +580,9 @@ function drawPurchaseOverlay(chart,series,svgId,gramMode){
     if(!buy)continue;
     const current=Number(state.priceThbGram)||0;
     if(!(current>0))continue;
-    const pl=(current-buyGram)*grams;
+    const purity=Number(lot.goldType||99.99)/99.99;
+    const currentForLot=current*purity;
+    const pl=(currentForLot-buyGram)*grams;
     const y=series.priceToCoordinate(buy);if(y==null)continue;
     const positive=pl>=0,color=positive?"#62db8a":"#ff5d68";
     const v=svgEl("line",{x1:x,y1:0,x2:x,y2:h,stroke:color,class:"purchase-vline"});

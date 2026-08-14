@@ -16,6 +16,7 @@ const DAILY_HISTORY_KEY = "kfp_gold_daily_history_v2";
 const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
 
 const OZ_TO_GRAM = 31.1034768;
+const PURCHASE_TIMEZONE = "Asia/Seoul";
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
 const POLL_MS = 60_000;
 
@@ -73,10 +74,30 @@ function unitToGrams(quantity, unit){
   return quantity;
 }
 
+function parseLotTimestamp(date, time){
+  if(!date) return NaN;
+  const t = time || "00:00";
+  // Purchase form time is always Korea local time (Asia/Seoul).
+  const d = new Date(`${date}T${t}:00+09:00`);
+  return d.getTime();
+}
+
 function formatDateTime(date, time){
   if(!date) return "-";
-  const d = new Date(`${date}T${time || "00:00"}`);
-  return Number.isNaN(d.getTime()) ? date : d.toLocaleString("th-TH",{dateStyle:"medium",timeStyle:time ? "short" : undefined});
+  const ts = parseLotTimestamp(date, time);
+  if(!Number.isFinite(ts)) return date;
+  return new Intl.DateTimeFormat("th-TH",{
+    timeZone:PURCHASE_TIMEZONE,
+    dateStyle:"medium",
+    timeStyle:time ? "short" : undefined
+  }).format(new Date(ts));
+}
+
+function formatChartTime(timestamp){
+  return new Intl.DateTimeFormat("th-TH",{
+    timeZone:PURCHASE_TIMEZONE,
+    month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false
+  }).format(new Date(Number(timestamp)*1000));
 }
 
 function getEffectiveSellPrice(){
@@ -405,7 +426,7 @@ function getLotsForChart(){
   const start=now-days*86400000;
   const end=now+86400000;
   return loadLots().filter(l=>{
-    const ts=Date.parse(`${l.date}T${l.time||"00:00"}`);
+    const ts=parseLotTimestamp(l.date,l.time);
     if(!Number.isFinite(ts)) return false;
     // Keep the chart's 1D data window unchanged, but allow a purchase
     // marker from the immediately preceding day to remain discoverable.
@@ -421,7 +442,7 @@ function extendRangeForLots(data){
   let from=Math.min(...times),to=Math.max(...times);
   const lots=getLotsForChart();
   for(const l of lots){
-    const ts=Math.floor(Date.parse(`${l.date}T${l.time||"00:00"}`)/1000);
+    const ts=Math.floor(parseLotTimestamp(l.date,l.time)/1000);
     if(Number.isFinite(ts)){from=Math.min(from,ts);to=Math.max(to,ts);}
   }
   const span=Math.max(3600,to-from);
@@ -508,7 +529,7 @@ function ensureTradingViewChart(){
   }
   const makeChart=(id)=>{
     const el=$(id);if(!el)return null;
-    return LightweightCharts.createChart(el,{autoSize:true,layout:{background:{type:"solid",color:"#0f1112"},textColor:"#777"},grid:{vertLines:{color:"#171919"},horzLines:{color:"#292b2b"}},rightPriceScale:{borderColor:"#292b2b",scaleMargins:{top:.08,bottom:.08}},timeScale:{borderColor:"#292b2b",timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:7,minBarSpacing:2},crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"},horzLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"}},handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true}});
+    return LightweightCharts.createChart(el,{autoSize:true,layout:{background:{type:"solid",color:"#0f1112"},textColor:"#777"},localization:{timeFormatter:formatChartTime},grid:{vertLines:{color:"#171919"},horzLines:{color:"#292b2b"}},rightPriceScale:{borderColor:"#292b2b",scaleMargins:{top:.08,bottom:.08}},timeScale:{borderColor:"#292b2b",timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:7,minBarSpacing:2},crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"},horzLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"}},handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true}});
   };
   tvChart=makeChart("goldChart"); tvChartOz=makeChart("goldChartOz");
   if(!tvChart||!tvChartOz)return false;
@@ -516,6 +537,43 @@ function ensureTradingViewChart(){
   const candleOpts={upColor:"#62db8a",downColor:"#ff5d68",borderUpColor:"#62db8a",borderDownColor:"#ff5d68",wickUpColor:"#62db8a",wickDownColor:"#ff5d68",priceFormat:{type:"price",precision:2,minMove:.01}};
   tvSeries=tvChart.addAreaSeries(areaOpts);tvCandleSeries=tvChart.addCandlestickSeries(candleOpts);
   tvSeriesOz=tvChartOz.addAreaSeries(areaOpts);tvCandleSeriesOz=tvChartOz.addCandlestickSeries(candleOpts);
+
+  // Keep purchase markers/lines inside the visible price scale.
+  // A lot bought well below the current market price (e.g. 4,372 vs 4,611)
+  // must still be visible on the chart instead of disappearing outside the plot.
+  const purchasePrices=(gramMode)=>{
+    const prices=[];
+    for(const lot of getLotsForChart()){
+      const grams=Number(lot.grams)||unitToGrams(Number(lot.quantity)||0,lot.unit);
+      if(!(grams>0)) continue;
+      const buyGram=Number(lot.buyPriceThbGram)>0?Number(lot.buyPriceThbGram):(Number(lot.costThb)>0?Number(lot.costThb)/grams:0);
+      if(!(buyGram>0)) continue;
+      if(gramMode) prices.push(buyGram);
+      else {
+        const fx=chartFx();
+        const buyOz=fx&&fx>0?buyGram*OZ_TO_GRAM/fx:0;
+        if(buyOz>0) prices.push(buyOz);
+      }
+    }
+    return prices;
+  };
+  const autoscale=(gramMode)=>(original)=>{
+    const info=original();
+    if(!info?.priceRange) return info;
+    const prices=purchasePrices(gramMode);
+    if(!prices.length) return info;
+    const min=Math.min(info.priceRange.minValue,...prices);
+    const max=Math.max(info.priceRange.maxValue,...prices);
+    if(!(Number.isFinite(min)&&Number.isFinite(max))) return info;
+    const span=Math.max(max-min,0.000001);
+    const pad=span*0.03;
+    return {...info,priceRange:{minValue:min-pad,maxValue:max+pad}};
+  };
+  tvSeries.applyOptions({autoscaleInfoProvider:autoscale(true)});
+  tvCandleSeries.applyOptions({autoscaleInfoProvider:autoscale(true)});
+  tvSeriesOz.applyOptions({autoscaleInfoProvider:autoscale(false)});
+  tvCandleSeriesOz.applyOptions({autoscaleInfoProvider:autoscale(false)});
+
   setChartMode(chartMode);
   tvChart.timeScale().subscribeVisibleTimeRangeChange(()=>{saveChartView();drawPurchaseOverlays();});
   tvChartOz.timeScale().subscribeVisibleTimeRangeChange(()=>drawPurchaseOverlays());
@@ -527,7 +585,8 @@ function ensureTradingViewChart(){
     if(!Number.isFinite(Number(value)))return;
     const d=new Date(Number(param.time)*1000);
     const label=isUsd?formatUsdPrice(Number(value))+"/troy oz":money(Number(value))+"/g";
-    $(tip).textContent=`${d.toLocaleString("th-TH",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} · ${label}`;
+    const dt=new Intl.DateTimeFormat("th-TH",{timeZone:PURCHASE_TIMEZONE,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
+    $(tip).textContent=`${dt} · ${label}`;
   });
   cross(tvChart,tvSeries,"chartTooltip",false);
   cross(tvChartOz,tvSeriesOz,"chartTooltipOz",true);
@@ -568,7 +627,7 @@ function drawPurchaseOverlay(chart,series,svgId,gramMode){
   const lots=getLotsForChart();
   const visible=chart.timeScale().getVisibleRange();if(!visible)return;
   for(const lot of lots){
-    const ts=chartTime(Date.parse(`${lot.date}T${lot.time||"00:00"}`));
+    const ts=chartTime(parseLotTimestamp(lot.date,lot.time));
     if(!Number.isFinite(ts)||ts<visible.from||ts>visible.to)continue;
     const x=chart.timeScale().timeToCoordinate(ts);if(x==null)continue;
     const grams=Number(lot.grams)||unitToGrams(Number(lot.quantity)||0,lot.unit);
@@ -583,7 +642,12 @@ function drawPurchaseOverlay(chart,series,svgId,gramMode){
     const purity=Number(lot.goldType||99.99)/99.99;
     const currentForLot=current*purity;
     const pl=(currentForLot-buyGram)*grams;
-    const y=series.priceToCoordinate(buy);if(y==null)continue;
+    const y=series.priceToCoordinate(buy);if(y==null){
+      // The chart can briefly report null while autoscaling after a data update.
+      // Retry on the next frame instead of silently losing the purchase marker.
+      requestAnimationFrame(()=>drawPurchaseOverlays());
+      continue;
+    }
     const positive=pl>=0,color=positive?"#62db8a":"#ff5d68";
     const v=svgEl("line",{x1:x,y1:0,x2:x,y2:h,stroke:color,class:"purchase-vline"});
     const hl=svgEl("line",{x1:0,y1:y,x2:w,y2:y,stroke:color,class:"purchase-hline"});

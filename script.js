@@ -941,12 +941,10 @@ function calculateRemit(){
             ).value
         ) || 0;
 
-    const receiveFee =
-        parseFloat(
-            document.getElementById(
-                "receiveFee"
-            ).value
-        ) || 0;
+    // ค่าธรรมเนียมรับเงินปลายทางเป็นค่าคงที่ 60 THB
+    // และต้องแปลงเป็น KRW ตามเรตสำหรับการส่งเงินจริง
+    // ดังนั้นเมื่อเปลี่ยน remitRate ค่า receiveFee จะเปลี่ยนตามทันที
+    const receiveFeeTHB = 60;
 
     // เรตของธนาคารสำหรับการส่งเงินจริง:
     // 1 THB = กี่ KRW
@@ -964,6 +962,15 @@ function calculateRemit(){
     ){
         document.getElementById("remitResult").innerHTML = "-";
         return;
+    }
+
+    // ค่าธรรมเนียมรับเงินปลายทาง 60 THB แปลงเป็น KRW ด้วยเรตเดียวกับการส่งเงินจริง
+    const receiveFee = Math.round(receiveFeeTHB * remitRate);
+
+    // อัปเดตช่องค่าธรรมเนียมรับเงินปลายทางให้เห็นค่าที่คำนวณจากเรตล่าสุด
+    const receiveFeeInput = document.getElementById("receiveFee");
+    if (receiveFeeInput) {
+        receiveFeeInput.value = receiveFee;
     }
 
     // จำนวน KRW ที่ต้องส่งเพื่อให้ปลายทางได้รับ THB ตามที่กำหนด

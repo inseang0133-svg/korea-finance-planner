@@ -203,3 +203,8 @@ input:focus,select:focus{border-color:#b18d21}
   .chart-stage{height:290px}
   .chart-wrap.chart-fullscreen .chart-stage{height:calc(100vh - 270px);min-height:330px}
 }
+
+
+/* Thai retail gold price cards */
+.thai-gold-box{border-color:#4a4020}
+.thai-gold-box strong{color:#f1e4a6}

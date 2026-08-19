@@ -14,8 +14,6 @@ const HISTORY_KEY = "kfp_gold_market_history_v1";
 const SETTINGS_KEY = "kfp_gold_settings_v1";
 const DAILY_HISTORY_KEY = "kfp_gold_daily_history_v2";
 const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
-const DAILY_HISTORY_RETENTION_DAYS = 5 * 365;
-const INTRADAY_HISTORY_RETENTION_DAYS = 14;
 
 const OZ_TO_GRAM = 31.1034768;
 const PURCHASE_TIMEZONE = "Asia/Seoul";
@@ -27,6 +25,7 @@ let state = {
   usdThb: null,
   priceThbGram: null,
   priceThbOz: null,
+  thaiGold: { barBuy: null, barSell: null, jewelryBuy: null, jewelrySell: null, updatedAt: null, source: null },
   updatedAt: null,
   source: null,
   range: "1D",
@@ -44,7 +43,6 @@ let chartInterval = "5m";
 let tvChartReadyKey = null;
 const CHART_VIEW_KEY = "kfp_gold_chart_view_v2";
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};
-const CHART_RANGES = {"1D":1,"7D":7,"30D":30,"3M":90,"1Y":365,"5Y":1825};
 
 const $ = id => document.getElementById(id);
 const money = n => Number.isFinite(n) ? new Intl.NumberFormat("th-TH",{style:"currency",currency:"THB",maximumFractionDigits:2}).format(n) : "฿0";
@@ -155,6 +153,36 @@ async function fetchJSON(url){
   } finally { clearTimeout(timeout); }
 }
 
+async function fetchThaiGoldPrices(){
+  // Thai gold trading reference: data crawled from Gold Traders Association.
+  // This endpoint is a public JSON wrapper; no API key is required.
+  try{
+    const data=await fetchJSON(`https://api.chnwt.dev/thai-gold-api/latest?fresh=${Date.now()}`);
+    const p=data?.response?.price||{};
+    const bar=p.gold_bar||{};
+    const jewelry=p.gold||{};
+    const clean=v=>{
+      const n=Number(String(v??"").replace(/,/g,""));
+      return Number.isFinite(n)&&n>0?n:null;
+    };
+    state.thaiGold={
+      barBuy:clean(bar.buy),
+      barSell:clean(bar.sell),
+      jewelryBuy:clean(jewelry.buy),
+      jewelrySell:clean(jewelry.sell),
+      updatedAt:data?.response?.update_date||null,
+      source:"สมาคมค้าทองคำ · public API"
+    };
+    renderMarket();
+    return true;
+  }catch(_){
+    // Keep the existing gold market/chart system working if this reference API is unavailable.
+    state.thaiGold={...state.thaiGold,source:null};
+    renderMarket();
+    return false;
+  }
+}
+
 async function fetchGold(){
   /*
     Browser-safe primary source: XAUS.
@@ -184,6 +212,7 @@ async function fetchGold(){
     appendHistory();
     await fetchIntradayGold();
     renderMarket();renderPortfolio();renderLots();renderChart();
+    fetchThaiGoldPrices();
     return true;
   }catch(e){ errors.push(`XAUS: ${e.message}`); }
 
@@ -196,6 +225,7 @@ async function fetchGold(){
     if(!Number.isFinite(fx)||fx<=0) throw new Error("invalid USD/THB");
     applyMarket(spot,fx,"Gold API + Frankfurter");
     await fetchIntradayGold();
+    fetchThaiGoldPrices();
     return true;
   }catch(e){ errors.push(`Gold API: ${e.message}`); }
 
@@ -219,10 +249,7 @@ async function fetchIntradayGold(){
       return thb?{ts,price:thb,usd:price,source:"xaus-intraday"}:null;
     }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
     if(rows.length){
-      const old=(()=>{try{return JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY)||"[]")}catch{return []}})();
-      const merged=dedupPoints(old.concat(rows));
-      const cutoff=Date.now()-INTRADAY_HISTORY_RETENTION_DAYS*86400000;
-      localStorage.setItem(INTRADAY_HISTORY_KEY,JSON.stringify(merged.filter(x=>x.ts>=cutoff).slice(-12000)));
+      localStorage.setItem(INTRADAY_HISTORY_KEY,JSON.stringify(rows.slice(-1500)));
       renderChart();
     }
     return true;
@@ -289,6 +316,12 @@ function renderMarket(){
   $("usdThb").textContent=state.usdThb ? num(state.usdThb,4) : "-";
   $("goldThbGram").textContent=state.priceThbGram ? money(state.priceThbGram) : "-";
   $("goldThbOz").textContent=state.priceThbOz ? money(state.priceThbOz) : "-";
+
+  const tg=state.thaiGold||{};
+  $("thaiBarBuy").textContent=Number.isFinite(tg.barBuy) ? money(tg.barBuy) : "-";
+  $("thaiBarSell").textContent=Number.isFinite(tg.barSell) ? money(tg.barSell) : "-";
+  $("thaiJewelryBuy").textContent=Number.isFinite(tg.jewelryBuy) ? money(tg.jewelryBuy) : "-";
+  $("thaiJewelrySell").textContent=Number.isFinite(tg.jewelrySell) ? money(tg.jewelrySell) : "-";
 }
 
 function appendHistory(){
@@ -300,12 +333,11 @@ function appendHistory(){
   saveHistory(history.filter(x=>x.ts>=cutoff).slice(-5000));
 }
 function loadDailyHistory(){try{return JSON.parse(localStorage.getItem(DAILY_HISTORY_KEY)||"[]")}catch{return []}}
-function saveDailyHistory(rows){localStorage.setItem(DAILY_HISTORY_KEY,JSON.stringify(rows.slice(-2200)))}
+function saveDailyHistory(rows){localStorage.setItem(DAILY_HISTORY_KEY,JSON.stringify(rows.slice(-400)))}
 function ymd(d){return new Date(d).toISOString().slice(0,10)}
 
 async function fetchHistoricalGold(){
-  const now=new Date(), days=Math.min(CHART_RANGES[state.range]||30,DAILY_HISTORY_RETENTION_DAYS);
-  const from=new Date(now.getTime()-days*86400000);
+  const now=new Date(), from=new Date(now.getTime()-31*86400000);
   const fromDate=ymd(from),toDate=ymd(now);
   try{
     const data=await fetchJSON(`https://xaus.com/api/v1/history?fresh=${Date.now()}`);
@@ -322,7 +354,7 @@ async function fetchHistoricalGold(){
       saveDailyHistory(rows);
       renderChart();
       const hint=$("chartHint");
-      if(hint&&state.range!=="1D") hint.textContent=`ข้อมูลย้อนหลัง ${rows.length} วัน · ${state.range} · XAU/USD × FX ปัจจุบัน (ประมาณ)`;
+      if(hint&&state.range!=="1D") hint.textContent=`ข้อมูลย้อนหลัง ${rows.length} วัน · XAU/USD × FX ปัจจุบัน (ประมาณ)`;
     }
     return true;
   }catch(_){
@@ -339,7 +371,7 @@ async function fetchHistoricalGold(){
       if(rows.length){saveDailyHistory(rows);renderChart();return true;}
     }catch(_){ }
     const hint=$("chartHint");
-    if(hint&&state.range!=="1D")hint.textContent=`โหลดข้อมูลย้อนหลัง ${state.range} ไม่ได้ · แสดงข้อมูลที่เคยบันทึกไว้แทน`;
+    if(hint&&state.range!=="1D")hint.textContent="โหลดข้อมูลย้อนหลังไม่ได้ · แสดงข้อมูลที่เคยบันทึกไว้แทน";
     return false;
   }
 }
@@ -429,7 +461,7 @@ function saveChartView(){
 function chartRangeKey(){return `${state.range}_${chartInterval}`}
 function getLotsForChart(){
   const now=Date.now();
-  const days=CHART_RANGES[state.range]||30;
+  const days=state.range==="1D"?1:(state.range==="7D"?7:30);
   const start=now-days*86400000;
   const end=now+86400000;
   return loadLots().filter(l=>{
@@ -459,15 +491,14 @@ function extendRangeForLots(data){
 function rawIntradayPoints(){
   const now=Date.now();
   const remote=(()=>{try{return JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY)||"[]")}catch{return []}})();
-  const cutoff=now-INTRADAY_HISTORY_RETENTION_DAYS*86400000;
-  return remote.filter(x=>x.ts>=cutoff&&Number.isFinite(Number(x.price)))
-    .concat(loadHistory().filter(x=>x.ts>=cutoff&&Number.isFinite(Number(x.price))))
+  return remote.filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price)))
+    .concat(loadHistory().filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price))))
     .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
     .filter(x=>Number.isFinite(x.ts)&&Number.isFinite(x.price)&&x.price>0)
     .sort((a,b)=>a.ts-b.ts);
 }
 function rawDailyPoints(){
-  const now=Date.now(),days=CHART_RANGES[state.range]||30,start=now-days*86400000;
+  const now=Date.now(),days=state.range==="7D"?7:30,start=now-days*86400000;
   return loadDailyHistory().filter(x=>x.ts>=start&&Number.isFinite(Number(x.price)))
     .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
     .sort((a,b)=>a.ts-b.ts);
@@ -513,12 +544,12 @@ function aggregateDaily(points){
   return out;
 }
 function getChartOHLC(){
-  let points=state.range==="1D" ? rawIntradayPoints().filter(x=>x.ts>=Date.now()-86400000) : rawDailyPoints();
+  const points=state.range==="1D" ? rawIntradayPoints() : rawDailyPoints();
   if(!points.length)return [];
   return state.range==="1D" ? aggregateIntraday(dedupPoints(points),chartInterval) : aggregateDaily(points);
 }
 function getChartUSD_OHLC(){
-  let points=state.range==="1D" ? rawIntradayPoints().filter(x=>x.ts>=Date.now()-86400000) : rawDailyPoints();
+  const points=state.range==="1D" ? rawIntradayPoints() : rawDailyPoints();
   if(!points.length)return [];
   const usdPoints=points.map(p=>({ts:p.ts,price:pointUsdOz(p)})).filter(p=>Number.isFinite(p.price)&&p.price>0);
   if(!usdPoints.length)return [];
@@ -696,7 +727,7 @@ function renderChart(){
   if(tvChartReadyKey!==key){restoreChartView();tvChartReadyKey=key;}
   const hint=$("chartHint");
   if(hint){
-    const source=state.range==="1D"?`Intraday · ${chartInterval} · ${pts.length} แท่ง`:`ย้อนหลัง ${state.range} · ${pts.length} วัน`;
+    const source=state.range==="1D"?`Intraday · ${chartInterval} · ${pts.length} แท่ง`:`ย้อนหลัง ${state.range} · ${pts.length} แท่ง`;
     const candleNote=chartMode==="candle"?(state.range==="1D"?" · OHLC จากจุด Intraday":" · แท่งรายวันเป็นค่าประมาณจากราคาปิด"):" · กราฟเส้น";
     hint.textContent=`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${source}${candleNote} · กราฟที่ 2 = USD/troy oz`;
   }

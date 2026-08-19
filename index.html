@@ -129,6 +129,17 @@
         <label>ค่าธรรมเนียมรับเงินปลายทาง (KRW)</label>
         <input type="number" id="receiveFee" value="2578" oninput="calculateRemit()">
 
+        <label>เรตสำหรับการส่งเงินจริง (1 KRW = ? THB)</label>
+        <input
+            type="number"
+            id="remitRate"
+            step="0.00001"
+            placeholder="เว้นว่าง = ใช้เรตหลักด้านบน เช่น 0.02355"
+            oninput="calculateRemit()">
+        <p style="color:#aaa;font-size:14px;margin-top:-10px;margin-bottom:20px;">
+            💡 กรอกเรตจากแอปธนาคารได้เอง เพื่อให้คำนวณตรงกับยอดที่ธนาคารแสดง
+        </p>
+
         <div id="remitResult">-</div>
     </div>
 

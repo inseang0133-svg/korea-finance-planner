@@ -948,12 +948,25 @@ function calculateRemit(){
             ).value
         ) || 0;
 
-    const rate =
+    // ใช้เรตเฉพาะสำหรับการส่งเงินถ้ามีการกรอกเอง
+    // ถ้าเว้นว่าง จะกลับไปใช้เรตหลักของเว็บเหมือนเดิม
+    const manualRate =
+        parseFloat(
+            document.getElementById(
+                "remitRate"
+            ).value
+        );
+
+    const mainRate =
         parseFloat(
             document.getElementById(
                 "rate"
             ).value
         );
+
+    const rate = Number.isFinite(manualRate) && manualRate > 0
+        ? manualRate
+        : mainRate;
 
     if(
         !thb ||

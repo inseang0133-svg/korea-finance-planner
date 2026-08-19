@@ -154,18 +154,20 @@ async function fetchJSON(url){
 }
 
 async function fetchThaiGoldPrices(){
-  // Thai gold trading reference: data crawled from Gold Traders Association.
-  // This endpoint is a public JSON wrapper; no API key is required.
+  // Thai retail reference: Gold Traders Association data.
+  // Primary: public wrapper. Fallback: a JSON mirror using the same GTA data.
+  const clean=v=>{
+    const n=Number(String(v??"").replace(/,/g,""));
+    return Number.isFinite(n)&&n>0?n:null;
+  };
+
+  // 1) Primary public wrapper
   try{
     const data=await fetchJSON(`https://api.chnwt.dev/thai-gold-api/latest?fresh=${Date.now()}`);
     const p=data?.response?.price||{};
     const bar=p.gold_bar||{};
     const jewelry=p.gold||{};
-    const clean=v=>{
-      const n=Number(String(v??"").replace(/,/g,""));
-      return Number.isFinite(n)&&n>0?n:null;
-    };
-    state.thaiGold={
+    const next={
       barBuy:clean(bar.buy),
       barSell:clean(bar.sell),
       jewelryBuy:clean(jewelry.buy),
@@ -173,13 +175,48 @@ async function fetchThaiGoldPrices(){
       updatedAt:data?.response?.update_date||null,
       source:"สมาคมค้าทองคำ · public API"
     };
-    renderMarket();
-    return true;
-  }catch(_){
-    // Keep the existing gold market/chart system working if this reference API is unavailable.
-    state.thaiGold={...state.thaiGold,source:null};
-    renderMarket();
-    return false;
+    if(next.barBuy||next.barSell||next.jewelryBuy||next.jewelrySell){
+      state.thaiGold=next;
+      localStorage.setItem("kfp_gold_thai_prices_v1",JSON.stringify(next));
+      renderMarket();
+      return true;
+    }
+    throw new Error("Thai gold API returned no prices");
+  }catch(primaryError){
+    // 2) Fallback JSON mirror. It exposes the same GTA prices in a browser-readable format.
+    try{
+      const data=await fetchJSON(`https://script.google.com/macros/s/AKfycbwgvstkxFOR9p6zOV2d8iEGagbpQ6h8C3BhPnDCoB56jvmbAwSG0A9a36r6oRxNkBXQ/exec?fresh=${Date.now()}`);
+      const rows=Array.isArray(data?.data)?data.data:[];
+      const find=(label,kind)=>rows.find(x=>x?.sellPriceGoldBar===label && (!kind || x?.taxBasePrice===kind));
+      const time=find("เวลา")?.buyPriceGoldOrnament||null;
+      const barSell=find("ราคาขายออก","ทองคำแท่ง 96.5%")?.buyPriceGoldOrnament;
+      const barBuy=find("รับซื้อ")?.buyPriceGoldOrnament;
+      const jewelrySell=find("ราคาขายออก","ทองรูปพรรณ 96.5%")?.buyPriceGoldOrnament;
+      const jewelryBuy=find("ฐานภาษี")?.buyPriceGoldOrnament;
+      const next={
+        barBuy:clean(barBuy),
+        barSell:clean(barSell),
+        jewelryBuy:clean(jewelryBuy),
+        jewelrySell:clean(jewelrySell),
+        updatedAt:time,
+        source:"สมาคมค้าทองคำ · fallback API"
+      };
+      if(next.barBuy||next.barSell||next.jewelryBuy||next.jewelrySell){
+        state.thaiGold=next;
+        localStorage.setItem("kfp_gold_thai_prices_v1",JSON.stringify(next));
+        renderMarket();
+        return true;
+      }
+      throw new Error("fallback returned no prices");
+    }catch(_){
+      // 3) Keep the last successful Thai retail quote instead of showing blank cards.
+      try{
+        const cached=JSON.parse(localStorage.getItem("kfp_gold_thai_prices_v1")||"null");
+        if(cached && typeof cached==="object") state.thaiGold={...state.thaiGold,...cached,source:`${cached.source||"GTA"} · cached`};
+      }catch(__){}
+      renderMarket();
+      return false;
+    }
   }
 }
 
@@ -259,7 +296,7 @@ function persistLastMarket(){
   localStorage.setItem("kfp_gold_last_market",JSON.stringify({
     spotUsdOz:state.spotUsdOz,usdThb:state.usdThb,
     priceThbOz:state.priceThbOz,priceThbGram:state.priceThbGram,
-    updatedAt:state.updatedAt,source:state.source
+    updatedAt:state.updatedAt,source:state.source,thaiGold:state.thaiGold
   }));
 }
 
@@ -286,7 +323,7 @@ function loadLastMarket(){
   try{
     const x=JSON.parse(localStorage.getItem("kfp_gold_last_market")||"null");
     if(x && Number.isFinite(Number(x.priceThbGram))){
-      state={...state,...x,priceThbGram:Number(x.priceThbGram),priceThbOz:Number(x.priceThbOz)};
+      state={...state,...x,priceThbGram:Number(x.priceThbGram),priceThbOz:Number(x.priceThbOz),thaiGold:x.thaiGold||state.thaiGold};
       renderMarket();
       return x;
     }

@@ -5,10 +5,13 @@ body{
   background:#0b0d0e;
   color:#f5f5f5;
   font-family:Arial,"Noto Sans Thai",sans-serif;
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
 }
 button,input,select{font:inherit}
 button{-webkit-tap-highlight-color:transparent}
-.gold-container{max-width:1050px;margin:auto;padding:28px 18px 70px}
+.gold-container{width:100%;max-width:1050px;margin:auto;padding:28px 18px 70px;overflow-x:hidden}
 .gold-card{
   background:#151819;
   border:1px solid #a98617;
@@ -45,10 +48,10 @@ h2{font-size:22px}
   display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px
 }
 .market-box,.gold-stat{
-  background:#101314;border:1px solid #3d351d;border-radius:14px;padding:18px
+  background:#101314;border:1px solid #3d351d;border-radius:14px;padding:18px;min-width:0;overflow:hidden
 }
 .market-box span,.gold-stat span{display:block;color:#aaa;font-size:14px}
-.market-box strong,.gold-stat strong{display:block;color:#eee;font-size:22px;margin-top:9px}
+.market-box strong,.gold-stat strong{display:block;color:#eee;font-size:22px;margin-top:9px;overflow-wrap:anywhere}
 .market-box small,.gold-stat small{display:block;color:#777;margin-top:6px}
 .market-box.featured{border-color:#b89224;background:linear-gradient(145deg,#191812,#111313)}
 .market-box.featured strong{color:#6fe08f}
@@ -61,7 +64,7 @@ h2{font-size:22px}
 .chart-tab.active{background:#b18d21;color:#000;border-color:#b18d21}
 #chartHint{font-size:12px;color:#777}
 #goldChart{display:block;width:100%;height:320px;min-height:260px;overflow:hidden;border-radius:10px}
-.chart-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
+.chart-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;margin:8px 0 4px;max-width:100%;overflow:hidden}
 .chart-action-btn{border:1px solid #4b4328;background:#171817;color:#aaa;padding:6px 10px;border-radius:8px;cursor:pointer;font-size:12px}
 .chart-action-btn:active,.chart-action-btn:hover{border-color:#b18d21;color:#d4af37}
 .chart-wrap.chart-fullscreen{position:fixed;inset:10px;z-index:9999;margin:0;padding:16px;background:#0b0d0e;border:1px solid #b18d21;border-radius:14px;box-shadow:0 20px 80px rgba(0,0,0,.7);height:auto}
@@ -196,7 +199,7 @@ input:focus,select:focus{border-color:#b18d21}
   .chart-interval-toolbar{align-items:flex-start;flex-direction:column}
   .chart-interval-note{text-align:left}
   .chart-stage{height:300px}
-  .chart-actions{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}
+  .chart-actions{justify-content:flex-start;overflow-x:hidden;flex-wrap:wrap;padding-bottom:2px}
   .chart-tool-btn,.chart-action-btn{flex:0 0 auto}
 }
 @media(max-width:600px){
@@ -208,3 +211,15 @@ input:focus,select:focus{border-color:#b18d21}
 /* Thai retail gold price cards */
 .thai-gold-box{border-color:#4a4020}
 .thai-gold-box strong{color:#f1e4a6}
+
+/* Mobile: page scrolls vertically only; the chart itself keeps its own touch interaction. */
+@media(max-width:600px){
+  html,body{width:100%;max-width:100%;overflow-x:hidden}
+  .gold-container{width:100%;max-width:100%;padding-left:10px;padding-right:10px}
+  .gold-card,.chart-wrap,.chart-panel,.chart-stage{max-width:100%;min-width:0}
+  .market-grid,.gold-stats-grid,.form-row,.simulate-grid,.info-grid{min-width:0}
+  .market-box,.gold-stat{min-width:0}
+  .market-box strong,.gold-stat strong{font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+  .chart-tabs{max-width:100%;flex-wrap:wrap}
+  .chart-actions{width:100%;max-width:100%;overflow-x:hidden}
+}

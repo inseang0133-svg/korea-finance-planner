@@ -948,73 +948,40 @@ function calculateRemit(){
             ).value
         ) || 0;
 
-    // ใช้เรตเฉพาะสำหรับการส่งเงินถ้ามีการกรอกเอง
-    // ถ้าเว้นว่าง จะกลับไปใช้เรตหลักของเว็บเหมือนเดิม
-    const manualRate =
+    // เรตของธนาคารสำหรับการส่งเงินจริง:
+    // 1 THB = กี่ KRW
+    const remitRate =
         parseFloat(
             document.getElementById(
                 "remitRate"
             ).value
         );
 
-    const mainRate =
-        parseFloat(
-            document.getElementById(
-                "rate"
-            ).value
-        );
-
-    const rate = Number.isFinite(manualRate) && manualRate > 0
-        ? manualRate
-        : mainRate;
-
     if(
         !thb ||
-        !rate
+        !remitRate ||
+        remitRate <= 0
     ){
         document.getElementById("remitResult").innerHTML = "-";
         return;
     }
 
-    // รองรับทั้งเรตเดิมของเว็บ (THB ต่อ 1 KRW เช่น 0.0233)
-    // และเรตจากธนาคารที่แสดงเป็น KRW ต่อ 1 THB (เช่น 42.97)
-    const krwForRecipient =
-        rate > 1
-            ? thb * rate
-            : thb / rate;
+    // จำนวน KRW ที่ต้องส่งเพื่อให้ปลายทางได้รับ THB ตามที่กำหนด
+    const krwForRecipient = thb * remitRate;
 
-    const displayRate = rate > 1
-        ? 1 / rate
-        : rate;
-
-    // รวมค่าธรรมเนียมฝั่งผู้โอน + ค่าธรรมเนียมรับเงินปลายทาง
+    // รวมค่าธรรมเนียม
     const totalFee = transferFee + receiveFee;
+
+    // ยอด KRW ที่ต้องโอนจริง
     const krwNeeded = krwForRecipient + totalFee;
 
+    // แสดงเฉพาะข้อมูลสรุปที่จำเป็น
     document.getElementById(
         "remitResult"
     ).innerHTML =
     `
     <div>
-        <strong>เรตที่ใช้:</strong> 1 KRW = ${displayRate.toFixed(5)} THB
-    </div>
-    <br>
-    <div>
-        ต้องใช้เพื่อให้ปลายทางได้รับ
-        <strong>${thb.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} THB</strong>
-    </div>
-    <br>
-    <div>
-        เงินสำหรับยอดส่ง: <strong>${Math.round(krwForRecipient).toLocaleString()} KRW</strong>
-    </div>
-    <div>
-        ค่าธรรมเนียมโอน: <strong>${Math.round(transferFee).toLocaleString()} KRW</strong>
-    </div>
-    <div>
-        ค่าธรรมเนียมรับเงิน: <strong>${Math.round(receiveFee).toLocaleString()} KRW</strong>
-    </div>
-    <div>
-        ค่าธรรมเนียมรวม: <strong>${Math.round(totalFee).toLocaleString()} KRW</strong>
+        <strong>ค่าธรรมเนียมรวม: ${Math.round(totalFee).toLocaleString()} KRW</strong>
     </div>
     <br>
     <div style="font-size:1.25em;">

@@ -123,8 +123,11 @@
         <label>ต้องการให้ปลายทางได้รับ (บาท)</label>
         <input type="number" id="receiveTHB" oninput="calculateRemit()">
 
-        <label>ค่าธรรมเนียมโอน (KRW)</label>
+        <label>ค่าธรรมเนียมโอนจากธนาคาร (KRW)</label>
         <input type="number" id="transferFee" value="5000" oninput="calculateRemit()">
+
+        <label>ค่าธรรมเนียมรับเงินปลายทาง (KRW)</label>
+        <input type="number" id="receiveFee" value="2578" oninput="calculateRemit()">
 
         <div id="remitResult">-</div>
     </div>

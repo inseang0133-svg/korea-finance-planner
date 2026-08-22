@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-v2';
-const API_CACHE_NAME = 'korea-finance-api-v1';
+const CACHE_NAME = 'korea-finance-v4';
+const API_CACHE_NAME = 'korea-finance-api-v3';
 
 const ASSETS = [
   'index.html',
@@ -21,15 +21,12 @@ const API_HOSTS = new Set([
   'api.goldprice.dev'
 ]);
 
-function isGet(request) {
-  return request.method === 'GET';
-}
+function isGet(request) { return request.method === 'GET'; }
 
 function isApiRequest(request) {
   try {
     const url = new URL(request.url);
     if (!API_HOSTS.has(url.hostname)) return false;
-
     return (
       url.hostname === 'xaus.com' && url.pathname.startsWith('/api/v1/')
     ) || (
@@ -43,26 +40,16 @@ function isApiRequest(request) {
     ) || (
       url.hostname === 'api.goldprice.dev' && url.pathname.startsWith('/v1/')
     );
-  } catch (_) {
-    return false;
-  }
+  } catch (_) { return false; }
 }
 
-// The app adds ?fresh=<timestamp> to force a network request. For the
-// service-worker cache we intentionally remove that parameter so every poll
-// can reuse the latest successful response instead of creating a new cache key.
 function normalizedRequest(request) {
   const url = new URL(request.url);
   url.searchParams.delete('fresh');
   return new Request(url.toString(), {
-    method: 'GET',
-    headers: request.headers,
-    mode: request.mode,
-    credentials: request.credentials,
-    cache: 'default',
-    redirect: request.redirect,
-    referrer: request.referrer,
-    referrerPolicy: request.referrerPolicy
+    method: 'GET', headers: request.headers, mode: request.mode,
+    credentials: request.credentials, cache: 'default', redirect: request.redirect,
+    referrer: request.referrer, referrerPolicy: request.referrerPolicy
   });
 }
 
@@ -73,9 +60,7 @@ async function updateApiCache(request, key) {
       const cache = await caches.open(API_CACHE_NAME);
       await cache.put(key, response.clone());
     }
-  } catch (_) {
-    // Keep the last successful response available for offline/slow starts.
-  }
+  } catch (_) {}
 }
 
 self.addEventListener('install', event => {
@@ -89,9 +74,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
-      keys
-        .filter(key => key !== CACHE_NAME && key !== API_CACHE_NAME)
-        .map(key => caches.delete(key))
+      keys.filter(key => key !== CACHE_NAME && key !== API_CACHE_NAME).map(key => caches.delete(key))
     )).then(() => self.clients.claim())
   );
 });
@@ -100,32 +83,21 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (!isGet(request)) return;
 
-  // API: cache-first for fast PWA startup, then refresh the cache in the
-  // background. The page's existing 60-second polling remains untouched.
   if (isApiRequest(request)) {
     event.respondWith((async () => {
       const key = normalizedRequest(request);
       const cache = await caches.open(API_CACHE_NAME);
       const cached = await cache.match(key);
-
       if (cached) {
         event.waitUntil(updateApiCache(request, key));
         return cached;
       }
-
       const response = await fetch(request);
-      if (response && response.ok) {
-        await cache.put(key, response.clone());
-      }
+      if (response && response.ok) await cache.put(key, response.clone());
       return response;
     })());
     return;
   }
 
-  // Static files: use the existing offline cache first.
-  event.respondWith(
-    caches.match(request).then(cachedResponse => {
-      return cachedResponse || fetch(request);
-    })
-  );
+  event.respondWith(caches.match(request).then(cached => cached || fetch(request)));
 });

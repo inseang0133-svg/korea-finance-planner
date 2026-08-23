@@ -5,8 +5,8 @@
   Gold Portfolio module
   - Isolated from index.html / script.js
   - LocalStorage only for portfolio records
-  - Market reference: Gold API XAU/USD + USD/THB
-  - Current market is an estimate, not an official Gold Wallet quote.
+  - Primary portfolio valuation: GOLD2go 96.5% "รับซื้อ" quote entered by the user
+  - XAU/USD + USD/THB remains available as a separate market reference/chart
 */
 
 const STORAGE_KEY = "kfp_gold_lots_v1";
@@ -103,26 +103,62 @@ function formatChartTime(timestamp){
 
 function getEffectiveSellPrice(){
   const settings = loadSettings();
+  const mode = settings.valuationSource === "market" ? "market" : "gold2go";
+  const gold2goBuyBaht = Number(settings.gold2goBuyBaht);
   const marketPrice = Number(state.priceThbGram);
-  // Use the live market quote by default. A manually entered Gold Wallet
-  // sell quote is used ONLY when the user explicitly enables the checkbox.
-  if(settings.useSellOverride === true && Number(settings.sellOverride) > 0){
-    return {price:Number(settings.sellOverride), exact:true, source:"wallet"};
+
+  // GOLD2go quote is entered exactly as shown in the app:
+  // "รับซื้อ XX,XXX บาท / บาททอง". Convert to THB/gram only for
+  // internal calculations; the displayed quote remains THB/บาททอง.
+  if(mode === "gold2go" && Number.isFinite(gold2goBuyBaht) && gold2goBuyBaht > 0){
+    return {
+      mode:"gold2go",
+      exact:true,
+      source:"GOLD2go",
+      pricePerBaht:gold2goBuyBaht,
+      pricePerGram:gold2goBuyBaht / BAHT_GOLD_GRAM,
+      updatedAt:settings.gold2goUpdatedAt || null
+    };
   }
-  return {price:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0, exact:false, source:"market"};
+
+  return {
+    mode:"market",
+    exact:false,
+    source:"market",
+    price:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0,
+    pricePerGram:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0,
+    gold2goMissing:mode === "gold2go"
+  };
 }
 
 function calculateLot(lot){
   const quote = getEffectiveSellPrice();
-  const purity = Number(lot.goldType || 99.99) / 99.99;
-  const sell = quote.exact ? quote.price : quote.price * purity;
   const grams = Number(lot.grams) || 0;
   const cost = Number(lot.costThb) || 0;
-  const value = grams * sell;
+
+  let value = 0;
+  let valuationSource = quote.mode;
+
+  if(quote.mode === "gold2go" && Number(lot.goldType || 99.99) === 96.5){
+    // GOLD2go quotes its 96.5% gold in "บาททอง". This is the correct
+    // valuation basis for a GOLD2go 96.5% holding.
+    const bahtGold = lot.unit === "baht"
+      ? (Number(lot.quantity) || 0)
+      : grams / BAHT_GOLD_GRAM;
+    value = bahtGold * quote.pricePerBaht;
+  }else{
+    // Non-GOLD2go lots continue to use the XAU/THB market estimate.
+    const purity = Number(lot.goldType || 99.99) / 99.99;
+    const marketPerGram = Number(state.priceThbGram) || 0;
+    const sell = marketPerGram * purity;
+    value = grams * sell;
+    valuationSource = quote.mode === "gold2go" ? "market-fallback" : "market";
+  }
+
   const pl = value - cost;
   const plPct = cost ? (pl / cost) * 100 : 0;
   const avgCost = grams ? cost / grams : 0;
-  return {...lot, grams, cost, value, pl, plPct, avgCost};
+  return {...lot, grams, cost, value, pl, plPct, avgCost, valuationSource};
 }
 
 function calculatePortfolio(){
@@ -428,9 +464,16 @@ function renderPortfolio(){
   const sellQuote=getEffectiveSellPrice();
   const valueHint=$("portfolioValueHint");
   if(valueHint){
-    valueHint.textContent=sellQuote.exact
-      ? `ประเมินด้วยราคาขายคืนจริง ${money(sellQuote.price)}/g`
-      : `ประเมินด้วยราคาตลาด ${money(sellQuote.price)}/g`;
+    if(sellQuote.mode === "gold2go" && sellQuote.exact){
+      const updated = sellQuote.updatedAt
+        ? ` · อัปเดต ${new Date(sellQuote.updatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`
+        : "";
+      valueHint.textContent=`GOLD2go รับซื้อ ${money(sellQuote.pricePerBaht)}/บาททอง${updated}`;
+    }else if(sellQuote.gold2goMissing){
+      valueHint.textContent="ยังไม่มีราคา GOLD2go · ใช้ตลาด XAU/THB ประมาณการชั่วคราว";
+    }else{
+      valueHint.textContent=`ตลาด XAU/THB ประมาณ ${money(sellQuote.pricePerGram)}/g`;
+    }
   }
   $("winRate").textContent=`${p.wins} / ${p.lots.length}`;
   $("winRatePct").textContent=p.lots.length ? `${(p.wins/p.lots.length*100).toFixed(2)}%` : "0.00%";
@@ -470,7 +513,11 @@ function renderLots(){
           <div class="lot-cell"><span>ต้นทุน</span><b>${money(l.cost)}</b></div>
           <div class="lot-cell"><span>มูลค่าปัจจุบัน</span><b>${money(l.value)}</b></div>
           <div class="lot-cell"><span>ต้นทุนเฉลี่ย</span><b>${money(l.avgCost)}/g</b></div>
-          <div class="lot-cell"><span>ราคาประเมินขาย</span><b>${money(l.goldType === "96.5" && !getEffectiveSellPrice().exact ? getEffectiveSellPrice().price * 0.965 : getEffectiveSellPrice().price)}/g</b></div>
+          <div class="lot-cell"><span>${l.valuationSource === "gold2go" ? "GOLD2go รับซื้อ" : "ราคาประเมินตลาด"}</span><b>${
+            l.valuationSource === "gold2go"
+              ? `${money(getEffectiveSellPrice().pricePerBaht)}/บาททอง`
+              : `${money(getEffectiveSellPrice().pricePerGram * (Number(l.goldType || 99.99) / 99.99))}/g`
+          }</b></div>
         </div>
         ${l.note ? `<div class="lot-note">📝 ${escapeHTML(l.note)}</div>` : ""}
         <div class="lot-actions"><button class="delete-lot" data-id="${l.id}">ลบรอบนี้</button></div>
@@ -858,7 +905,13 @@ function simulate(percent){
     <div>ต้นทุนของส่วนที่ขายประมาณ <b>${money(cost)}</b></div>
     <div>มูลค่าขายโดยประมาณ <b>${money(value)}</b></div>
     <div class="big ${pl>=0?"positive-text":"negative-text"}">${pl>=0?"+":""}${money(pl)} (${pct(cost?pl/cost*100:0)})</div>
-    <small>${getEffectiveSellPrice().exact?"ใช้ราคาขายจริงที่คุณกรอก":"ใช้ราคาตลาดประมาณจาก API และคำนึงถึงเปอร์เซ็นต์ทองของแต่ละ Lot"}</small>`;
+    <small>${
+      getEffectiveSellPrice().mode === "gold2go" && getEffectiveSellPrice().exact
+        ? `ใช้ราคา GOLD2go "รับซื้อ" ที่บันทึกไว้ · ทอง 96.5% ใช้ราคานี้โดยตรง`
+        : getEffectiveSellPrice().gold2goMissing
+          ? "ยังไม่มีราคา GOLD2go ที่บันทึกไว้ จึงใช้ XAU/THB เป็นค่าประมาณชั่วคราว"
+          : "ใช้ราคาตลาด XAU/THB และคำนึงถึงเปอร์เซ็นต์ทองของแต่ละ Lot"
+    }</small>`;
 }
 
 function exportData(){
@@ -919,10 +972,21 @@ function setup(){
   });
 
   const settings=loadSettings();
-  $("useSellOverride").checked=!!settings.useSellOverride;
-  $("sellOverride").value=settings.sellOverride||"";
-  $("useSellOverride").addEventListener("change",saveOverride);
-  $("sellOverride").addEventListener("input",saveOverride);
+  $("valuationSource").value=settings.valuationSource==="market" ? "market" : "gold2go";
+  $("gold2goBuyBaht").value=settings.gold2goBuyBaht||"";
+  updateValuationSourceUI();
+  if(Number(settings.gold2goBuyBaht)>0 && $("gold2goQuoteStatus")){
+    $("gold2goQuoteStatus").textContent=`บันทึกล่าสุด ${money(Number(settings.gold2goBuyBaht))}/บาททอง · ${
+      settings.gold2goUpdatedAt
+        ? new Date(settings.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})
+        : "-"
+    }`;
+  }
+  $("valuationSource").addEventListener("change",()=>{
+    saveValuationSettings();
+    updateValuationSourceUI();
+  });
+  $("saveGold2goQuoteBtn").addEventListener("click",saveGold2goQuote);
 
   $("chartFitBtn").addEventListener("click",fitChart);
   $("chartResetBtn").addEventListener("click",resetChartZoom);
@@ -944,12 +1008,41 @@ function setup(){
   setTimeout(fetchHistoricalGold,2500);
 }
 
-function saveOverride(){
+function updateValuationSourceUI(){
+  const mode=$("valuationSource").value;
+  const fields=$("gold2goQuoteFields");
+  const note=$("marketValuationNote");
+  if(fields) fields.hidden=mode!=="gold2go";
+  if(note) note.hidden=mode!=="market";
+  renderPortfolio();
+  renderLots();
+}
+
+function saveValuationSettings(){
   const s=loadSettings();
-  s.useSellOverride=$("useSellOverride").checked;
-  s.sellOverride=Number($("sellOverride").value)||0;
+  s.valuationSource=$("valuationSource").value==="market" ? "market" : "gold2go";
   saveSettings(s);
-  renderPortfolio();renderLots();
+}
+
+function saveGold2goQuote(){
+  const value=Number($("gold2goBuyBaht").value);
+  if(!(value>0)){
+    alert(`กรุณากรอกราคา GOLD2go "รับซื้อ" เช่น 70971 บาท/บาททอง`);
+    return;
+  }
+  const s=loadSettings();
+  s.valuationSource="gold2go";
+  s.gold2goBuyBaht=value;
+  s.gold2goUpdatedAt=new Date().toISOString();
+  saveSettings(s);
+  $("valuationSource").value="gold2go";
+  updateValuationSourceUI();
+  const status=$("gold2goQuoteStatus");
+  if(status){
+    status.textContent=`บันทึกแล้ว ${money(value)}/บาททอง · ${new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`;
+  }
+  renderPortfolio();
+  renderLots();
 }
 
 document.addEventListener("DOMContentLoaded",setup);

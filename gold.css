@@ -293,3 +293,19 @@ input:focus,select:focus{border-color:#b18d21}
   .market-grid .market-box strong{font-size:18px;margin-top:6px}
   .market-grid .market-box small{font-size:11px}
 }
+
+/* GOLD2go primary valuation UI */
+.gold2go-quote-box{border-color:#6b5617;background:linear-gradient(145deg,#141510,#111313)}
+.quote-head{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:end}
+.quote-head label{margin-bottom:7px}
+.quote-badge{padding:9px 12px;border:1px solid #4d6f52;border-radius:10px;color:#7de39a;background:#101712;font-size:12px;white-space:nowrap}
+.quote-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:2px}
+.quote-meta span{color:#8f8f8f;font-size:13px;line-height:1.5}
+#gold2goQuoteFields[hidden],#marketValuationNote[hidden]{display:none}
+#gold2goBuyBaht{font-size:20px;font-weight:700;border-color:#6b5617}
+@media(max-width:600px){
+  .quote-head{grid-template-columns:1fr}
+  .quote-badge{white-space:normal}
+  .quote-meta{align-items:stretch;flex-direction:column}
+  .quote-meta .small-gold-btn{width:100%}
+}

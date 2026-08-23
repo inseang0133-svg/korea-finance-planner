@@ -1,4 +1,4 @@
-const CACHE_NAME = 'korea-finance-v4';
+const CACHE_NAME = 'korea-finance-v5';
 const API_CACHE_NAME = 'korea-finance-api-v3';
 
 const ASSETS = [

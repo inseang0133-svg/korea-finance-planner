@@ -381,3 +381,15 @@ select {
     padding:10px;
 
 }
+
+/* Remittance rate: Hana Cash Sell Auto / Manual */
+.remit-rate-row{display:flex;gap:10px;align-items:stretch;margin-bottom:8px;}
+.remit-rate-row input{flex:1;min-width:0;margin-bottom:0;}
+.remit-update-btn{width:auto;min-width:145px;margin-bottom:0;padding:12px 14px;white-space:nowrap;}
+.remit-rate-status{margin:4px 0 18px;padding:9px 11px;border:1px solid #555;border-radius:9px;color:#aaa;font-size:13px;line-height:1.45;background:#151515;}
+.remit-rate-status.success{color:#37d478;border-color:#2d7d50;}
+.remit-rate-status.manual{color:#ffd45a;border-color:#8d7020;}
+.remit-rate-status.warning{color:#ffb45c;border-color:#8d5420;}
+.remit-rate-status.loading{color:#8fc8ff;border-color:#2d5f88;}
+.remit-rate-status.info{color:#aaa;border-color:#555;}
+@media(max-width:520px){.remit-rate-row{flex-direction:column;}.remit-update-btn{width:100%;min-width:0;}}

@@ -5,6 +5,19 @@ function formatNumber(num){
     return new Intl.NumberFormat().format(num);
 }
 
+// Hana Bank Cash Sell remit-rate controller.
+// Auto calls are throttled to once every 5 minutes per browser origin.
+// Manual input is never overwritten until the user presses Update.
+const REMIT_RATE_DEFAULT = 42.75;
+const REMIT_RATE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const REMIT_RATE_FORCE_MIN_INTERVAL_MS = 60 * 1000;
+const HANA_FX_ENDPOINT = "https://fx.kebhana.com/FER1101M.web";
+const REMIT_RATE_KEY = "remitRate";
+const REMIT_RATE_UPDATED_KEY = "remitRateUpdatedAt";
+const REMIT_RATE_MODE_KEY = "remitRateMode";
+const REMIT_RATE_LAST_ATTEMPT_KEY = "remitRateLastAttemptAt";
+let remitRateFetchInFlight = false;
+
 function saveData(){
 
     localStorage.setItem(
@@ -926,75 +939,164 @@ function renderQuickConvert(){
 }
 
 function calculateRemit(){
-
-    const thb =
-        parseFloat(
-            document.getElementById(
-                "receiveTHB"
-            ).value
-        );
-
-    const transferFee =
-        parseFloat(
-            document.getElementById(
-                "transferFee"
-            ).value
-        ) || 0;
-
-    // ค่าธรรมเนียมรับเงินปลายทางเป็นค่าคงที่ 60 THB
-    // และต้องแปลงเป็น KRW ตามเรตสำหรับการส่งเงินจริง
-    // ดังนั้นเมื่อเปลี่ยน remitRate ค่า receiveFee จะเปลี่ยนตามทันที
+    const thb = parseFloat(document.getElementById("receiveTHB").value);
+    const transferFee = parseFloat(document.getElementById("transferFee").value) || 0;
     const receiveFeeTHB = 60;
+    const remitRate = parseFloat(document.getElementById("remitRate").value);
 
-    // เรตของธนาคารสำหรับการส่งเงินจริง:
-    // 1 THB = กี่ KRW
-    const remitRate =
-        parseFloat(
-            document.getElementById(
-                "remitRate"
-            ).value
-        );
-
-    if(
-        !thb ||
-        !remitRate ||
-        remitRate <= 0
-    ){
+    if(!thb || !remitRate || remitRate <= 0){
         document.getElementById("remitResult").innerHTML = "-";
         return;
     }
 
-    // ค่าธรรมเนียมรับเงินปลายทาง 60 THB แปลงเป็น KRW ด้วยเรตเดียวกับการส่งเงินจริง
     const receiveFee = Math.round(receiveFeeTHB * remitRate);
-
-    // อัปเดตช่องค่าธรรมเนียมรับเงินปลายทางให้เห็นค่าที่คำนวณจากเรตล่าสุด
     const receiveFeeInput = document.getElementById("receiveFee");
-    if (receiveFeeInput) {
-        receiveFeeInput.value = receiveFee;
-    }
+    if(receiveFeeInput) receiveFeeInput.value = receiveFee;
 
-    // จำนวน KRW ที่ต้องส่งเพื่อให้ปลายทางได้รับ THB ตามที่กำหนด
     const krwForRecipient = thb * remitRate;
-
-    // รวมค่าธรรมเนียม
     const totalFee = transferFee + receiveFee;
-
-    // ยอด KRW ที่ต้องโอนจริง
     const krwNeeded = krwForRecipient + totalFee;
 
-    // แสดงเฉพาะข้อมูลสรุปที่จำเป็น
-    document.getElementById(
-        "remitResult"
-    ).innerHTML =
-    `
-    <div>
-        <strong>ค่าธรรมเนียมรวม: ${Math.round(totalFee).toLocaleString()} KRW</strong>
-    </div>
-    <br>
-    <div style="font-size:1.25em;">
-        <strong>ต้องโอนประมาณ ${Math.round(krwNeeded).toLocaleString()} KRW</strong>
-    </div>
+    document.getElementById("remitResult").innerHTML = `
+        <div><strong>ค่าธรรมเนียมรวม: ${Math.round(totalFee).toLocaleString()} KRW</strong></div>
+        <br>
+        <div style="font-size:1.25em;"><strong>ต้องโอนประมาณ ${Math.round(krwNeeded).toLocaleString()} KRW</strong></div>
     `;
+}
+
+function setRemitRateStatus(message, type = "info"){
+    const el = document.getElementById("remitRateStatus");
+    if(!el) return;
+    el.className = `remit-rate-status ${type}`;
+    el.innerText = message;
+}
+
+function renderRemitRateState(){
+    const input = document.getElementById("remitRate");
+    if(!input) return;
+    const saved = parseFloat(localStorage.getItem(REMIT_RATE_KEY));
+    const rate = Number.isFinite(saved) && saved > 0 ? saved : REMIT_RATE_DEFAULT;
+    input.value = rate.toFixed(2);
+
+    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto";
+    const updatedAt = localStorage.getItem(REMIT_RATE_UPDATED_KEY);
+    if(mode === "manual"){
+        setRemitRateStatus(`✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`, "manual");
+    } else if(updatedAt){
+        setRemitRateStatus(`🟢 Auto • Hana Cash Sell • อัปเดตล่าสุด ${new Date(updatedAt).toLocaleString("th-TH")}`, "success");
+    } else {
+        setRemitRateStatus(`🟡 Auto • Hana Cash Sell • ยังไม่มีเวลาการอัปเดต`, "info");
+    }
+    calculateRemit();
+}
+
+function handleRemitRateInput(){
+    const input = document.getElementById("remitRate");
+    const rate = parseFloat(input && input.value);
+    if(!Number.isFinite(rate) || rate <= 0) return;
+    localStorage.setItem(REMIT_RATE_KEY, rate.toFixed(2));
+    localStorage.setItem(REMIT_RATE_MODE_KEY, "manual");
+    setRemitRateStatus(`✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`, "manual");
+    calculateRemit();
+}
+
+function extractHanaCashSell(text){
+    try {
+        const data = JSON.parse(text);
+        const rows = Array.isArray(data) ? data : (data.data?.LIST || data.LIST || []);
+        const row = rows.find(x => String(x.ISOCODE || x.code || x.currency || "").toUpperCase() === "THB");
+        if(row){
+            const value = Number(row.CASHSELL ?? row.cashSell ?? row.cash_sell);
+            if(Number.isFinite(value) && value > 0) return value;
+        }
+        if(data.rates?.THB){
+            const value = Number(data.rates.THB.cashSell);
+            if(Number.isFinite(value) && value > 0) return value;
+        }
+    } catch (_) {}
+
+    const cleaned = String(text).replace(/\s+/g, " ");
+    const thbPos = cleaned.search(/(?:THB|태국|泰國)/i);
+    const area = thbPos >= 0 ? cleaned.slice(Math.max(0, thbPos - 120), thbPos + 900) : cleaned;
+    const patterns = [
+        /(?:현찰\s*파실때|cash\s*sell)[^0-9]{0,120}([0-9]{1,3}(?:[,.][0-9]{2,4})?)/i,
+        /CASHSELL[^0-9]{0,80}([0-9]+(?:\.[0-9]+)?)/i,
+        /(?:현찰파실때|cashSell)[^0-9]{0,80}([0-9]+(?:\.[0-9]+)?)/i
+    ];
+    for(const re of patterns){
+        const m = area.match(re);
+        if(m){
+            const value = Number(String(m[1]).replace(/,/g, ""));
+            if(Number.isFinite(value) && value > 0) return value;
+        }
+    }
+    return null;
+}
+
+async function fetchHanaCashSell(){
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+        const response = await fetch(`${HANA_FX_ENDPOINT}?_=${Date.now()}`, {
+            method: "GET", cache: "no-store", credentials: "omit", signal: controller.signal
+        });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        const rate = extractHanaCashSell(text);
+        if(!rate) throw new Error("THB Cash Sell not found");
+        return rate;
+    } finally { clearTimeout(timeout); }
+}
+
+async function updateRemitRate(force = false){
+    if(remitRateFetchInFlight) return false;
+    const now = Date.now();
+    const lastAttempt = Number(localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0);
+    const minInterval = force ? REMIT_RATE_FORCE_MIN_INTERVAL_MS : REMIT_RATE_MIN_INTERVAL_MS;
+
+    if(lastAttempt && now - lastAttempt < minInterval){
+        if(!force) return false;
+        const remain = Math.ceil((minInterval - (now - lastAttempt)) / 1000);
+        setRemitRateStatus(`🕒 ป้องกันการเรียก API ถี่เกินไป • ลองใหม่ใน ${remain} วินาที`, "info");
+        return false;
+    }
+    if(!force && (localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto") === "manual") return false;
+
+    remitRateFetchInFlight = true;
+    localStorage.setItem(REMIT_RATE_LAST_ATTEMPT_KEY, String(now));
+    setRemitRateStatus("🔄 กำลังดึง Hana Cash Sell...", "loading");
+    try {
+        const rate = await fetchHanaCashSell();
+        const updatedAt = new Date().toISOString();
+        document.getElementById("remitRate").value = rate.toFixed(2);
+        localStorage.setItem(REMIT_RATE_KEY, rate.toFixed(2));
+        localStorage.setItem(REMIT_RATE_UPDATED_KEY, updatedAt);
+        localStorage.setItem(REMIT_RATE_MODE_KEY, "auto");
+        setRemitRateStatus(`🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • อัปเดตล่าสุด ${new Date(updatedAt).toLocaleString("th-TH")}`, "success");
+        calculateRemit();
+        return true;
+    } catch(error){
+        console.warn("Hana Cash Sell fetch failed:", error);
+        const current = parseFloat(document.getElementById("remitRate").value) || REMIT_RATE_DEFAULT;
+        setRemitRateStatus(`🟠 API ไม่พร้อม • ใช้ค่า ${current.toFixed(2)} ต่อไป • แก้เองได้`, "warning");
+        calculateRemit();
+        return false;
+    } finally { remitRateFetchInFlight = false; }
+}
+
+function initRemitRate(){
+    if(!document.getElementById("remitRate")) return;
+    if(!localStorage.getItem(REMIT_RATE_KEY)) localStorage.setItem(REMIT_RATE_KEY, REMIT_RATE_DEFAULT.toFixed(2));
+    if(!localStorage.getItem(REMIT_RATE_MODE_KEY)) localStorage.setItem(REMIT_RATE_MODE_KEY, "auto");
+    renderRemitRateState();
+
+    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto";
+    const lastAttempt = Number(localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0);
+    if(mode === "auto" && (!lastAttempt || Date.now() - lastAttempt >= REMIT_RATE_MIN_INTERVAL_MS)) updateRemitRate(false);
+
+    setInterval(() => {
+        if((localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto") === "auto") updateRemitRate(false);
+    }, REMIT_RATE_MIN_INTERVAL_MS);
 }
 
 function renderPieChart(){
@@ -1281,6 +1383,7 @@ updateGoalTracker();
 
 loadContract();
 updateSalaryPreview();
+    initRemitRate();
 
     document
     .getElementById("salary")

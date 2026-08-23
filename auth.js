@@ -12,12 +12,28 @@
   const VALID_CONFIG = /^https:\/\/[^\s]+\.supabase\.co(mp)?$/i.test(SUPABASE_URL) &&
     SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
 
+  // Independent storage domains. Deleting salary history cannot delete the contract or exchange rate.
   const DATA_KEYS = [
-    "salary", "rate", "rateUpdatedAt", "goal", "currentSaving",
-    "contractStartDate", "salaryRecords",
+    "salary", "kfp_exchange_rate_v1", "kfp_exchange_rate_updated_v1",
+    "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
   ];
-  const ARRAY_KEYS = new Set(["salaryRecords", "kfp_gold_lots_v1"]);
+  const ARRAY_KEYS = new Set(["kfp_salary_records_v2", "kfp_gold_lots_v1"]);
+  const LEGACY_TO_NEW = {
+    "rate": "kfp_exchange_rate_v1",
+    "rateUpdatedAt": "kfp_exchange_rate_updated_v1",
+    "contractStartDate": "kfp_contract_v1",
+    "salaryRecords": "kfp_salary_records_v2"
+  };
+
+  function normalizeDataKeys(data) {
+    const out = { ...(data || {}) };
+    for (const [oldKey, newKey] of Object.entries(LEGACY_TO_NEW)) {
+      if (out[newKey] === undefined && out[oldKey] !== undefined) out[newKey] = out[oldKey];
+      delete out[oldKey];
+    }
+    return out;
+  }
   const GUEST_BACKUP_KEY = "__kfp_guest_backup_v1";
   const AUTH_USER_KEY = "__kfp_auth_user_v1";
   const SYNC_DEBOUNCE_MS = 700;
@@ -50,6 +66,7 @@
 
   function putLocalData(data) {
     if (!data || typeof data !== "object") return;
+    data = normalizeDataKeys(data);
     applyingCloud = true;
     try {
       for (const key of DATA_KEYS) {
@@ -74,7 +91,7 @@
 
   function dataLabel(data) {
     const labels = [];
-    if (data.salaryRecords && safeArray(data.salaryRecords).length) labels.push("เงินเดือน");
+    if (data.kfp_salary_records_v2 && safeArray(data.kfp_salary_records_v2).length) labels.push("เงินเดือน");
     if (data.kfp_gold_lots_v1 && safeArray(data.kfp_gold_lots_v1).length) labels.push("รายการทอง");
     if (data.contractStartDate) labels.push("สัญญาจ้าง");
     if (data.goal || data.currentSaving) labels.push("เป้าหมายเงินเก็บ");
@@ -92,6 +109,8 @@
   }
 
   function mergeData(local, cloud) {
+    local = normalizeDataKeys(local);
+    cloud = normalizeDataKeys(cloud);
     const out = { ...(cloud || {}) };
     const keys = new Set([...Object.keys(local || {}), ...Object.keys(cloud || {})]);
 
@@ -101,7 +120,7 @@
 
       if (ARRAY_KEYS.has(key)) {
         const la = safeArray(lv), ca = safeArray(cv);
-        if (key === "salaryRecords") {
+        if (key === "kfp_salary_records_v2") {
           const map = new Map();
           for (const item of ca) if (item?.month) map.set(item.month, item);
           for (const item of la) if (item?.month) {
@@ -378,7 +397,7 @@
     // Guest backup is captured only once per login session, before cloud data is loaded.
     saveGuestBackup(local);
     const row = await getCloudRow(user.id);
-    const cloud = row?.data || {};
+    const cloud = normalizeDataKeys(row?.data || {});
 
     if (hasData(local) && hasData(cloud)) {
       const choice = await showDataChoice(local, cloud);
@@ -426,7 +445,7 @@ hideAuthPanel();
 
       const merged = mergeData(
         getLocalData(),
-        payload.new.data
+        normalizeDataKeys(payload.new.data)
       );
 
       putLocalData(merged);

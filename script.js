@@ -1,3 +1,28 @@
+// Separate storage domains: monthly salary history, exchange-rate settings, and Korea contract.
+const SALARY_RECORDS_KEY = "kfp_salary_records_v2";
+const EXCHANGE_RATE_KEY = "kfp_exchange_rate_v1";
+const EXCHANGE_RATE_UPDATED_KEY = "kfp_exchange_rate_updated_v1";
+const CONTRACT_KEY = "kfp_contract_v1";
+
+function migrateFinanceStorage() {
+    try {
+        const migrations = [
+            ["salaryRecords", SALARY_RECORDS_KEY],
+            ["rate", EXCHANGE_RATE_KEY],
+            ["rateUpdatedAt", EXCHANGE_RATE_UPDATED_KEY],
+            ["contractStartDate", CONTRACT_KEY]
+        ];
+        for (const [oldKey, newKey] of migrations) {
+            const oldValue = localStorage.getItem(oldKey);
+            const newValue = localStorage.getItem(newKey);
+            if (newValue === null && oldValue !== null) localStorage.setItem(newKey, oldValue);
+            if (oldValue !== null) localStorage.removeItem(oldKey);
+        }
+    } catch (_) {}
+}
+
+migrateFinanceStorage();
+
 let salaryChart = null;
 let savingChart = null;
 let pieChart = null;
@@ -13,7 +38,7 @@ function saveData(){
     );
 
     localStorage.setItem(
-        "rate",
+        EXCHANGE_RATE_KEY,
         document.getElementById("rate").value
     );
 }
@@ -79,7 +104,7 @@ function loadData(){
         localStorage.getItem("salary");
 
     const rate =
-        localStorage.getItem("rate");
+        localStorage.getItem(EXCHANGE_RATE_KEY);
 
     if(salary){
         document.getElementById("salary").value =
@@ -91,9 +116,7 @@ function loadData(){
             rate;
     }
     const updatedAt =
-    localStorage.getItem(
-        "rateUpdatedAt"
-    );
+    localStorage.getItem(EXCHANGE_RATE_UPDATED_KEY);
 
 if(updatedAt){
 
@@ -235,7 +258,7 @@ document
 );
 
 function loadSalaryRecords() {
-    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
+    const records = JSON.parse(localStorage.getItem(SALARY_RECORDS_KEY) || "[]");
     const historyDiv = document.getElementById("salaryHistory");
     const filterYearSelect = document.getElementById("filterYear");
     
@@ -336,7 +359,7 @@ function deleteSalaryRecord(index){
     
 
     localStorage.setItem(
-    "salaryRecords",
+    SALARY_RECORDS_KEY,
     JSON.stringify(records)
 );
 
@@ -732,20 +755,26 @@ async function updateExchangeRate(){
             thbRate.toFixed(4);
 
         localStorage.setItem(
-            "rate",
+            EXCHANGE_RATE_KEY,
             thbRate.toFixed(4)
         );
 
         const now = new Date();
 
         localStorage.setItem(
-            "rateUpdatedAt",
+            EXCHANGE_RATE_UPDATED_KEY,
             now.toISOString()
         );
 
         status.innerText =
             `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
             | 1 KRW = ${thbRate.toFixed(4)} THB`;
+
+        // Refresh all UI calculations that depend on the current exchange rate.
+        updateSalaryPreview();
+        if (document.getElementById("convertAmount")?.value) convertCurrency();
+        if (document.getElementById("salary")?.value) calculate();
+        if (typeof renderQuickConvert === "function") renderQuickConvert();
 
     }
     catch(error){
@@ -760,7 +789,7 @@ async function updateExchangeRate(){
 }
 
 function exportExcel() {
-    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
+    const records = JSON.parse(localStorage.getItem(SALARY_RECORDS_KEY) || "[]");
     if (records.length === 0) {
         alert("ไม่มีข้อมูลที่จะส่งออก");
         return;
@@ -1092,9 +1121,7 @@ function renderPieChart(){
 function loadContract(){
 
     const savedDate =
-        localStorage.getItem(
-            "contractStartDate"
-        );
+        localStorage.getItem(CONTRACT_KEY);
 
     if(!savedDate){
         return;
@@ -1183,9 +1210,7 @@ function deleteContract(){
         return;
     }
 
-    localStorage.removeItem(
-        "contractStartDate"
-    );
+    localStorage.removeItem(CONTRACT_KEY);
 
     document.getElementById(
         "startDate"
@@ -1213,7 +1238,7 @@ function saveContract(){
     }
 
     localStorage.setItem(
-        "contractStartDate",
+        CONTRACT_KEY,
         startDate
     );
 
@@ -1247,7 +1272,7 @@ function addSalaryRecord() {
     // อัปเกรด: บันทึกค่าเงิน (rate) ล็อกพ่วงติดไปกับเดือนและเงินวอนเลย
     records.push({ month, salary, rate });
     
-    localStorage.setItem("salaryRecords", JSON.stringify(records));
+    localStorage.setItem(SALARY_RECORDS_KEY, JSON.stringify(records));
 
     document.getElementById("filterYear").value = "latest"; 
     
@@ -1264,7 +1289,7 @@ updateGoalTracker();
 
 function getSalaryRecords(){
     return JSON.parse(
-        localStorage.getItem("salaryRecords")
+        localStorage.getItem(SALARY_RECORDS_KEY)
         || "[]"
     );
 }
@@ -1293,13 +1318,15 @@ updateSalaryPreview();
     .getElementById("rate")
     .addEventListener(
         "input",
-        updateSalaryPreview
+        () => {
+            localStorage.setItem(EXCHANGE_RATE_KEY, document.getElementById("rate").value);
+            updateSalaryPreview();
+            if (document.getElementById("convertAmount")?.value) convertCurrency();
+        }
     );
 
     const lastUpdate =
-    localStorage.getItem(
-        "rateUpdatedAt"
-    );
+    localStorage.getItem(EXCHANGE_RATE_UPDATED_KEY);
 
 if(!lastUpdate){
 

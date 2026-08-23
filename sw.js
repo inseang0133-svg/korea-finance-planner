@@ -1,10 +1,10 @@
-const CACHE_NAME = 'korea-finance-v9-fix11';
-const API_CACHE_NAME = 'korea-finance-api-v7';
+const CACHE_NAME = 'korea-finance-v7-mobile8';
+const API_CACHE_NAME = 'korea-finance-api-v5';
 
 const ASSETS = [
   'index.html',
-  'style.css?v=20260823-11',
-  'script.js?v=20260823-11',
+  'style.css',
+  'script.js',
   'manifest.json',
   'gold.html',
   'gold.css',

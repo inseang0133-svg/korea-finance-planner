@@ -6,936 +6,51 @@ function formatNumber(num){
 }
 
 // Hana Bank Cash Sell remit-rate controller.
-// Auto calls are throttled to once every 5 minutes per browser origin.
-// Manual input is never overwritten until the user presses Update.
+// Modes:
+//   default = ยังไม่เคยดึง Hana สำเร็จ ใช้ค่าเริ่มต้น 42.75
+//   auto    = ดึงจาก Hana สำเร็จล่าสุด
+//   cached  = Hana ดึงรอบล่าสุดไม่สำเร็จ จึงใช้เรต Auto ที่เคยดึงสำเร็จ
+//   manual  = ผู้ใช้กรอกเอง และ Auto จะไม่เขียนทับจนกว่าจะกด "อัปเดตเรต"
+//
+// ใช้ <script src="..."> แทน fetch เพราะ endpoint ของ Hana เป็น JavaScript
+// ที่ประกาศตัวแปร global "exView" และวิธีนี้ไม่ติด CORS แบบ fetch ตรง ๆ
 const REMIT_RATE_DEFAULT = 42.75;
 const REMIT_RATE_MIN_INTERVAL_MS = 5 * 60 * 1000;
 const REMIT_RATE_FORCE_MIN_INTERVAL_MS = 60 * 1000;
 const HANA_FX_ENDPOINT = "https://fx.kebhana.com/FER1101M.web";
+
 const REMIT_RATE_KEY = "remitRate";
 const REMIT_RATE_UPDATED_KEY = "remitRateUpdatedAt";
 const REMIT_RATE_MODE_KEY = "remitRateMode";
 const REMIT_RATE_LAST_ATTEMPT_KEY = "remitRateLastAttemptAt";
+const REMIT_RATE_SOURCE_DATE_KEY = "remitRateSourceDate";
+const REMIT_RATE_LAST_ERROR_KEY = "remitRateLastError";
+
 let remitRateFetchInFlight = false;
 
-function saveData(){
+function saveRemitRate(rate, mode, updatedAt = "", sourceDate = ""){
+    localStorage.setItem(REMIT_RATE_KEY, Number(rate).toFixed(2));
+    localStorage.setItem(REMIT_RATE_MODE_KEY, mode);
 
-    localStorage.setItem(
-        "salary",
-        document.getElementById("salary").value
-    );
-
-    localStorage.setItem(
-        "rate",
-        document.getElementById("rate").value
-    );
-}
-
-function updateSalaryPreview(){
-
-    const salary =
-        Number(
-            document.getElementById(
-                "salary"
-            ).value
-        );
-
-    const rate =
-        Number(
-            document.getElementById(
-                "rate"
-            ).value
-        );
-
-    const preview =
-        document.getElementById(
-            "salaryTHBPreview"
-        );
-
-    if(!salary || !rate){
-
-        preview.innerHTML = "-";
-
-        preview.classList.remove(
-            "success"
-        );
-
-        return;
+    if(updatedAt){
+        localStorage.setItem(REMIT_RATE_UPDATED_KEY, updatedAt);
     }
 
-    const thb =
-        salary * rate;
-
-    preview.innerHTML =
-        `≈ ${formatNumber(
-            Math.round(thb)
-        )} THB`;
-
-    if(thb >= 45725.856){
-
-        preview.classList.add(
-            "success"
-        );
-
+    if(sourceDate){
+        localStorage.setItem(REMIT_RATE_SOURCE_DATE_KEY, sourceDate);
     }
-    else{
 
-        preview.classList.remove(
-            "success"
-        );
+    if(mode !== "default"){
+        localStorage.removeItem(REMIT_RATE_LAST_ERROR_KEY);
     }
 }
 
-function loadData(){
-
-    const salary =
-        localStorage.getItem("salary");
-
-    const rate =
-        localStorage.getItem("rate");
-
-    if(salary){
-        document.getElementById("salary").value =
-            salary;
-    }
-
-    if(rate){
-        document.getElementById("rate").value =
-            rate;
-    }
-    const updatedAt =
-    localStorage.getItem(
-        "rateUpdatedAt"
-    );
-
-if(updatedAt){
-
-    document.getElementById(
-        "exchangeStatus"
-    ).innerText =
-        `อัปเดตล่าสุด ${new Date(updatedAt)
-        .toLocaleString("th-TH")}`;
-
-}
-}
-
-function calculate(){
-
-    const salary =
-        Number(document.getElementById("salary").value);
-
-    const rate =
-        Number(document.getElementById("rate").value);
-
-    saveData();
-
-    const saving = salary * 0.45;
-    const gold = salary * 0.15;
-    const family = salary * 0.25;
-    const personal = salary * 0.10;
-    const travel = salary * 0.05;
-
-    document.getElementById("saving").innerHTML =
-        `${formatNumber(saving)} KRW<br>
-        ≈ ${formatNumber((saving*rate).toFixed(0))} THB`;
-
-    document.getElementById("gold").innerHTML =
-        `${formatNumber(gold)} KRW<br>
-        ≈ ${formatNumber((gold*rate).toFixed(0))} THB`;
-
-    document.getElementById("family").innerHTML =
-        `${formatNumber(family)} KRW<br>
-        ≈ ${formatNumber((family*rate).toFixed(0))} THB`;
-
-    document.getElementById("personal").innerHTML =
-        `${formatNumber(personal)} KRW<br>
-        ≈ ${formatNumber((personal*rate).toFixed(0))} THB`;
-
-    document.getElementById("travel").innerHTML =
-        `${formatNumber(travel)} KRW<br>
-        ≈ ${formatNumber((travel*rate).toFixed(0))} THB`;
- 
- renderPieChart();  
- loadSalaryRecords();     
-}
-
-function saveGoalData(){
-
-    localStorage.setItem(
-        "goal",
-        document.getElementById("goal").value
-    );
-
-    localStorage.setItem(
-        "currentSaving",
-        document.getElementById("currentSaving").value
-    );
-
-}
-
-function updateGoalTracker(){
-
-    const goal =
-        Number(
-            document.getElementById("goal").value
-        );
-
-    const current =
-        Number(
-            document.getElementById("currentSaving").value
-        );
-
-    saveGoalData();
-
-    if(goal <= 0) return;
-
-    const percent =
-        Math.min(
-            (current / goal) * 100,
-            100
-        );
-
-    document.getElementById(
-        "progressBar"
-    ).style.width =
-        percent + "%";
-
-    document.getElementById(
-        "progressText"
-    ).innerText =
-        percent.toFixed(1) + "%";
-
-    const remain =
-        goal - current;
-
-    document.getElementById(
-        "goalInfo"
-    ).innerHTML =
-        `
-        สะสมแล้ว ${formatNumber(current)} บาท<br>
-        เหลืออีก ${formatNumber(remain)} บาท
-        `;
-}
-
-const goal =
-    localStorage.getItem("goal");
-
-const currentSaving =
-    localStorage.getItem("currentSaving");
-
-if(goal){
-    document.getElementById("goal").value =
-        goal;
-}
-
-if(currentSaving){
-    document.getElementById("currentSaving").value =
-        currentSaving;
-}
-
-document
-.getElementById("goal")
-.addEventListener(
-    "input",
-    updateGoalTracker
-);
-
-document
-.getElementById("currentSaving")
-.addEventListener(
-    "input",
-    updateGoalTracker
-);
-
-function loadSalaryRecords() {
-    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
-    const historyDiv = document.getElementById("salaryHistory");
-    const filterYearSelect = document.getElementById("filterYear");
-    
-    // เก็บค่าที่ผู้ใช้เลือกปัจจุบันไว้ก่อน เพื่อไม่ให้ดรอปดาวน์เด้งเวลารีโหลด
-    const currentSelected = filterYearSelect.value || "latest";
-
-    // 1. 🧠 ระบบสร้างเมนูปีอัตโนมัติ (Dynamic Year Generator)
-    // ดึงเฉพาะปี (4 หลักแรก เช่น "2026") ออกมาจากข้อมูลทั้งหมดที่มีในระบบ
-    const yearsInRecords = records.map(item => item.month.split("-")[0]);
-    // กรองเอาปีที่ซ้ำกันออก ให้เหลือเฉพาะปีที่ไม่ซ้ำกัน
-    const uniqueYears = [...new Set(yearsInRecords)];
-    // จัดเรียงปีจากใหม่ไปเก่า (เช่น 2027 แล้วค่อย 2026)
-    uniqueYears.sort((a, b) => b - a);
-
-    // สร้าง HTML สำหรับดรอปดาวน์ เริ่มต้นด้วย "3 เดือนล่าสุด"
-    let selectHTML = `<option value="latest">3 เดือนล่าสุด</option>`;
-    // วนลูปเอาปีที่มีข้อมูลจริง ใส่เข้าไปในดรอปดาวน์เพิ่มแบบอัตโนมัติ
-    uniqueYears.forEach(year => {
-        selectHTML += `<option value="${year}">ปี ${year}</option>`;
-    });
-    
-    // อัปเดตตัวเลือกใน Dropdown หน้าเว็บ
-    filterYearSelect.innerHTML = selectHTML;
-    
-    // ป้องกันกรณีที่เพิ่งลบข้อมูลปีนั้นไปจนหมด ให้เด้งกลับไปที่ "latest"
-    if (currentSelected !== "latest" && !uniqueYears.includes(currentSelected)) {
-        filterYearSelect.value = "latest";
-    } else {
-        filterYearSelect.value = currentSelected;
-    }
-
-    // ดึงค่าตัวกรองล่าสุดมาทำงานต่อ
-    const activeFilter = filterYearSelect.value;
-
-    // จัดเรียงข้อมูลประวัติเงินเดือนจากใหม่ล่าสุดขึ้นก่อน
-    records.sort((a, b) => new Date(b.month) - new Date(a.month));
-
-    let displayRecords = [...records];
-
-    // 2. กรองข้อมูลที่จะแสดงผลบนหน้าจอ
-    if (activeFilter === "latest") {
-        displayRecords = records.slice(0, 3);
-    } else {
-        displayRecords = records.filter(item => item.month.startsWith(activeFilter));
-    }
-
-    if (displayRecords.length === 0) {
-        historyDiv.innerHTML = `<p style="color: #666; text-align: center; font-size: 14px; padding: 15px 0;">ไม่มีข้อมูลสำหรับช่วงเวลานี้</p>`;
-        return;
-    }
-
-    
-    // 3. แสดงผลรายการประวัติเงินเดือนออกหน้าจอ
-    historyDiv.innerHTML = displayRecords.map((item) => {
-        // หาตำแหน่ง index ที่แท้จริงของข้อมูลชิ้นนี้ในอาเรย์หลักเพื่อใช้สั่งลบ
-        const originalIndex = records.findIndex(r => r.month === item.month && r.salary === item.salary);
-        
-        const date = new Date(item.month + "-01");
-        const monthName = date.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
-        
-        // อัปเกรดแบบถูกต้อง: ดึงค่าเรตที่เคยถูกล็อกไว้ในอดีตของเดือนนั้นๆ มาคำนวณ
-        // (และใส่ระบบป้องกันไว้ว่าถ้าเป็นรายการเก่ามากๆ ที่ไม่มีค่า rate ให้ใช้เรตหน้าจอไปก่อน)
-        const savedRate = item.rate || Number(document.getElementById("rate").value) || 0.0240;
-        
-        // คำนวณเงินบาทโดยใช้เรต ณ วันที่กดบันทึกจริงในอดีต
-        const thbSalary = item.salary * savedRate;
-        
-        return `
-            <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; background: #222; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #d4af37;">
-                <div>
-                    <span style="font-weight: bold; display: block; font-size: 15px;">${monthName}</span>
-                    <span style="color: #aaa; font-size: 13px;">
-                        ${formatNumber(item.salary)} KRW 
-                        <span style="color: #2ecc71; font-weight: bold; margin-left: 6px;">
-                            (≈ ${formatNumber(thbSalary.toFixed(0))} THB)
-                        </span>
-                    </span>
-                </div>
-                <button onclick="deleteSalaryRecord(${originalIndex})" style="width: auto; padding: 6px 12px; background: #dd4b39; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">❌ ลบ</button>
-            </div>
-        `;
-    }).join("");
-}
-
-function deleteSalaryRecord(index){
-    
-    const records =
-    getSalaryRecords();
-        
-
-    if(
-        !confirm("ต้องการลบรายการนี้ใช่หรือไม่?")
-    ){
-        return;
-    }
-
-    records.splice(index, 1);
-    
-
-    localStorage.setItem(
-    "salaryRecords",
-    JSON.stringify(records)
-);
-
-
-
-updateAnalytics();
-
-loadSalaryRecords();
-}
-
-
-
-function updateAnalytics(){
-    const records =
-        getSalaryRecords();
-    
-
-    if(records.length === 0){
-
-        document.getElementById(
-            "avgSalary"
-        ).innerText = "0 KRW";
-
-        document.getElementById(
-            "avgSaving"
-        ).innerText = "0 KRW";
-
-        document.getElementById(
-            "monthsToGoal"
-        ).innerText = "-";
-
-        return;
-    }
-
-
-    const totalSalary =
-    records.reduce(
-        (sum,item)=>
-        sum + item.salary,
-        0
-    );
-
-const totalSaving =
-    totalSalary * 0.45;
-
-const totalFamily =
-    totalSalary * 0.25;
-
-const totalGold =
-    totalSalary * 0.15;
-
-const totalPersonal =
-    totalSalary * 0.10;
-
-const totalTravel =
-    totalSalary * 0.05;
-
-const totalSalaryTHB =
-    records.reduce(
-        (sum,item)=>
-        sum +
-        (
-            item.salary *
-            (item.rate || 0)
-        ),
-        0
-    );
-
-const totalSavingTHB =
-    totalSalaryTHB * 0.45;
-
-const totalFamilyTHB =
-    totalSalaryTHB * 0.25;
-
-const totalGoldTHB =
-    totalSalaryTHB * 0.15;
-
-const totalPersonalTHB =
-    totalSalaryTHB * 0.10;
-
-const totalTravelTHB =
-    totalSalaryTHB * 0.05;
-document.getElementById(
-    "totalSalaryKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalSalary)
-    ) + " KRW";
-
-document.getElementById(
-    "totalSalaryTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalSalaryTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalSavingKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalSaving)
-    ) + " KRW";
-
-document.getElementById(
-    "totalSavingTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalSavingTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalFamilyKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalFamily)
-    ) + " KRW";
-
-document.getElementById(
-    "totalFamilyTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalFamilyTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalGoldKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalGold)
-    ) + " KRW";
-
-document.getElementById(
-    "totalGoldTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalGoldTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalPersonalKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalPersonal)
-    ) + " KRW";
-
-document.getElementById(
-    "totalPersonalTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalPersonalTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalTravelKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalTravel)
-    ) + " KRW";
-
-document.getElementById(
-    "totalTravelTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalTravelTHB)
-    ) +
-    " THB";
-    renderChart();
-    renderSavingChart();
-
-}
-
-function renderChart(){
-    const rate =
-    Number(
-        document.getElementById("rate").value
-    );
-
-    const records =
-    getSalaryRecords();
-
-const labels =
-    records.map(x => x.month);
-
-const data =
-    records.map(x => x.salary);
-
-    const ctx =
-        document
-        .getElementById(
-            "salaryChart"
-        );
-
-    if(salaryChart){
-
-        salaryChart.destroy();
-
-    }
-
-    salaryChart =
-        new Chart(ctx,{
-
-            type:"bar",
-
-            data:{
-
-                labels,
-
-                datasets:[{
-
-                    label:"รายได้ (KRW)",
-
-                    data
-
-                }]
-
-            },
-
-            options:{
-    responsive:true,
-
-    plugins:{
-        tooltip:{
-            callbacks:{
-                label:function(context){
-
-                    const krw =
-                        context.raw;
-
-                    const thb =
-                        krw * rate;
-
-                    return [
-                        `รายได้ (KRW): ${formatNumber(krw)}`,
-                        `≈ ${formatNumber(
-                            Math.round(thb)
-                        )} THB`
-                    ];
-                }
-            }
-        }
-    }
-}
-
-        });
-
-}
-
-function renderSavingChart(){
-    const rate =
-    Number(
-        document.getElementById("rate").value
-    );
-    const records =
-    getSalaryRecords();
-
-    if(records.length === 0){
-
-    if(savingChart){
-        savingChart.destroy();
-        savingChart = null;
-    }
-
-    return;
-}
-
-    const labels = [];
-    const savingsData = [];
-
-    let totalSaving = 0;
-
-    const sortedRecords =
-        [...records]
-        .sort((a,b)=>
-            a.month.localeCompare(b.month)
-        );
-    sortedRecords.forEach(item=>{
-
-        labels.push(item.month);
-
-        totalSaving += item.salary * 0.45;
-
-        savingsData.push(
-            Math.round(totalSaving)
-        );
-
-    });
-
-    const ctx =
-        document.getElementById(
-            "savingChart"
-        );
-
-    if(savingChart){
-
-        savingChart.destroy();
-
-    }
-
-    savingChart =
-        new Chart(ctx,{
-
-            type:"line",
-
-            data:{
-
-                labels,
-
-                datasets:[{
-
-                    label:"เงินเก็บสะสม (KRW)",
-
-                    data:savingsData,
-
-                    tension:0.3,
-
-                    fill:false
-
-                }]
-
-            },
-
-            options:{
-    responsive:true,
-
-    plugins:{
-        tooltip:{
-            callbacks:{
-                label:function(context){
-
-                    const krw =
-                        context.raw;
-
-                    const thb =
-                        krw * rate;
-
-                    return [
-                        `เงินเก็บสะสม (KRW): ${formatNumber(krw)}`,
-                        `≈ ${formatNumber(
-                            Math.round(thb)
-                        )} THB`
-                    ];
-                }
-            }
-        }
-    }
-}
-
-        });
-
-}
-async function updateExchangeRate(){
-
-    const status =
-        document.getElementById(
-            "exchangeStatus"
-        );
-
-    try{
-
-        status.innerText =
-            "กำลังดึงค่าเงิน...";
-
-        const response =
-            await fetch(
-                "https://open.er-api.com/v6/latest/KRW"
-            );
-
-        const data =
-            await response.json();
-
-        const thbRate =
-            data.rates.THB;
-
-        document.getElementById(
-            "rate"
-        ).value =
-            thbRate.toFixed(4);
-
-        localStorage.setItem(
-            "rate",
-            thbRate.toFixed(4)
-        );
-
-        const now = new Date();
-
-        localStorage.setItem(
-            "rateUpdatedAt",
-            now.toISOString()
-        );
-
-        status.innerText =
-            `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
-            | 1 KRW = ${thbRate.toFixed(4)} THB`;
-
-    }
-    catch(error){
-
-        console.error(error);
-
-        status.innerText =
-            "ไม่สามารถดึงค่าเงินได้";
-
-    }
-
-}
-
-function exportExcel() {
-    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
-    if (records.length === 0) {
-        alert("ไม่มีข้อมูลที่จะส่งออก");
-        return;
-    }
-
-    // แก้ไขตรงก้อนนี้ครับ: ดึงค่า item.rate ที่บันทึกไว้ในอดีตมาคำนวณใน Excel ด้วย
-    const excelData = records.map(item => {
-        // ดึงเรตที่ล็อกไว้ในแต่ละเดือนมาใช้ ถ้าไม่มีค่อยใช้เรตหน้าจอเป็นค่าสำรอง
-        const savedRate = item.rate || Number(document.getElementById("rate").value) || 0.0240;
-        const thbSalary = item.salary * savedRate;
-        
-        return {
-            "เดือน": item.month,
-            "รายได้ (KRW)": item.salary,
-            "เรตแลกเปลี่ยน": savedRate, // เพิ่มคอลัมน์บอกเรตประวัติศาสตร์ให้ดูง่าย ๆ
-            "รายได้ (THB)": Math.round(thbSalary)
-        };
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "ประวัติรายได้");
-
-    XLSX.writeFile(workbook, "ประวัติเงินเดือนเกาหลี.xlsx");
-}
-
-function convertCurrency(){
-
-    const amount =
-        parseFloat(
-            document.getElementById(
-                "convertAmount"
-            ).value
-        );
-
-    const rate =
-        parseFloat(
-            document.getElementById(
-                "rate"
-            ).value
-        );
-
-    const type =
-        document.getElementById(
-            "convertType"
-        ).value;
-
-    let result;
-
-    if(type === "KRW_TO_THB"){
-
-        result =
-            amount * rate;
-
-        document.getElementById(
-            "convertResult"
-        ).innerHTML =
-            `
-            ${result.toLocaleString()}
-            THB
-            `;
-
-    }
-    else{
-
-        result =
-            amount / rate;
-
-        document.getElementById(
-            "convertResult"
-        ).innerHTML =
-            `
-            ${Math.round(result)
-            .toLocaleString()}
-            KRW
-            `;
-
-    }
-
-}
-
-function swapConverter(){
-
-    const select =
-        document.getElementById(
-            "convertType"
-        );
-
-    if(
-        select.value ===
-        "KRW_TO_THB"
-    ){
-
-        select.value =
-            "THB_TO_KRW";
-
-    }
-    else{
-
-        select.value =
-            "KRW_TO_THB";
-
-    }
-
-    convertCurrency();
-
-}
-
-function renderQuickConvert(){
-
-    const rate =
-        parseFloat(
-            document.getElementById(
-                "rate"
-            ).value
-        );
-
-    const amounts = [
-
-        100000,
-        500000,
-        1000000,
-        2000000
-
-    ];
-
-    const grid =
-        document.getElementById(
-            "quickConvertGrid"
-        );
-
-    grid.innerHTML = "";
-
-    amounts.forEach(amount=>{
-
-        const thb =
-            amount * rate;
-
-        grid.innerHTML +=
-        `
-        <div class="quick-card">
-
-            <strong>
-            ${amount.toLocaleString()}
-            KRW
-            </strong>
-
-            <br><br>
-
-            ≈
-
-            <br><br>
-
-            ${Math.round(thb)
-            .toLocaleString()}
-            THB
-
-        </div>
-        `;
-
-    });
-
+function formatRemitDate(iso){
+    if(!iso) return "-";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+        ? "-"
+        : d.toLocaleString("th-TH");
 }
 
 function calculateRemit(){
@@ -974,128 +89,377 @@ function setRemitRateStatus(message, type = "info"){
 function renderRemitRateState(){
     const input = document.getElementById("remitRate");
     if(!input) return;
+
     const saved = parseFloat(localStorage.getItem(REMIT_RATE_KEY));
-    const rate = Number.isFinite(saved) && saved > 0 ? saved : REMIT_RATE_DEFAULT;
+    const hasSavedRate = Number.isFinite(saved) && saved > 0;
+    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || (hasSavedRate ? "default" : "default");
+
+    const rate = hasSavedRate ? saved : REMIT_RATE_DEFAULT;
+    const updatedAt = localStorage.getItem(REMIT_RATE_UPDATED_KEY);
+    const sourceDate = localStorage.getItem(REMIT_RATE_SOURCE_DATE_KEY);
+
     input.value = rate.toFixed(2);
 
-    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto";
-    const updatedAt = localStorage.getItem(REMIT_RATE_UPDATED_KEY);
     if(mode === "manual"){
-        setRemitRateStatus(`✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`, "manual");
-    } else if(updatedAt){
-        setRemitRateStatus(`🟢 Auto • Hana Cash Sell • อัปเดตล่าสุด ${new Date(updatedAt).toLocaleString("th-TH")}`, "success");
-    } else {
-        setRemitRateStatus(`🟡 Auto • Hana Cash Sell • ยังไม่มีเวลาการอัปเดต`, "info");
+        setRemitRateStatus(
+            `✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`,
+            "manual"
+        );
     }
+    else if(mode === "cached" && updatedAt){
+        const sourceText = sourceDate ? ` • Hana ประกาศ ${sourceDate}` : "";
+        setRemitRateStatus(
+            `🟠 Cached • ${rate.toFixed(2)} KRW/THB • Hana ดึงล่าสุด ${formatRemitDate(updatedAt)}${sourceText} • รอบล่าสุดดึงไม่สำเร็จ`,
+            "warning"
+        );
+    }
+    else if(mode === "auto" && updatedAt){
+        const sourceText = sourceDate ? ` • Hana ประกาศ ${sourceDate}` : "";
+        setRemitRateStatus(
+            `🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${sourceText}`,
+            "success"
+        );
+    }
+    else {
+        setRemitRateStatus(
+            `⚪ Default • ยังไม่เคยดึง Hana สำเร็จ • ใช้ค่าเริ่มต้น ${rate.toFixed(2)} KRW/THB`,
+            "info"
+        );
+    }
+
     calculateRemit();
 }
 
 function handleRemitRateInput(){
     const input = document.getElementById("remitRate");
     const rate = parseFloat(input && input.value);
+
     if(!Number.isFinite(rate) || rate <= 0) return;
+
     localStorage.setItem(REMIT_RATE_KEY, rate.toFixed(2));
     localStorage.setItem(REMIT_RATE_MODE_KEY, "manual");
-    setRemitRateStatus(`✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`, "manual");
+
+    setRemitRateStatus(
+        `✍️ Manual • ${rate.toFixed(2)} KRW/THB • API จะไม่เขียนทับ`,
+        "manual"
+    );
+
     calculateRemit();
 }
 
-function extractHanaCashSell(text){
-    try {
-        const data = JSON.parse(text);
-        const rows = Array.isArray(data) ? data : (data.data?.LIST || data.LIST || []);
-        const row = rows.find(x => String(x.ISOCODE || x.code || x.currency || "").toUpperCase() === "THB");
-        if(row){
-            const value = Number(row.CASHSELL ?? row.cashSell ?? row.cash_sell);
-            if(Number.isFinite(value) && value > 0) return value;
-        }
-        if(data.rates?.THB){
-            const value = Number(data.rates.THB.cashSell);
-            if(Number.isFinite(value) && value > 0) return value;
-        }
-    } catch (_) {}
+/**
+ * Hana endpoint ไม่ได้ตอบ JSON API แบบ REST แต่ส่ง JavaScript:
+ * var exView = { "날짜": "...", "리스트": [ ... ] }
+ *
+ * ดังนั้นเราโหลดเป็น <script> เพื่อให้ browser execute แล้วอ่าน window.exView
+ * ซึ่งหลีกเลี่ยงปัญหา CORS ที่เกิดกับ fetch() ตรง ๆ
+ */
+function loadHanaExchangeScript(timeoutMs = 10000){
+    return new Promise((resolve, reject) => {
+        const previousExView = window.exView;
 
-    const cleaned = String(text).replace(/\s+/g, " ");
-    const thbPos = cleaned.search(/(?:THB|태국|泰國)/i);
-    const area = thbPos >= 0 ? cleaned.slice(Math.max(0, thbPos - 120), thbPos + 900) : cleaned;
-    const patterns = [
-        /(?:현찰\s*파실때|cash\s*sell)[^0-9]{0,120}([0-9]{1,3}(?:[,.][0-9]{2,4})?)/i,
-        /CASHSELL[^0-9]{0,80}([0-9]+(?:\.[0-9]+)?)/i,
-        /(?:현찰파실때|cashSell)[^0-9]{0,80}([0-9]+(?:\.[0-9]+)?)/i
-    ];
-    for(const re of patterns){
-        const m = area.match(re);
-        if(m){
-            const value = Number(String(m[1]).replace(/,/g, ""));
-            if(Number.isFinite(value) && value > 0) return value;
-        }
-    }
-    return null;
+        // ล้างค่าก่อน เพื่อป้องกันการเผลออ่านข้อมูลรอบเก่า
+        try {
+            window.exView = undefined;
+        } catch (_) {}
+
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `${HANA_FX_ENDPOINT}?_=${Date.now()}`;
+
+        let finished = false;
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            script.onload = null;
+            script.onerror = null;
+            if(script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        const finishError = (error) => {
+            if(finished) return;
+            finished = true;
+
+            // คืนค่าของเดิมถ้าโหลดรอบใหม่ไม่สำเร็จ
+            try {
+                if(previousExView !== undefined){
+                    window.exView = previousExView;
+                }
+            } catch (_) {}
+
+            cleanup();
+            reject(error);
+        };
+
+        const timer = setTimeout(() => {
+            finishError(new Error("Hana API timeout"));
+        }, timeoutMs);
+
+        script.onload = () => {
+            if(finished) return;
+
+            try {
+                const data = window.exView;
+
+                if(!data || typeof data !== "object"){
+                    throw new Error("Hana exView not found");
+                }
+
+                const rows = Array.isArray(data["리스트"])
+                    ? data["리스트"]
+                    : [];
+
+                const row = rows.find(item => {
+                    const name = String(item?.["통화명"] || "");
+                    return /\bTHB\b/i.test(name) || /태국/.test(name);
+                });
+
+                if(!row){
+                    throw new Error("THB row not found");
+                }
+
+                // Hana ใช้ "현찰파실때" = Cash Sell
+                // สำหรับ THB ค่าเป็น KRW ต่อ 1 THB
+                const rawRate = row["현찰파실때"];
+                const rate = Number(
+                    String(rawRate ?? "")
+                        .replace(/,/g, "")
+                        .trim()
+                );
+
+                if(!Number.isFinite(rate) || rate <= 0){
+                    throw new Error("Invalid THB Cash Sell");
+                }
+
+                const sourceDate = String(data["날짜"] || "").trim();
+
+                finished = true;
+                cleanup();
+
+                resolve({
+                    rate,
+                    sourceDate,
+                    currencyName: String(row["통화명"] || "태국 THB")
+                });
+            }
+            catch(error){
+                finishError(error);
+            }
+        };
+
+        script.onerror = () => {
+            finishError(new Error("Hana script load failed"));
+        };
+
+        document.head.appendChild(script);
+    });
 }
 
 async function fetchHanaCashSell(){
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-        const response = await fetch(`${HANA_FX_ENDPOINT}?_=${Date.now()}`, {
-            method: "GET", cache: "no-store", credentials: "omit", signal: controller.signal
-        });
-        if(!response.ok) throw new Error(`HTTP ${response.status}`);
-        const text = await response.text();
-        const rate = extractHanaCashSell(text);
-        if(!rate) throw new Error("THB Cash Sell not found");
-        return rate;
-    } finally { clearTimeout(timeout); }
+    return await loadHanaExchangeScript(10000);
 }
 
 async function updateRemitRate(force = false){
     if(remitRateFetchInFlight) return false;
+
     const now = Date.now();
-    const lastAttempt = Number(localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0);
-    const minInterval = force ? REMIT_RATE_FORCE_MIN_INTERVAL_MS : REMIT_RATE_MIN_INTERVAL_MS;
+    const lastAttempt = Number(
+        localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0
+    );
+
+    const minInterval = force
+        ? REMIT_RATE_FORCE_MIN_INTERVAL_MS
+        : REMIT_RATE_MIN_INTERVAL_MS;
 
     if(lastAttempt && now - lastAttempt < minInterval){
         if(!force) return false;
-        const remain = Math.ceil((minInterval - (now - lastAttempt)) / 1000);
-        setRemitRateStatus(`🕒 ป้องกันการเรียก API ถี่เกินไป • ลองใหม่ใน ${remain} วินาที`, "info");
+
+        const remain = Math.ceil(
+            (minInterval - (now - lastAttempt)) / 1000
+        );
+
+        setRemitRateStatus(
+            `🕒 ป้องกันการเรียก Hana ถี่เกินไป • ลองใหม่ใน ${remain} วินาที`,
+            "info"
+        );
+
         return false;
     }
-    if(!force && (localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto") === "manual") return false;
+
+    // ถ้าเป็น Manual การอัปเดตอัตโนมัติห้ามเขียนทับ
+    // แต่การกดปุ่ม "อัปเดตเรต" (force=true) สามารถเปลี่ยนกลับเป็น Auto ได้
+    const currentMode =
+        localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";
+
+    if(!force && currentMode === "manual"){
+        return false;
+    }
 
     remitRateFetchInFlight = true;
-    localStorage.setItem(REMIT_RATE_LAST_ATTEMPT_KEY, String(now));
-    setRemitRateStatus("🔄 กำลังดึง Hana Cash Sell...", "loading");
-    try {
-        const rate = await fetchHanaCashSell();
+    localStorage.setItem(
+        REMIT_RATE_LAST_ATTEMPT_KEY,
+        String(now)
+    );
+
+    const btn = document.getElementById("updateRemitRateBtn");
+    if(btn){
+        btn.disabled = true;
+        btn.dataset.originalText = btn.innerText;
+        btn.innerText = "⏳ กำลังดึง...";
+    }
+
+    setRemitRateStatus(
+        "🔄 กำลังดึง Hana Cash Sell จริง...",
+        "loading"
+    );
+
+    try{
+        const result = await fetchHanaCashSell();
+        const rate = result.rate;
         const updatedAt = new Date().toISOString();
-        document.getElementById("remitRate").value = rate.toFixed(2);
-        localStorage.setItem(REMIT_RATE_KEY, rate.toFixed(2));
-        localStorage.setItem(REMIT_RATE_UPDATED_KEY, updatedAt);
-        localStorage.setItem(REMIT_RATE_MODE_KEY, "auto");
-        setRemitRateStatus(`🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • อัปเดตล่าสุด ${new Date(updatedAt).toLocaleString("th-TH")}`, "success");
+
+        document.getElementById("remitRate").value =
+            rate.toFixed(2);
+
+        saveRemitRate(
+            rate,
+            "auto",
+            updatedAt,
+            result.sourceDate
+        );
+
+        setRemitRateStatus(
+            `🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${result.sourceDate ? ` • Hana ประกาศ ${result.sourceDate}` : ""}`,
+            "success"
+        );
+
         calculateRemit();
         return true;
-    } catch(error){
+    }
+    catch(error){
         console.warn("Hana Cash Sell fetch failed:", error);
-        const current = parseFloat(document.getElementById("remitRate").value) || REMIT_RATE_DEFAULT;
-        setRemitRateStatus(`🟠 API ไม่พร้อม • ใช้ค่า ${current.toFixed(2)} ต่อไป • แก้เองได้`, "warning");
+
+        localStorage.setItem(
+            REMIT_RATE_LAST_ERROR_KEY,
+            String(error?.message || error)
+        );
+
+        const current = parseFloat(
+            localStorage.getItem(REMIT_RATE_KEY)
+        );
+
+        const lastSuccessfulAt =
+            localStorage.getItem(REMIT_RATE_UPDATED_KEY);
+
+        const sourceDate =
+            localStorage.getItem(REMIT_RATE_SOURCE_DATE_KEY);
+
+        if(Number.isFinite(current) && current > 0 && lastSuccessfulAt){
+            // เคยได้ Auto จริงมาก่อน -> ตอนนี้ใช้ค่าล่าสุดเป็น Cached
+            localStorage.setItem(
+                REMIT_RATE_MODE_KEY,
+                "cached"
+            );
+
+            setRemitRateStatus(
+                `🟠 Cached • ${current.toFixed(2)} KRW/THB • Hana ดึงล่าสุด ${formatRemitDate(lastSuccessfulAt)}${sourceDate ? ` • Hana ประกาศ ${sourceDate}` : ""} • รอบล่าสุดดึงไม่สำเร็จ`,
+                "warning"
+            );
+        }
+        else{
+            // ยังไม่เคยดึง Hana สำเร็จเลย -> ใช้ Default เท่านั้น
+            const fallback = REMIT_RATE_DEFAULT;
+
+            localStorage.setItem(
+                REMIT_RATE_KEY,
+                fallback.toFixed(2)
+            );
+            localStorage.setItem(
+                REMIT_RATE_MODE_KEY,
+                "default"
+            );
+
+            document.getElementById("remitRate").value =
+                fallback.toFixed(2);
+
+            setRemitRateStatus(
+                `⚪ Default • Hana ยังไม่เคยดึงสำเร็จ • ใช้ค่าเริ่มต้น ${fallback.toFixed(2)} KRW/THB • กดอัปเดตเรตเพื่อลองใหม่`,
+                "info"
+            );
+        }
+
         calculateRemit();
         return false;
-    } finally { remitRateFetchInFlight = false; }
+    }
+    finally{
+        remitRateFetchInFlight = false;
+
+        if(btn){
+            btn.disabled = false;
+            btn.innerText =
+                btn.dataset.originalText || "🔄 อัปเดตเรต";
+        }
+    }
 }
 
 function initRemitRate(){
     if(!document.getElementById("remitRate")) return;
-    if(!localStorage.getItem(REMIT_RATE_KEY)) localStorage.setItem(REMIT_RATE_KEY, REMIT_RATE_DEFAULT.toFixed(2));
-    if(!localStorage.getItem(REMIT_RATE_MODE_KEY)) localStorage.setItem(REMIT_RATE_MODE_KEY, "auto");
+
+    const saved = parseFloat(
+        localStorage.getItem(REMIT_RATE_KEY)
+    );
+
+    // ถ้ายังไม่มีเรตเลย ให้เริ่มที่ Default แต่ระบุสถานะว่าเป็น Default
+    if(!Number.isFinite(saved) || saved <= 0){
+        localStorage.setItem(
+            REMIT_RATE_KEY,
+            REMIT_RATE_DEFAULT.toFixed(2)
+        );
+        localStorage.setItem(
+            REMIT_RATE_MODE_KEY,
+            "default"
+        );
+    }
+    else if(!localStorage.getItem(REMIT_RATE_MODE_KEY)){
+        // ข้อมูลเก่าจากเวอร์ชันก่อนหน้า:
+        // ถ้ามีเวลาที่เคยอัปเดตสำเร็จ ให้ถือว่า Auto;
+        // ถ้าไม่มี ให้ถือว่า Default ไม่ใช่ Auto
+        const oldUpdatedAt =
+            localStorage.getItem(REMIT_RATE_UPDATED_KEY);
+
+        localStorage.setItem(
+            REMIT_RATE_MODE_KEY,
+            oldUpdatedAt ? "auto" : "default"
+        );
+    }
+
     renderRemitRateState();
 
-    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto";
-    const lastAttempt = Number(localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0);
-    if(mode === "auto" && (!lastAttempt || Date.now() - lastAttempt >= REMIT_RATE_MIN_INTERVAL_MS)) updateRemitRate(false);
+    const mode =
+        localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";
 
+    const lastAttempt = Number(
+        localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0
+    );
+
+    // Auto / Cached / Default สามารถลองดึงใหม่ได้
+    // Manual จะไม่เรียกเอง
+    if(
+        mode !== "manual" &&
+        (!lastAttempt ||
+            Date.now() - lastAttempt >= REMIT_RATE_MIN_INTERVAL_MS)
+    ){
+        updateRemitRate(false);
+    }
+
+    // เช็กทุก 5 นาที แต่ไม่แตะ Manual
     setInterval(() => {
-        if((localStorage.getItem(REMIT_RATE_MODE_KEY) || "auto") === "auto") updateRemitRate(false);
+        const currentMode =
+            localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";
+
+        if(currentMode !== "manual"){
+            updateRemitRate(false);
+        }
     }, REMIT_RATE_MIN_INTERVAL_MS);
 }
 

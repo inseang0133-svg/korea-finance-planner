@@ -11,12 +11,12 @@
   const STORE = "localStorageBackup";
   const SNAPSHOT_KEY = "__all_local_storage__";
   const RESTORED_FLAG = "__kfp_pwa_restored__";
-  const SNAPSHOT_MS = 1000;
+  const SNAPSHOT_MS = 1500;
 
   function openDB() {
     return new Promise((resolve, reject) => {
       if (!window.indexedDB) return reject(new Error("IndexedDB unavailable"));
-      const req = indexedDB.open(DB_NAME, 1);
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);

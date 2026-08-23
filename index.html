@@ -11,15 +11,15 @@
     
     <title>เป้าการเก็บเงิน</title>
 
-    <link rel="stylesheet" href="style.css?v=20260823-pwa13">
+    <link rel="stylesheet" href="style.css?v=20260823-pwa14">
     
     <link rel="manifest" href="manifest.json">
 
     <!-- Optional cloud login layer. Existing finance logic remains unchanged. -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260823-pwa13"></script>
-<script src="pwa-persistence.js?v=20260823-pwa13"></script>
-<script src="auth.js?v=20260823-pwa13"></script>
+    <script src="supabase-config.js?v=20260823-pwa14"></script>
+<script src="pwa-persistence.js?v=20260823-pwa14"></script>
+<script src="auth.js?v=20260823-pwa14"></script>
 </head>
 <body>
 
@@ -34,6 +34,7 @@
         <input
             type="number"
             id="salary"
+            oninput="updateSalaryPreview()"
             placeholder="เช่น 2567890">
             <p id="salaryTHBPreview" class="salary-preview">
     -
@@ -44,7 +45,8 @@
             type="number"
             step="0.0001"
             id="rate"
-            value="0.0240">
+            value="0.0240"
+            oninput="updateSalaryPreview()">
             <button onclick="updateExchangeRate()">
         🔄 อัปเดตค่าเงินล่าสุด
         </button>
@@ -114,7 +116,7 @@
         </select>
 
         <label>จำนวนเงิน</label>
-        <input type="number" id="convertAmount">
+        <input type="number" id="convertAmount" oninput="convertCurrency()">
 
         <div class="button-group">
             <button onclick="swapConverter()">🔄 สลับ</button>
@@ -263,13 +265,13 @@
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20260823-pwa13"></script>
+<script src="script.js?v=20260823-pwa14"></script>
 <script>
     // PWA update: always check the newest service worker and versioned app assets.
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
             try {
-                const reg = await navigator.serviceWorker.register('sw.js?v=20260823-pwa13', {updateViaCache:'none'});
+                const reg = await navigator.serviceWorker.register('sw.js?v=20260823-pwa14', {updateViaCache:'none'});
                 await reg.update();
             } catch (err) {
                 console.warn('PWA Service Worker Registration Failed:', err);

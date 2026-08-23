@@ -17,6 +17,7 @@
     "salary", "kfp_exchange_rate_v1", "kfp_exchange_rate_updated_v1",
     "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2",
     "kfp_sync_revision_v1",
+    "kfp_deleted_keys_v1",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
   ];
   const ARRAY_KEYS = new Set(["kfp_salary_records_v2", "kfp_gold_lots_v1"]);
@@ -127,42 +128,49 @@
     catch { return {}; }
   }
 
+  function getDeletedKeys(data) {
+    try {
+      const raw = data?.kfp_deleted_keys_v1;
+      const x = typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
+      return x && typeof x === "object" && !Array.isArray(x) ? x : {};
+    } catch (_) { return {}; }
+  }
+
   function mergeData(local, cloud) {
     local = normalizeDataKeys(local);
     cloud = normalizeDataKeys(cloud);
-    const out = { ...(cloud || {}) };
-    const keys = new Set([...Object.keys(local || {}), ...Object.keys(cloud || {})]);
+    const deleted = { ...getDeletedKeys(cloud), ...getDeletedKeys(local) };
+    const out = { ...(cloud || {}), ...(local || {}) };
 
-    for (const key of keys) {
-      const lv = local?.[key];
-      const cv = cloud?.[key];
+    // Explicitly deleted keys are authoritative. This is what prevents an empty
+    // salary history or deleted contract from being resurrected by Cloud/PWA.
+    for (const key of Object.keys(deleted)) delete out[key];
 
-      if (ARRAY_KEYS.has(key)) {
-        const la = safeArray(lv), ca = safeArray(cv);
-        if (key === "kfp_salary_records_v2") {
-          const map = new Map();
-          for (const item of ca) if (item?.month) map.set(item.month, item);
-          for (const item of la) if (item?.month) {
-            const old = map.get(item.month);
-            // Same month: local wins because it is the device currently being used.
-            map.set(item.month, old ? { ...old, ...item } : item);
-          }
-          out[key] = JSON.stringify([...map.values()].sort((a,b) => String(a.month).localeCompare(String(b.month))));
-        } else {
-          const map = new Map();
-          for (const item of ca) if (item?.id) map.set(String(item.id), item);
-          for (const item of la) if (item?.id) map.set(String(item.id), item);
-          const noId = [...ca, ...la].filter(x => !x?.id);
-          out[key] = JSON.stringify([...map.values(), ...noId]);
-        }
-      } else if (key === "kfp_gold_settings_v1" || key === "kfp_gold_chart_view_v2") {
-        out[key] = JSON.stringify({ ...safeObj(cv), ...safeObj(lv) });
-      } else {
-        // For scalar settings, current device value wins when present; otherwise keep cloud.
-        if (lv !== undefined && lv !== null) out[key] = lv;
-        else if (cv !== undefined && cv !== null) out[key] = cv;
+    // For finance scalar/array domains, presence in the current device is authoritative.
+    // An empty [] is meaningful and must NOT be treated as "missing".
+    for (const key of [
+      "salary", EXCHANGE_RATE_KEY, "kfp_exchange_rate_updated_v1",
+      "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2"
+    ]) {
+      if (Object.prototype.hasOwnProperty.call(local, key) && !Object.prototype.hasOwnProperty.call(deleted, key)) {
+        out[key] = local[key];
       }
     }
+
+    // Gold records/settings retain the existing merge behavior.
+    if (local.kfp_gold_lots_v1 !== undefined && !deleted.kfp_gold_lots_v1) {
+      const la = safeArray(local.kfp_gold_lots_v1), ca = safeArray(cloud.kfp_gold_lots_v1);
+      const map = new Map();
+      for (const item of ca) if (item?.id) map.set(String(item.id), item);
+      for (const item of la) if (item?.id) map.set(String(item.id), item);
+      out.kfp_gold_lots_v1 = JSON.stringify([...map.values(), ...la.filter(x => !x?.id)]);
+    }
+    if (local.kfp_gold_settings_v1 !== undefined && !deleted.kfp_gold_settings_v1) {
+      out.kfp_gold_settings_v1 = JSON.stringify({ ...safeObj(cloud.kfp_gold_settings_v1), ...safeObj(local.kfp_gold_settings_v1) });
+    }
+
+    if (Object.keys(deleted).length) out.kfp_deleted_keys_v1 = JSON.stringify(deleted);
+    else delete out.kfp_deleted_keys_v1;
     return out;
   }
 
@@ -184,11 +192,28 @@
   async function saveCloud(data = getLocalData()) {
     if (!currentUser || applyingCloud) return;
     data = normalizeDataKeys(data);
-    if (!data.kfp_sync_revision_v1) {
-      data.kfp_sync_revision_v1 = String(Date.now());
-      try { localStorage.setItem("kfp_sync_revision_v1", data.kfp_sync_revision_v1); } catch (_) {}
-    }
-    const payload = { user_id: currentUser.id, data, updated_at: new Date().toISOString() };
+    const deleted = getDeletedKeys(data);
+    let cloud = {};
+    try {
+      const row = await getCloudRow(currentUser.id);
+      cloud = normalizeDataKeys(row?.data || {});
+    } catch (_) {}
+
+    // Preserve unrelated cloud domains. Only keys explicitly present locally
+    // or explicitly tombstoned are changed. This prevents deleting salary from
+    // accidentally deleting the Korea contract/exchange-rate domains.
+    const merged = mergeData(data, cloud);
+    const revision = Math.max(
+      Number(data.kfp_sync_revision_v1) || 0,
+      Number(localStorage.getItem("kfp_sync_revision_v1")) || 0,
+      Number(cloud.kfp_sync_revision_v1) || 0,
+      Date.now()
+    );
+    merged.kfp_sync_revision_v1 = String(revision);
+    try { localStorage.setItem("kfp_sync_revision_v1", String(revision)); } catch (_) {}
+    if (Object.keys(deleted).length) merged.kfp_deleted_keys_v1 = JSON.stringify(deleted);
+
+    const payload = { user_id: currentUser.id, data: merged, updated_at: new Date().toISOString() };
     const { error } = await supabase.from("user_data").upsert(payload, { onConflict: "user_id" });
     if (error) console.error("KFP cloud sync:", error);
   }
@@ -475,9 +500,10 @@ hideAuthPanel();
       // from resurrecting a record that was just deleted.
       if (cloudRev <= localRev) return;
 
-      // The newest cloud revision is authoritative. Do not union-merge arrays:
-      // an empty salary array must remain empty, and a deleted contract must stay deleted.
-      replaceLocalData(cloudData);
+      // Apply Cloud by independent domain. A local tombstone/empty array is preserved,
+      // and unrelated domains (contract/rate) are never cleared accidentally.
+      const merged = mergeData(getLocalData(), cloudData);
+      replaceLocalData(merged);
       try { if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist(); } catch (_) {}
 
       // Refresh index.html UI without reloading the page.

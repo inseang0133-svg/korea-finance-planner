@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-v6';
-const API_CACHE_NAME = 'korea-finance-api-v4';
+const CACHE_NAME = 'korea-finance-v7-mobile8';
+const API_CACHE_NAME = 'korea-finance-api-v5';
 
 const ASSETS = [
   'index.html',
@@ -9,7 +9,9 @@ const ASSETS = [
   'gold.html',
   'gold.css',
   'gold.js',
-  'pwa-persistence.js'
+  'pwa-persistence.js',
+  'auth.js',
+  'supabase-config.js'
 ];
 
 const API_HOSTS = new Set([

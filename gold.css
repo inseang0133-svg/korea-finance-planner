@@ -385,31 +385,82 @@ input:focus,select:focus{border-color:#b18d21}
   #autoGold2goBtn{width:100%}
 }
 
-/* KFP 2026-08-23: compact Association/GOLD2go trade quote typography.
-   Keep headings and prices on one line; reduce font slightly instead of wrapping. */
-.trade-split-box .trade-half span{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  font-size:12px;
-  line-height:1.15;
-}
-.trade-split-box .trade-half strong{
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  font-size:19px;
-  line-height:1.05;
-  margin-top:5px;
-}
-.trade-split-box .trade-half .trade-label{
-  margin-top:4px;
-  line-height:1.1;
-}
-@media(max-width:700px){
-  .trade-split-box .trade-half{padding:13px 8px}
-  .trade-split-box .trade-half span{font-size:10px}
-  .trade-split-box .trade-half .trade-label{font-size:10.5px}
-  .trade-split-box .trade-half strong{font-size:16px}
-  .trade-split-box .trade-half small{font-size:9.5px}
+
+
+/* ===== KFP 2026-08-23 mobile trade layout =====
+   Mobile target: 5 rows x 8 logical blocks:
+   row 1: Gold Spot | USD/THB
+   row 2: 99.99 gram | 99.99 oz
+   row 3: 96.5 receive (full 2 columns)
+   row 4: 96.5 sell (full 2 columns)
+   row 5: jewelry receive | jewelry sell
+*/
+@media (max-width:700px){
+  .gold-container{padding-left:10px;padding-right:10px}
+  .gold-card{padding:14px;border-radius:16px}
+  .market-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+  }
+  .market-box{
+    padding:13px 10px;
+    border-radius:13px;
+  }
+
+  /* Each trade card is one full-width 2-column row. */
+  .market-grid > .trade-split-box{
+    grid-column:1 / -1;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr);
+  }
+
+  .trade-split-box .trade-half{
+    padding:14px 12px;
+    min-width:0;
+  }
+
+  /* Match the jewelry-card typography instead of the tiny previous text. */
+  .trade-split-box .trade-half span{
+    font-size:14px;
+    line-height:1.2;
+    font-weight:600;
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  .trade-split-box .trade-half .trade-label{
+    font-size:13px;
+    line-height:1.2;
+    margin-top:6px;
+  }
+  .trade-split-box .trade-half strong{
+    font-size:22px;
+    line-height:1.1;
+    margin-top:7px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .trade-split-box .trade-half small{
+    font-size:11px;
+    line-height:1.25;
+  }
+
+  /* Jewelry cards stay one column each, same visual scale as requested. */
+  .market-grid > .thai-gold-box{
+    grid-column:span 1;
+    padding:13px 10px;
+  }
+  .market-grid > .thai-gold-box span{
+    font-size:14px;
+    line-height:1.2;
+  }
+  .market-grid > .thai-gold-box strong{
+    font-size:22px;
+    line-height:1.1;
+    margin-top:7px;
+  }
+  .market-grid > .thai-gold-box small{
+    font-size:11px;
+  }
 }

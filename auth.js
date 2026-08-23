@@ -16,6 +16,7 @@
   const DATA_KEYS = [
     "salary", "kfp_exchange_rate_v1", "kfp_exchange_rate_updated_v1",
     "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2",
+    "kfp_sync_revision_v1",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
   ];
   const ARRAY_KEYS = new Set(["kfp_salary_records_v2", "kfp_gold_lots_v1"]);
@@ -79,6 +80,24 @@
     }
   }
 
+  function replaceLocalData(data) {
+    if (!data || typeof data !== "object") return;
+    data = normalizeDataKeys(data);
+    applyingCloud = true;
+    try {
+      for (const key of DATA_KEYS) {
+        localStorage.removeItem(key);
+      }
+      for (const key of DATA_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== null && data[key] !== undefined) {
+          localStorage.setItem(key, String(data[key]));
+        }
+      }
+    } finally {
+      applyingCloud = false;
+    }
+  }
+
   function clearPersonalLocalData() {
     applyingCloud = true;
     try { DATA_KEYS.forEach(k => localStorage.removeItem(k)); }
@@ -93,7 +112,7 @@
     const labels = [];
     if (data.kfp_salary_records_v2 && safeArray(data.kfp_salary_records_v2).length) labels.push("เงินเดือน");
     if (data.kfp_gold_lots_v1 && safeArray(data.kfp_gold_lots_v1).length) labels.push("รายการทอง");
-    if (data.contractStartDate) labels.push("สัญญาจ้าง");
+    if (data.kfp_contract_v1) labels.push("สัญญาจ้าง");
     if (data.goal || data.currentSaving) labels.push("เป้าหมายเงินเก็บ");
     return labels.length ? labels.join(" · ") : "ข้อมูลการตั้งค่า";
   }
@@ -164,6 +183,11 @@
 
   async function saveCloud(data = getLocalData()) {
     if (!currentUser || applyingCloud) return;
+    data = normalizeDataKeys(data);
+    if (!data.kfp_sync_revision_v1) {
+      data.kfp_sync_revision_v1 = String(Date.now());
+      try { localStorage.setItem("kfp_sync_revision_v1", data.kfp_sync_revision_v1); } catch (_) {}
+    }
     const payload = { user_id: currentUser.id, data, updated_at: new Date().toISOString() };
     const { error } = await supabase.from("user_data").upsert(payload, { onConflict: "user_id" });
     if (error) console.error("KFP cloud sync:", error);
@@ -443,12 +467,27 @@ hideAuthPanel();
 
       if (!payload.new?.data || applyingCloud) return;
 
-      const merged = mergeData(
-        getLocalData(),
-        normalizeDataKeys(payload.new.data)
-      );
+      const cloudData = normalizeDataKeys(payload.new.data);
+      const cloudRev = Number(cloudData.kfp_sync_revision_v1) || 0;
+      const localRev = Number(localStorage.getItem("kfp_sync_revision_v1")) || 0;
 
-      putLocalData(merged);
+      // Ignore stale realtime events. This prevents an older salary snapshot
+      // from resurrecting a record that was just deleted.
+      if (cloudRev <= localRev) return;
+
+      // The newest cloud revision is authoritative. Do not union-merge arrays:
+      // an empty salary array must remain empty, and a deleted contract must stay deleted.
+      replaceLocalData(cloudData);
+      try { if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist(); } catch (_) {}
+
+      // Refresh index.html UI without reloading the page.
+      try {
+        if (typeof loadSalaryRecords === "function") loadSalaryRecords();
+        if (typeof updateAnalytics === "function") updateAnalytics();
+        if (typeof loadContract === "function") loadContract();
+        if (typeof updateSalaryPreview === "function") updateSalaryPreview();
+        if (typeof convertCurrency === "function") convertCurrency();
+      } catch (_) {}
 
       setAuthStatus(
         "☁️ ข้อมูล Cloud อัปเดตแล้ว",

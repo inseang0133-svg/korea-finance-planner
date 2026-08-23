@@ -3,6 +3,41 @@ const SALARY_RECORDS_KEY = "kfp_salary_records_v2";
 const EXCHANGE_RATE_KEY = "kfp_exchange_rate_v1";
 const EXCHANGE_RATE_UPDATED_KEY = "kfp_exchange_rate_updated_v1";
 const CONTRACT_KEY = "kfp_contract_v1";
+const FINANCE_SYNC_REV_KEY = "kfp_sync_revision_v1";
+
+// Persist finance changes immediately so the PWA backup cannot resurrect deleted data.
+function persistFinanceNow(){
+    try {
+        if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist();
+    } catch (_) {}
+}
+
+function touchFinanceSyncRevision(){
+    try {
+        const current = Number(localStorage.getItem(FINANCE_SYNC_REV_KEY)) || 0;
+        const next = Math.max(Date.now(), current + 1);
+        localStorage.setItem(FINANCE_SYNC_REV_KEY, String(next));
+    } catch (_) {}
+    persistFinanceNow();
+}
+
+function markFinanceDeleted(key){
+    try {
+        const tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}");
+        tombstones[key] = Date.now();
+        localStorage.setItem("kfp_deleted_keys_v1", JSON.stringify(tombstones));
+    } catch (_) {}
+}
+
+function clearFinanceDeletedMark(key){
+    try {
+        const tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}");
+        if (Object.prototype.hasOwnProperty.call(tombstones, key)) {
+            delete tombstones[key];
+            localStorage.setItem("kfp_deleted_keys_v1", JSON.stringify(tombstones));
+        }
+    } catch (_) {}
+}
 
 function migrateFinanceStorage() {
     try {
@@ -22,6 +57,7 @@ function migrateFinanceStorage() {
 }
 
 migrateFinanceStorage();
+persistFinanceNow();
 
 let salaryChart = null;
 let savingChart = null;
@@ -41,6 +77,7 @@ function saveData(){
         EXCHANGE_RATE_KEY,
         document.getElementById("rate").value
     );
+    touchFinanceSyncRevision();
 }
 
 function updateSalaryPreview(){
@@ -361,11 +398,12 @@ function deleteSalaryRecord(index){
     localStorage.setItem(
     SALARY_RECORDS_KEY,
     JSON.stringify(records)
-);
+    );
+    if (records.length === 0) markFinanceDeleted(SALARY_RECORDS_KEY);
+    else clearFinanceDeletedMark(SALARY_RECORDS_KEY);
+    touchFinanceSyncRevision();
 
-
-
-updateAnalytics();
+    updateAnalytics();
 
 loadSalaryRecords();
 }
@@ -770,11 +808,12 @@ async function updateExchangeRate(){
             `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
             | 1 KRW = ${thbRate.toFixed(4)} THB`;
 
-        // Refresh all UI calculations that depend on the current exchange rate.
+        // Refresh only finance calculations. Salary history and Korea contract are independent.
         updateSalaryPreview();
-        if (document.getElementById("convertAmount")?.value) convertCurrency();
         if (document.getElementById("salary")?.value) calculate();
+        if (document.getElementById("convertAmount")?.value) convertCurrency();
         if (typeof renderQuickConvert === "function") renderQuickConvert();
+        touchFinanceSyncRevision();
 
     }
     catch(error){
@@ -836,6 +875,14 @@ function convertCurrency(){
         document.getElementById(
             "convertType"
         ).value;
+
+    const resultEl = document.getElementById("convertResult");
+    if (!resultEl) return;
+
+    if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(rate) || rate <= 0) {
+        resultEl.innerHTML = "-";
+        return;
+    }
 
     let result;
 
@@ -1124,6 +1171,10 @@ function loadContract(){
         localStorage.getItem(CONTRACT_KEY);
 
     if(!savedDate){
+        const input = document.getElementById("startDate");
+        const result = document.getElementById("contractResult");
+        if (input) input.value = "";
+        if (result) result.innerHTML = "-";
         return;
     }
 
@@ -1211,6 +1262,8 @@ function deleteContract(){
     }
 
     localStorage.removeItem(CONTRACT_KEY);
+    markFinanceDeleted(CONTRACT_KEY);
+    touchFinanceSyncRevision();
 
     document.getElementById(
         "startDate"
@@ -1241,6 +1294,8 @@ function saveContract(){
         CONTRACT_KEY,
         startDate
     );
+    clearFinanceDeletedMark(CONTRACT_KEY);
+    touchFinanceSyncRevision();
 
     loadContract();
 }
@@ -1273,6 +1328,8 @@ function addSalaryRecord() {
     records.push({ month, salary, rate });
     
     localStorage.setItem(SALARY_RECORDS_KEY, JSON.stringify(records));
+    clearFinanceDeletedMark(SALARY_RECORDS_KEY);
+    touchFinanceSyncRevision();
 
     document.getElementById("filterYear").value = "latest"; 
     
@@ -1320,10 +1377,19 @@ updateSalaryPreview();
         "input",
         () => {
             localStorage.setItem(EXCHANGE_RATE_KEY, document.getElementById("rate").value);
+            touchFinanceSyncRevision();
             updateSalaryPreview();
+            if (document.getElementById("salary")?.value) calculate();
             if (document.getElementById("convertAmount")?.value) convertCurrency();
+            if (typeof renderQuickConvert === "function") renderQuickConvert();
         }
     );
+
+    // Currency converter is fully independent from salary history and contract.
+    // Recalculate immediately on every keystroke, even when the exchange-rate update button is never pressed.
+    document.getElementById("convertAmount")?.addEventListener("input", convertCurrency);
+    document.getElementById("convertType")?.addEventListener("change", convertCurrency);
+    convertCurrency();
 
     const lastUpdate =
     localStorage.getItem(EXCHANGE_RATE_UPDATED_KEY);

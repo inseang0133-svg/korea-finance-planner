@@ -64,7 +64,11 @@
     let restored = 0;
     if (!snapshot || typeof snapshot !== "object") return restored;
     try {
+      let tombstones = {};
+      try { tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}"); } catch (_) {}
       for (const [key, value] of Object.entries(snapshot)) {
+        // Never resurrect a finance key explicitly marked deleted by the current app.
+        if (tombstones && Object.prototype.hasOwnProperty.call(tombstones, key)) continue;
         if (localStorage.getItem(key) === null) {
           localStorage.setItem(key, value);
           restored++;

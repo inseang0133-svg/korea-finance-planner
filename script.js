@@ -5,21 +5,19 @@ function formatNumber(num){
     return new Intl.NumberFormat().format(num);
 }
 
-// Remittance FX rate controller.
-// Auto source (temporary): Frankfurter / ECB reference rate, THB -> KRW.
-// NOTE: This is NOT Hana Bank's Cash Sell rate. It is a market reference
-// used as a convenient temporary Auto source until a direct Hana source is available.
-//
+// Hana Bank Cash Sell remit-rate controller.
 // Modes:
-//   default = ยังไม่เคยได้ Auto สำเร็จ ใช้ค่าเริ่มต้น 42.75 (แต่ไม่อ้างว่าเป็น API)
-//   auto    = ดึง reference rate จาก API สำเร็จล่าสุด
-//   cached  = API รอบล่าสุดไม่สำเร็จ จึงใช้เรต Auto ที่เคยดึงสำเร็จ
+//   default = ยังไม่เคยดึง Hana สำเร็จ ใช้ค่าเริ่มต้น 42.75
+//   auto    = ดึงจาก Hana สำเร็จล่าสุด
+//   cached  = Hana ดึงรอบล่าสุดไม่สำเร็จ จึงใช้เรต Auto ที่เคยดึงสำเร็จ
 //   manual  = ผู้ใช้กรอกเอง และ Auto จะไม่เขียนทับจนกว่าจะกด "อัปเดตเรต"
-
+//
+// ใช้ <script src="..."> แทน fetch เพราะ endpoint ของ Hana เป็น JavaScript
+// ที่ประกาศตัวแปร global "exView" และวิธีนี้ไม่ติด CORS แบบ fetch ตรง ๆ
 const REMIT_RATE_DEFAULT = 42.75;
-const REMIT_RATE_MIN_INTERVAL_MS = 5 * 60 * 1000;      // auto: อย่างน้อย 5 นาที
-const REMIT_RATE_FORCE_MIN_INTERVAL_MS = 60 * 1000;    // ปุ่ม: อย่างน้อย 1 นาที
-const FX_REFERENCE_ENDPOINT = "https://api.frankfurter.app/latest?from=THB&to=KRW";
+const REMIT_RATE_MIN_INTERVAL_MS = 5 * 60 * 1000;
+const REMIT_RATE_FORCE_MIN_INTERVAL_MS = 60 * 1000;
+const HANA_FX_ENDPOINT = "https://fx.kebhana.com/FER1101M.web";
 
 const REMIT_RATE_KEY = "remitRate";
 const REMIT_RATE_UPDATED_KEY = "remitRateUpdatedAt";
@@ -94,7 +92,7 @@ function renderRemitRateState(){
 
     const saved = parseFloat(localStorage.getItem(REMIT_RATE_KEY));
     const hasSavedRate = Number.isFinite(saved) && saved > 0;
-    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";
+    const mode = localStorage.getItem(REMIT_RATE_MODE_KEY) || (hasSavedRate ? "default" : "default");
 
     const rate = hasSavedRate ? saved : REMIT_RATE_DEFAULT;
     const updatedAt = localStorage.getItem(REMIT_RATE_UPDATED_KEY);
@@ -109,22 +107,22 @@ function renderRemitRateState(){
         );
     }
     else if(mode === "cached" && updatedAt){
-        const sourceText = sourceDate ? ` • ข้อมูลอ้างอิงวันที่ ${sourceDate}` : "";
+        const sourceText = sourceDate ? ` • Hana ประกาศ ${sourceDate}` : "";
         setRemitRateStatus(
-            `🟠 Cached • ${rate.toFixed(2)} KRW/THB • API สำเร็จล่าสุด ${formatRemitDate(updatedAt)}${sourceText} • รอบล่าสุดดึงไม่สำเร็จ`,
+            `🟠 Cached • ${rate.toFixed(2)} KRW/THB • Hana ดึงล่าสุด ${formatRemitDate(updatedAt)}${sourceText} • รอบล่าสุดดึงไม่สำเร็จ`,
             "warning"
         );
     }
     else if(mode === "auto" && updatedAt){
-        const sourceText = sourceDate ? ` • ข้อมูลอ้างอิงวันที่ ${sourceDate}` : "";
+        const sourceText = sourceDate ? ` • Hana ประกาศ ${sourceDate}` : "";
         setRemitRateStatus(
-            `🟢 Auto • Reference rate • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${sourceText}`,
+            `🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${sourceText}`,
             "success"
         );
     }
     else {
         setRemitRateStatus(
-            `⚪ Default • ยังไม่เคยได้ API สำเร็จ • ใช้ค่าเริ่มต้น ${rate.toFixed(2)} KRW/THB • กดอัปเดตเรตเพื่อลองใหม่`,
+            `⚪ Default • ยังไม่เคยดึง Hana สำเร็จ • ใช้ค่าเริ่มต้น ${rate.toFixed(2)} KRW/THB`,
             "info"
         );
     }
@@ -150,35 +148,115 @@ function handleRemitRateInput(){
 }
 
 /**
- * Temporary public reference source:
- * Frankfurter API -> THB/KRW.
+ * Hana endpoint ไม่ได้ตอบ JSON API แบบ REST แต่ส่ง JavaScript:
+ * var exView = { "날짜": "...", "리스트": [ ... ] }
  *
- * Returned rate means KRW for 1 THB.
- * This is a reference/market rate, NOT Hana Bank Cash Sell.
+ * ดังนั้นเราโหลดเป็น <script> เพื่อให้ browser execute แล้วอ่าน window.exView
+ * ซึ่งหลีกเลี่ยงปัญหา CORS ที่เกิดกับ fetch() ตรง ๆ
  */
-async function fetchReferenceRate(){
-    const response = await fetch(FX_REFERENCE_ENDPOINT, {
-        method: "GET",
-        cache: "no-store",
-        headers: { "Accept": "application/json" }
+function loadHanaExchangeScript(timeoutMs = 10000){
+    return new Promise((resolve, reject) => {
+        const previousExView = window.exView;
+
+        // ล้างค่าก่อน เพื่อป้องกันการเผลออ่านข้อมูลรอบเก่า
+        try {
+            window.exView = undefined;
+        } catch (_) {}
+
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = `${HANA_FX_ENDPOINT}?_=${Date.now()}`;
+
+        let finished = false;
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            script.onload = null;
+            script.onerror = null;
+            if(script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        const finishError = (error) => {
+            if(finished) return;
+            finished = true;
+
+            // คืนค่าของเดิมถ้าโหลดรอบใหม่ไม่สำเร็จ
+            try {
+                if(previousExView !== undefined){
+                    window.exView = previousExView;
+                }
+            } catch (_) {}
+
+            cleanup();
+            reject(error);
+        };
+
+        const timer = setTimeout(() => {
+            finishError(new Error("Hana API timeout"));
+        }, timeoutMs);
+
+        script.onload = () => {
+            if(finished) return;
+
+            try {
+                const data = window.exView;
+
+                if(!data || typeof data !== "object"){
+                    throw new Error("Hana exView not found");
+                }
+
+                const rows = Array.isArray(data["리스트"])
+                    ? data["리스트"]
+                    : [];
+
+                const row = rows.find(item => {
+                    const name = String(item?.["통화명"] || "");
+                    return /\bTHB\b/i.test(name) || /태국/.test(name);
+                });
+
+                if(!row){
+                    throw new Error("THB row not found");
+                }
+
+                // Hana ใช้ "현찰파실때" = Cash Sell
+                // สำหรับ THB ค่าเป็น KRW ต่อ 1 THB
+                const rawRate = row["현찰파실때"];
+                const rate = Number(
+                    String(rawRate ?? "")
+                        .replace(/,/g, "")
+                        .trim()
+                );
+
+                if(!Number.isFinite(rate) || rate <= 0){
+                    throw new Error("Invalid THB Cash Sell");
+                }
+
+                const sourceDate = String(data["날짜"] || "").trim();
+
+                finished = true;
+                cleanup();
+
+                resolve({
+                    rate,
+                    sourceDate,
+                    currencyName: String(row["통화명"] || "태국 THB")
+                });
+            }
+            catch(error){
+                finishError(error);
+            }
+        };
+
+        script.onerror = () => {
+            finishError(new Error("Hana script load failed"));
+        };
+
+        document.head.appendChild(script);
     });
+}
 
-    if(!response.ok){
-        throw new Error(`Reference API HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rate = Number(data?.rates?.KRW);
-
-    if(!Number.isFinite(rate) || rate <= 0){
-        throw new Error("KRW rate not found");
-    }
-
-    return {
-        rate,
-        sourceDate: String(data?.date || "").trim(),
-        source: "Frankfurter / ECB reference"
-    };
+async function fetchHanaCashSell(){
+    return await loadHanaExchangeScript(10000);
 }
 
 async function updateRemitRate(force = false){
@@ -194,23 +272,25 @@ async function updateRemitRate(force = false){
         : REMIT_RATE_MIN_INTERVAL_MS;
 
     if(lastAttempt && now - lastAttempt < minInterval){
+        if(!force) return false;
+
         const remain = Math.ceil(
             (minInterval - (now - lastAttempt)) / 1000
         );
 
         setRemitRateStatus(
-            `🕒 ป้องกันการเรียก API ถี่เกินไป • ลองใหม่ใน ${remain} วินาที`,
+            `🕒 ป้องกันการเรียก Hana ถี่เกินไป • ลองใหม่ใน ${remain} วินาที`,
             "info"
         );
 
         return false;
     }
 
+    // ถ้าเป็น Manual การอัปเดตอัตโนมัติห้ามเขียนทับ
+    // แต่การกดปุ่ม "อัปเดตเรต" (force=true) สามารถเปลี่ยนกลับเป็น Auto ได้
     const currentMode =
         localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";
 
-    // Auto/background ห้ามแตะ Manual
-    // แต่ปุ่ม "อัปเดตเรต" สามารถเปลี่ยน Manual กลับเป็น Auto ได้
     if(!force && currentMode === "manual"){
         return false;
     }
@@ -229,12 +309,12 @@ async function updateRemitRate(force = false){
     }
 
     setRemitRateStatus(
-        "🔄 กำลังดึง Reference rate (THB → KRW)...",
+        "🔄 กำลังดึง Hana Cash Sell จริง...",
         "loading"
     );
 
     try{
-        const result = await fetchReferenceRate();
+        const result = await fetchHanaCashSell();
         const rate = result.rate;
         const updatedAt = new Date().toISOString();
 
@@ -249,7 +329,7 @@ async function updateRemitRate(force = false){
         );
 
         setRemitRateStatus(
-            `🟢 Auto • Reference rate • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${result.sourceDate ? ` • ข้อมูลวันที่ ${result.sourceDate}` : ""} • ไม่ใช่ Hana Cash Sell`,
+            `🟢 Auto • Hana Cash Sell • ${rate.toFixed(2)} KRW/THB • ดึงสำเร็จ ${formatRemitDate(updatedAt)}${result.sourceDate ? ` • Hana ประกาศ ${result.sourceDate}` : ""}`,
             "success"
         );
 
@@ -257,7 +337,7 @@ async function updateRemitRate(force = false){
         return true;
     }
     catch(error){
-        console.warn("Reference FX fetch failed:", error);
+        console.warn("Hana Cash Sell fetch failed:", error);
 
         localStorage.setItem(
             REMIT_RATE_LAST_ERROR_KEY,
@@ -275,19 +355,19 @@ async function updateRemitRate(force = false){
             localStorage.getItem(REMIT_RATE_SOURCE_DATE_KEY);
 
         if(Number.isFinite(current) && current > 0 && lastSuccessfulAt){
-            // เคยได้ Auto จริงมาก่อน -> ใช้ค่าล่าสุดเป็น Cached
+            // เคยได้ Auto จริงมาก่อน -> ตอนนี้ใช้ค่าล่าสุดเป็น Cached
             localStorage.setItem(
                 REMIT_RATE_MODE_KEY,
                 "cached"
             );
 
             setRemitRateStatus(
-                `🟠 Cached • ${current.toFixed(2)} KRW/THB • API สำเร็จล่าสุด ${formatRemitDate(lastSuccessfulAt)}${sourceDate ? ` • ข้อมูลวันที่ ${sourceDate}` : ""} • รอบล่าสุดดึงไม่สำเร็จ`,
+                `🟠 Cached • ${current.toFixed(2)} KRW/THB • Hana ดึงล่าสุด ${formatRemitDate(lastSuccessfulAt)}${sourceDate ? ` • Hana ประกาศ ${sourceDate}` : ""} • รอบล่าสุดดึงไม่สำเร็จ`,
                 "warning"
             );
         }
         else{
-            // ยังไม่เคยได้ API สำเร็จ -> ใช้ Default และบอกตรง ๆ ว่าไม่ใช่ API
+            // ยังไม่เคยดึง Hana สำเร็จเลย -> ใช้ Default เท่านั้น
             const fallback = REMIT_RATE_DEFAULT;
 
             localStorage.setItem(
@@ -303,7 +383,7 @@ async function updateRemitRate(force = false){
                 fallback.toFixed(2);
 
             setRemitRateStatus(
-                `⚪ Default • API ยังดึงไม่ได้ • ใช้ค่าเริ่มต้น ${fallback.toFixed(2)} KRW/THB • สามารถแก้ Manual ได้`,
+                `⚪ Default • Hana ยังไม่เคยดึงสำเร็จ • ใช้ค่าเริ่มต้น ${fallback.toFixed(2)} KRW/THB • กดอัปเดตเรตเพื่อลองใหม่`,
                 "info"
             );
         }
@@ -329,6 +409,7 @@ function initRemitRate(){
         localStorage.getItem(REMIT_RATE_KEY)
     );
 
+    // ถ้ายังไม่มีเรตเลย ให้เริ่มที่ Default แต่ระบุสถานะว่าเป็น Default
     if(!Number.isFinite(saved) || saved <= 0){
         localStorage.setItem(
             REMIT_RATE_KEY,
@@ -340,6 +421,9 @@ function initRemitRate(){
         );
     }
     else if(!localStorage.getItem(REMIT_RATE_MODE_KEY)){
+        // ข้อมูลเก่าจากเวอร์ชันก่อนหน้า:
+        // ถ้ามีเวลาที่เคยอัปเดตสำเร็จ ให้ถือว่า Auto;
+        // ถ้าไม่มี ให้ถือว่า Default ไม่ใช่ Auto
         const oldUpdatedAt =
             localStorage.getItem(REMIT_RATE_UPDATED_KEY);
 
@@ -358,8 +442,8 @@ function initRemitRate(){
         localStorage.getItem(REMIT_RATE_LAST_ATTEMPT_KEY) || 0
     );
 
-    // เข้าเว็บ: Auto/Cache/Default ลองดึงทันทีได้ 1 ครั้ง
-    // หลังจากนั้นอย่างน้อย 5 นาทีจึงลองใหม่
+    // Auto / Cached / Default สามารถลองดึงใหม่ได้
+    // Manual จะไม่เรียกเอง
     if(
         mode !== "manual" &&
         (!lastAttempt ||
@@ -368,7 +452,7 @@ function initRemitRate(){
         updateRemitRate(false);
     }
 
-    // Background refresh ทุก 5 นาที และไม่แตะ Manual
+    // เช็กทุก 5 นาที แต่ไม่แตะ Manual
     setInterval(() => {
         const currentMode =
             localStorage.getItem(REMIT_RATE_MODE_KEY) || "default";

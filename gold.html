@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
-<link rel="stylesheet" href="gold.css?v=20260823-gold2go">
+<link rel="stylesheet" href="gold.css?v=20260823-gold2go-safe5m">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -70,15 +70,36 @@
         <strong id="goldThbOz">-</strong>
         <small>THB / troy oz · ตลาดโลก</small>
       </div>
-      <div class="market-box thai-gold-box">
-        <span>สมาคมฯ · ทองแท่ง 96.5% · <b class="trade-label">รับซื้อ</b></span>
-        <strong id="thaiBarBuy">-</strong>
-        <small>บาททองคำ</small>
+      <div class="market-box trade-split-box">
+        <div class="trade-half association-half">
+          <span>🏛️ สมาคมฯ · ทองแท่ง 96.5%</span>
+          <b class="trade-label">รับซื้อ</b>
+          <strong id="thaiBarBuy">-</strong>
+          <small>บาททองคำ</small>
+        </div>
+        <div class="trade-divider"></div>
+        <div class="trade-half gold2go-half">
+          <span>🟢 GOLD2go · 96.5%</span>
+          <b class="trade-label">รับซื้อ</b>
+          <strong id="gold2goReceivePrice">-</strong>
+          <small>บาททองคำ · ใช้คำนวณ P/L</small>
+        </div>
       </div>
-      <div class="market-box thai-gold-box">
-        <span>สมาคมฯ · ทองแท่ง 96.5% · <b class="trade-label">ขายออก</b></span>
-        <strong id="thaiBarSell">-</strong>
-        <small>บาททองคำ</small>
+
+      <div class="market-box trade-split-box">
+        <div class="trade-half association-half">
+          <span>🏛️ สมาคมฯ · ทองแท่ง 96.5%</span>
+          <b class="trade-label">ขายออก</b>
+          <strong id="thaiBarSell">-</strong>
+          <small>บาททองคำ</small>
+        </div>
+        <div class="trade-divider"></div>
+        <div class="trade-half gold2go-half">
+          <span>🔴 GOLD2go · 96.5%</span>
+          <b class="trade-label">ขายออก</b>
+          <strong id="gold2goSellPrice">-</strong>
+          <small>บาททองคำ · ราคาซื้อ</small>
+        </div>
       </div>
       <div class="market-box thai-gold-box">
         <span>สมาคมฯ · ทองรูปพรรณ 96.5% · <b class="trade-label">รับซื้ออ้างอิง</b></span>
@@ -91,24 +112,6 @@
         <small>บาททองคำ</small>
       </div>
     </div>
-
-    <div class="gold2go-market-strip">
-      <div class="market-box gold2go-market-box">
-        <span>🟢 GOLD2go 96.5% · <b class="trade-label">รับซื้อ</b></span>
-        <strong id="gold2goReceivePrice">-</strong>
-        <small>บาททองคำ · ราคาที่ใช้คำนวณ P/L</small>
-      </div>
-      <div class="market-box gold2go-market-box">
-        <span>🔴 GOLD2go 96.5% · <b class="trade-label">ขายออก</b></span>
-        <strong id="gold2goSellPrice">-</strong>
-        <small>บาททองคำ · ราคาซื้อจาก GOLD2go</small>
-      </div>
-      <div class="gold2go-market-meta">
-        <span id="gold2goMarketUpdated">ยังไม่มีข้อมูล</span>
-        <span id="gold2goMarketSource">Source: GOLD2go API</span>
-      </div>
-    </div>
-
     <div class="chart-wrap">
       <div class="chart-toolbar chart-toolbar-main">
         <div class="chart-tabs">
@@ -399,13 +402,13 @@
 </div>
 
 <script src="pwa-persistence.js?v=20260823-2"></script>
-<script src="gold.js?v=20260823-gold2go-api2"></script>
+<script src="gold.js?v=20260823-gold2go-safe5m-api2"></script>
 <script>
   // PWA-only: register the root service worker so the Gold page can use
   // cached API responses for a fast first paint in iOS standalone mode.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=20260823-gold2go')
+      navigator.serviceWorker.register('./sw.js?v=20260823-gold2go-safe5m')
         .catch(() => {});
     });
   }

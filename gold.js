@@ -20,7 +20,7 @@ const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
 const OZ_TO_GRAM = 31.1034768;
 const PURCHASE_TIMEZONE = "Asia/Seoul";
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
-const POLL_MS = 60_000;
+const POLL_MS = 5 * 60_000; // GOLD2go auto refresh: every 5 minutes
 // GOLD2go official priceInfo endpoint discovered from the official app Network response.
 // API sellPrice = app "รับซื้อ"; API buyPrice = app "ขายออก".
 const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo";
@@ -30,6 +30,8 @@ const GOLD2GO_CORS_PROXY = "https://corsproxy.io/?url=";
 const GOLD2GO_DIRECT_URL = "https://www.intergold.co.th/";
 const GOLD2GO_PROXY_URL = "https://r.jina.ai/http://www.intergold.co.th/";
 const GOLD2GO_AUTO_TIMEOUT_MS = 9000;
+const GOLD2GO_MIN_MANUAL_GAP_MS = 60_000;
+let lastGold2goAttemptAt = 0;
 
 let state = {
   spotUsdOz: null,
@@ -434,6 +436,13 @@ function renderGold2goMarketUI(){
 }
 
 async function fetchGold2goAutoPrice(force=false){
+  // Automatic polling is intentionally conservative. The quote is cached in
+  // LocalStorage, so there is no need to poll the endpoint every few seconds.
+  const now = Date.now();
+  if(lastGold2goAttemptAt && (now - lastGold2goAttemptAt) < GOLD2GO_MIN_MANUAL_GAP_MS){
+    return {ok:false,skipped:true,reason:"rate-limited"};
+  }
+
   // Once the user explicitly selects Manual fallback, automatic polling
   // must not overwrite that value. They can press "ดึงราคา Auto" to opt back in.
   const currentSettings=loadSettings();
@@ -441,6 +450,7 @@ async function fetchGold2goAutoPrice(force=false){
     return {ok:false,skipped:true,reason:"manual mode"};
   }
 
+  lastGold2goAttemptAt = now;
   const errors=[];
 
   // LEVEL 1: GOLD2go's own priceInfo API.

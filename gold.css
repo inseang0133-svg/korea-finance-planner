@@ -54,6 +54,60 @@ h2{font-size:22px}
 .market-box strong,.gold-stat strong{display:block;color:#eee;font-size:22px;margin-top:9px;overflow-wrap:anywhere}
 .market-box small,.gold-stat small{display:block;color:#777;margin-top:6px}
 .market-box.featured{border-color:#b89224;background:linear-gradient(145deg,#191812,#111313)}
+/* GOLD2go + Association: two quotes inside one market card */
+.trade-split-box{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 1px minmax(0,1fr);
+  gap:0;
+  padding:0;
+  border-color:#7d6720;
+  background:#101314;
+}
+.trade-half{
+  min-width:0;
+  padding:16px 15px;
+}
+.trade-half span{
+  display:block;
+  color:#aaa;
+  font-size:13px;
+  line-height:1.35;
+}
+.trade-half .trade-label{
+  display:block;
+  margin-top:5px;
+  font-size:12px;
+}
+.trade-half strong{
+  display:block;
+  margin-top:7px;
+  font-size:21px;
+  overflow-wrap:anywhere;
+}
+.trade-half small{
+  display:block;
+  margin-top:5px;
+  color:#777;
+  font-size:11px;
+  line-height:1.35;
+}
+.trade-divider{
+  width:1px;
+  margin:12px 0;
+  background:linear-gradient(to bottom,transparent,#6e5a1d 15%,#6e5a1d 85%,transparent);
+}
+.association-half strong{color:#6fe08f}
+.gold2go-half{
+  background:linear-gradient(145deg,rgba(212,175,55,.06),rgba(17,19,19,.15));
+}
+.gold2go-half strong{color:#d4af37}
+@media(max-width:700px){
+  .trade-half{padding:14px 10px}
+  .trade-half strong{font-size:18px}
+  .trade-half span{font-size:12px}
+  .trade-half small{font-size:10px}
+}
+
 .market-box.featured strong{color:#6fe08f}
 .chart-wrap{margin-top:22px;background:#0f1112;border:1px solid #29291f;border-radius:14px;padding:14px}
 .chart-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px}

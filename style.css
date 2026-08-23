@@ -393,10 +393,3 @@ select {
 .remit-rate-status.loading{color:#8fc8ff;border-color:#2d5f88;}
 .remit-rate-status.info{color:#aaa;border-color:#555;}
 @media(max-width:520px){.remit-rate-row{flex-direction:column;}.remit-update-btn{width:100%;min-width:0;}}
-
-/* Hana remit-rate button state */
-.remit-update-btn:disabled{
-    opacity:.65;
-    cursor:wait;
-    filter:saturate(.7);
-}

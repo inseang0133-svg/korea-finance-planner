@@ -1,10 +1,10 @@
-const CACHE_NAME = 'korea-finance-v8-rollback-20260823-081954';
-const API_CACHE_NAME = 'korea-finance-api-v7';
+const CACHE_NAME = 'korea-finance-v8-remit9';
+const API_CACHE_NAME = 'korea-finance-api-v6';
 
 const ASSETS = [
   'index.html',
-  'style.css?v=20260823-081954',
-  'script.js?v=20260823-081954',
+  'style.css?v=20260823-9',
+  'script.js?v=20260823-9',
   'manifest.json',
   'gold.html',
   'gold.css',

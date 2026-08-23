@@ -11,6 +11,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js?v=20260822-2"></script>
 <script src="auth.js?v=20260822-2"></script>
+<style>
+    .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+    .gold2go-market-box{border-color:#d4af37}
+    .gold2go-market-box strong{color:#d4af37}
+    .gold2go-market-meta{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#999;font-size:12px;padding:2px 4px}
+    @media(max-width:700px){.gold2go-market-strip{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
 <div class="gold-container">
@@ -82,6 +89,23 @@
         <span>สมาคมฯ · ทองรูปพรรณ 96.5% · <b class="trade-label">ขายออก</b></span>
         <strong id="thaiJewelrySell">-</strong>
         <small>บาททองคำ</small>
+      </div>
+    </div>
+
+    <div class="gold2go-market-strip">
+      <div class="market-box gold2go-market-box">
+        <span>🟢 GOLD2go 96.5% · <b class="trade-label">รับซื้อ</b></span>
+        <strong id="gold2goReceivePrice">-</strong>
+        <small>บาททองคำ · ราคาที่ใช้คำนวณ P/L</small>
+      </div>
+      <div class="market-box gold2go-market-box">
+        <span>🔴 GOLD2go 96.5% · <b class="trade-label">ขายออก</b></span>
+        <strong id="gold2goSellPrice">-</strong>
+        <small>บาททองคำ · ราคาซื้อจาก GOLD2go</small>
+      </div>
+      <div class="gold2go-market-meta">
+        <span id="gold2goMarketUpdated">ยังไม่มีข้อมูล</span>
+        <span id="gold2goMarketSource">Source: GOLD2go API</span>
       </div>
     </div>
 
@@ -375,7 +399,7 @@
 </div>
 
 <script src="pwa-persistence.js?v=20260823-2"></script>
-<script src="gold.js?v=20260823-gold2go"></script>
+<script src="gold.js?v=20260823-gold2go-api2"></script>
 <script>
   // PWA-only: register the root service worker so the Gold page can use
   // cached API responses for a fast first paint in iOS standalone mode.

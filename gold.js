@@ -21,6 +21,12 @@ const OZ_TO_GRAM = 31.1034768;
 const PURCHASE_TIMEZONE = "Asia/Seoul";
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
 const POLL_MS = 60_000;
+// GOLD2go official priceInfo endpoint discovered from the official app Network response.
+// API sellPrice = app "รับซื้อ"; API buyPrice = app "ขายออก".
+const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo";
+// GitHub Pages may be blocked by the API's CORS policy, so direct is attempted first,
+// then this optional browser CORS proxy, then the legacy public-feed/cache fallback.
+const GOLD2GO_CORS_PROXY = "https://corsproxy.io/?url=";
 const GOLD2GO_DIRECT_URL = "https://www.intergold.co.th/";
 const GOLD2GO_PROXY_URL = "https://r.jina.ai/http://www.intergold.co.th/";
 const GOLD2GO_AUTO_TIMEOUT_MS = 9000;
@@ -31,6 +37,8 @@ let state = {
   priceThbGram: null,
   priceThbOz: null,
   thaiGold: { barBuy: null, barSell: null, jewelryBuy: null, jewelrySell: null, updatedAt: null, source: null },
+  // GOLD2go's own 96.5% quotes. Names here follow the app labels, not API field names.
+  gold2go: { receivePrice: null, sellPrice: null, updatedAt: null, source: null },
   updatedAt: null,
   source: null,
   range: "1D",
@@ -243,14 +251,15 @@ function updateGold2goQuoteUI(){
       ? new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})
       : "-";
     const isManual=s.gold2goPriceMode==="manual";
-    const label=isManual ? "✏️ Manual" : "🟡 Last known";
+    const isApi=s.gold2goPriceMode==="auto" && String(s.gold2goPriceSource||"").includes("GOLD2go API");
+    const label=isManual ? "✏️ Manual" : (isApi ? "🟢 GOLD2go API" : "🟡 Last known");
     status.className=`gold2go-status ${isManual?"manual":"cached"}`;
     status.innerHTML=`${label} · <b>${money(value)}/บาททอง</b> · ${when}`;
 
     if(mode){
       mode.textContent=isManual
         ? "✏️ Manual · ใช้ราคาที่คุณกรอก"
-        : "🟡 Last known · Auto จะพยายามอัปเดตอีกครั้ง";
+        : (isApi ? "🟢 GOLD2go API · อัปเดตอัตโนมัติ" : "🟡 Last known · Auto จะพยายามอัปเดตอีกครั้ง");
     }
   }else{
     status.className="gold2go-status warning";
@@ -263,10 +272,18 @@ function saveGold2goAutoPrice(value, source){
   const s=loadSettings();
   s.valuationSource="gold2go";
   s.gold2goBuyBaht=value;
+  s.gold2goReceiveBaht=value;
   s.gold2goUpdatedAt=new Date().toISOString();
   s.gold2goPriceMode="auto";
   s.gold2goPriceSource=source;
+  // Legacy/public-feed fallback only has the receive ("รับซื้อ") quote.
   saveSettings(s);
+  state.gold2go={
+    receivePrice:value,
+    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    updatedAt:s.gold2goUpdatedAt || null,
+    source
+  };
 
   const input=$("gold2goBuyBaht");
   if(input) input.value=value;
@@ -291,7 +308,8 @@ function setGold2goFallbackStatus(message){
       const when=s.gold2goUpdatedAt
         ? new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})
         : "-";
-      const label=s.gold2goPriceMode==="manual" ? "✏️ Manual" : "🟡 Cache";
+      const label=s.gold2goPriceMode==="manual" ? "✏️ Manual" :
+        (String(s.gold2goPriceSource||"").includes("GOLD2go API") ? "🟢 API Cache" : "🟡 Cache");
       status.innerHTML=`${label} · <b>${money(Number(s.gold2goBuyBaht))}/บาททอง</b> · ล่าสุด ${when}<br><small>Auto ดึงราคาไม่สำเร็จ: ${esc(message)}</small>`;
     }else{
       status.innerHTML=`⚠️ <b>Auto ยังดึงราคาไม่ได้</b><br><small>${esc(message)}</small>`;
@@ -303,6 +321,118 @@ function setGold2goFallbackStatus(message){
     : "⚠️ ยังไม่มีราคา · กรอกเองได้";
 }
 
+function normalizeGold2goApiResult(data){
+  const result=data?.result;
+  if(!result || data?.responseStatus?.status !== "SUCCESS") return null;
+
+  // Verified from the Network response:
+  // sellPrice = 70971 is shown by the app as "รับซื้อ"
+  // buyPrice  = 71151 is shown by the app as "ขายออก"
+  const receivePrice=cleanGold2goPrice(result.sellPrice);
+  const sellPrice=cleanGold2goPrice(result.buyPrice);
+  if(!(receivePrice>0) || !(sellPrice>0)) return null;
+
+  return {
+    receivePrice,
+    sellPrice,
+    updatedAt: result.lastUpdated || new Date().toISOString(),
+    source: "GOLD2go API · priceInfo"
+  };
+}
+
+async function fetchGold2goApiDirect(){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+  try{
+    const response=await fetch(GOLD2GO_API_URL,{
+      method:"POST",
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{
+        "Accept":"application/json",
+        "Content-Type":"application/json"
+      },
+      body:"{}"
+    });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data=await response.json();
+    const quote=normalizeGold2goApiResult(data);
+    if(!quote) throw new Error("API ตอบกลับสำเร็จแต่ไม่พบราคา 96.5%");
+    return quote;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function fetchGold2goApiViaProxy(){
+  const target=encodeURIComponent(GOLD2GO_API_URL);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+  try{
+    const response=await fetch(`${GOLD2GO_CORS_PROXY}${target}`,{
+      method:"POST",
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{
+        "Accept":"application/json",
+        "Content-Type":"application/json"
+      },
+      body:"{}"
+    });
+    if(!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
+    const data=await response.json();
+    const quote=normalizeGold2goApiResult(data);
+    if(!quote) throw new Error("Proxy ตอบกลับแต่ไม่พบราคา 96.5%");
+    return {...quote,source:"GOLD2go API · CORS proxy"};
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function saveGold2goApiQuote(quote){
+  const s=loadSettings();
+  s.valuationSource="gold2go";
+  s.gold2goBuyBaht=quote.receivePrice;
+  s.gold2goReceiveBaht=quote.receivePrice;
+  s.gold2goSellBaht=quote.sellPrice;
+  s.gold2goUpdatedAt=quote.updatedAt || new Date().toISOString();
+  s.gold2goPriceMode="auto";
+  s.gold2goPriceSource=quote.source;
+  saveSettings(s);
+
+  state.gold2go={
+    receivePrice:quote.receivePrice,
+    sellPrice:quote.sellPrice,
+    updatedAt:quote.updatedAt || null,
+    source:quote.source
+  };
+
+  const input=$("gold2goBuyBaht");
+  if(input) input.value=quote.receivePrice;
+
+  renderGold2goMarketUI();
+  updateGold2goQuoteUI();
+}
+
+function renderGold2goMarketUI(){
+  const receive=$("gold2goReceivePrice");
+  const sell=$("gold2goSellPrice");
+  const updated=$("gold2goMarketUpdated");
+  const source=$("gold2goMarketSource");
+  const q=state.gold2go||{};
+
+  if(receive) receive.textContent=Number.isFinite(q.receivePrice) ? money(q.receivePrice) : "-";
+  if(sell) sell.textContent=Number.isFinite(q.sellPrice) ? money(q.sellPrice) : "-";
+  if(updated){
+    updated.textContent=q.updatedAt
+      ? `อัปเดต ${new Date(q.updatedAt.replace(" ","T")+(q.updatedAt.includes("Z")?"":"")).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`
+      : "ยังไม่มีข้อมูล";
+  }
+  if(source){
+    source.textContent=q.source ? `Source: ${q.source}` : "Source: GOLD2go API";
+  }
+}
+
 async function fetchGold2goAutoPrice(force=false){
   // Once the user explicitly selects Manual fallback, automatic polling
   // must not overwrite that value. They can press "ดึงราคา Auto" to opt back in.
@@ -311,11 +441,37 @@ async function fetchGold2goAutoPrice(force=false){
     return {ok:false,skipped:true,reason:"manual mode"};
   }
 
+  const errors=[];
+
+  // LEVEL 1: GOLD2go's own priceInfo API.
+  // The official app's Network response proves the mapping:
+  // sellPrice = "รับซื้อ", buyPrice = "ขายออก".
+  try{
+    const quote=await fetchGold2goApiDirect();
+    saveGold2goApiQuote(quote);
+    renderPortfolio();
+    renderLots();
+    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+  }catch(e){
+    errors.push(`GOLD2go API Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`);
+  }
+
+  // LEVEL 1b: browser CORS proxy for the same GOLD2go API.
+  try{
+    const quote=await fetchGold2goApiViaProxy();
+    saveGold2goApiQuote(quote);
+    renderPortfolio();
+    renderLots();
+    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+  }catch(e){
+    errors.push(`GOLD2go API Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
+  }
+
+  // LEVEL 1c/legacy public-feed fallback.
   const urls=[
     `${GOLD2GO_DIRECT_URL}?kfp=${Date.now()}`,
     `${GOLD2GO_PROXY_URL}?t=${Date.now()}`
   ];
-  const errors=[];
 
   for(let i=0;i<urls.length;i++){
     const controller=new AbortController();
@@ -376,6 +532,13 @@ function useManualGold2goPrice(){
   }
   const mode=$("gold2goPriceMode");
   if(mode) mode.textContent="✏️ Manual · ใช้ราคาที่คุณกรอก";
+  state.gold2go={
+    receivePrice:value,
+    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    updatedAt:s.gold2goUpdatedAt,
+    source:"Manual"
+  };
+  renderGold2goMarketUI();
 
   renderPortfolio();
   renderLots();
@@ -591,6 +754,7 @@ function renderMarket(){
   $("thaiBarSell").textContent=Number.isFinite(tg.barSell) ? money(tg.barSell) : "-";
   $("thaiJewelryBuy").textContent=Number.isFinite(tg.jewelryBuy) ? money(tg.jewelryBuy) : "-";
   $("thaiJewelrySell").textContent=Number.isFinite(tg.jewelrySell) ? money(tg.jewelrySell) : "-";
+  renderGold2goMarketUI();
 }
 
 function appendHistory(){
@@ -1168,6 +1332,13 @@ function setup(){
   });
 
   const settings=loadSettings();
+  state.gold2go={
+    receivePrice:Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht)>0
+      ? Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht) : null,
+    sellPrice:Number(settings.gold2goSellBaht)>0 ? Number(settings.gold2goSellBaht) : null,
+    updatedAt:settings.gold2goUpdatedAt || null,
+    source:settings.gold2goPriceSource || null
+  };
   $("valuationSource").value=settings.valuationSource==="market" ? "market" : "gold2go";
   $("gold2goBuyBaht").value=settings.gold2goBuyBaht||"";
   updateValuationSourceUI();

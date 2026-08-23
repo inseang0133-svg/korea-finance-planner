@@ -12,30 +12,13 @@
   const VALID_CONFIG = /^https:\/\/[^\s]+\.supabase\.co(mp)?$/i.test(SUPABASE_URL) &&
     SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
 
-  // Independent storage domains. Deleting salary history cannot delete the contract or exchange rate.
   const DATA_KEYS = [
-    "salary", "kfp_exchange_rate_v1", "kfp_exchange_rate_updated_v1",
-    "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2",
-    "kfp_sync_revision_v1",
-    "kfp_deleted_keys_v1",
+    "salary", "rate", "rateUpdatedAt", "goal", "currentSaving",
+    "contractStartDate", "salaryRecords",
+    "__kfp_deleted_keys_v1",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
   ];
-  const ARRAY_KEYS = new Set(["kfp_salary_records_v2", "kfp_gold_lots_v1"]);
-  const LEGACY_TO_NEW = {
-    "rate": "kfp_exchange_rate_v1",
-    "rateUpdatedAt": "kfp_exchange_rate_updated_v1",
-    "contractStartDate": "kfp_contract_v1",
-    "salaryRecords": "kfp_salary_records_v2"
-  };
-
-  function normalizeDataKeys(data) {
-    const out = { ...(data || {}) };
-    for (const [oldKey, newKey] of Object.entries(LEGACY_TO_NEW)) {
-      if (out[newKey] === undefined && out[oldKey] !== undefined) out[newKey] = out[oldKey];
-      delete out[oldKey];
-    }
-    return out;
-  }
+  const ARRAY_KEYS = new Set(["salaryRecords", "kfp_gold_lots_v1"]);
   const GUEST_BACKUP_KEY = "__kfp_guest_backup_v1";
   const AUTH_USER_KEY = "__kfp_auth_user_v1";
   const SYNC_DEBOUNCE_MS = 700;
@@ -68,27 +51,8 @@
 
   function putLocalData(data) {
     if (!data || typeof data !== "object") return;
-    data = normalizeDataKeys(data);
     applyingCloud = true;
     try {
-      for (const key of DATA_KEYS) {
-        if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== null && data[key] !== undefined) {
-          localStorage.setItem(key, String(data[key]));
-        }
-      }
-    } finally {
-      applyingCloud = false;
-    }
-  }
-
-  function replaceLocalData(data) {
-    if (!data || typeof data !== "object") return;
-    data = normalizeDataKeys(data);
-    applyingCloud = true;
-    try {
-      for (const key of DATA_KEYS) {
-        localStorage.removeItem(key);
-      }
       for (const key of DATA_KEYS) {
         if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== null && data[key] !== undefined) {
           localStorage.setItem(key, String(data[key]));
@@ -111,9 +75,9 @@
 
   function dataLabel(data) {
     const labels = [];
-    if (data.kfp_salary_records_v2 && safeArray(data.kfp_salary_records_v2).length) labels.push("เงินเดือน");
+    if (data.salaryRecords && safeArray(data.salaryRecords).length) labels.push("เงินเดือน");
     if (data.kfp_gold_lots_v1 && safeArray(data.kfp_gold_lots_v1).length) labels.push("รายการทอง");
-    if (data.kfp_contract_v1) labels.push("สัญญาจ้าง");
+    if (data.contractStartDate) labels.push("สัญญาจ้าง");
     if (data.goal || data.currentSaving) labels.push("เป้าหมายเงินเก็บ");
     return labels.length ? labels.join(" · ") : "ข้อมูลการตั้งค่า";
   }
@@ -130,47 +94,58 @@
 
   function getDeletedKeys(data) {
     try {
-      const raw = data?.kfp_deleted_keys_v1;
+      const raw = data?.__kfp_deleted_keys_v1;
       const x = typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {});
       return x && typeof x === "object" && !Array.isArray(x) ? x : {};
     } catch (_) { return {}; }
   }
 
   function mergeData(local, cloud) {
-    local = normalizeDataKeys(local);
-    cloud = normalizeDataKeys(cloud);
     const deleted = { ...getDeletedKeys(cloud), ...getDeletedKeys(local) };
     const out = { ...(cloud || {}), ...(local || {}) };
+    const keys = new Set([...Object.keys(local || {}), ...Object.keys(cloud || {})]);
 
-    // Explicitly deleted keys are authoritative. This is what prevents an empty
-    // salary history or deleted contract from being resurrected by Cloud/PWA.
-    for (const key of Object.keys(deleted)) delete out[key];
+    // A local deletion marker is authoritative. This prevents an old Cloud/PWA
+    // snapshot from resurrecting a deleted salary history or contract.
+    for (const key of Object.keys(deleted)) {
+      delete out[key];
+    }
+    if (Object.keys(deleted).length) {
+      out.__kfp_deleted_keys_v1 = JSON.stringify(deleted);
+    }
 
-    // For finance scalar/array domains, presence in the current device is authoritative.
-    // An empty [] is meaningful and must NOT be treated as "missing".
-    for (const key of [
-      "salary", EXCHANGE_RATE_KEY, "kfp_exchange_rate_updated_v1",
-      "goal", "currentSaving", "kfp_contract_v1", "kfp_salary_records_v2"
-    ]) {
-      if (Object.prototype.hasOwnProperty.call(local, key) && !Object.prototype.hasOwnProperty.call(deleted, key)) {
-        out[key] = local[key];
+    for (const key of keys) {
+      const lv = local?.[key];
+      const cv = cloud?.[key];
+
+      if (ARRAY_KEYS.has(key)) {
+        if (Object.prototype.hasOwnProperty.call(deleted, key)) continue;
+        const la = safeArray(lv), ca = safeArray(cv);
+        if (key === "salaryRecords") {
+          const map = new Map();
+          for (const item of ca) if (item?.month) map.set(item.month, item);
+          for (const item of la) if (item?.month) {
+            const old = map.get(item.month);
+            // Same month: local wins because it is the device currently being used.
+            map.set(item.month, old ? { ...old, ...item } : item);
+          }
+          out[key] = JSON.stringify([...map.values()].sort((a,b) => String(a.month).localeCompare(String(b.month))));
+        } else {
+          const map = new Map();
+          for (const item of ca) if (item?.id) map.set(String(item.id), item);
+          for (const item of la) if (item?.id) map.set(String(item.id), item);
+          const noId = [...ca, ...la].filter(x => !x?.id);
+          out[key] = JSON.stringify([...map.values(), ...noId]);
+        }
+      } else if (key === "kfp_gold_settings_v1" || key === "kfp_gold_chart_view_v2") {
+        out[key] = JSON.stringify({ ...safeObj(cv), ...safeObj(lv) });
+      } else {
+        if (Object.prototype.hasOwnProperty.call(deleted, key)) continue;
+        // For scalar settings, current device value wins when present; otherwise keep cloud.
+        if (lv !== undefined && lv !== null) out[key] = lv;
+        else if (cv !== undefined && cv !== null) out[key] = cv;
       }
     }
-
-    // Gold records/settings retain the existing merge behavior.
-    if (local.kfp_gold_lots_v1 !== undefined && !deleted.kfp_gold_lots_v1) {
-      const la = safeArray(local.kfp_gold_lots_v1), ca = safeArray(cloud.kfp_gold_lots_v1);
-      const map = new Map();
-      for (const item of ca) if (item?.id) map.set(String(item.id), item);
-      for (const item of la) if (item?.id) map.set(String(item.id), item);
-      out.kfp_gold_lots_v1 = JSON.stringify([...map.values(), ...la.filter(x => !x?.id)]);
-    }
-    if (local.kfp_gold_settings_v1 !== undefined && !deleted.kfp_gold_settings_v1) {
-      out.kfp_gold_settings_v1 = JSON.stringify({ ...safeObj(cloud.kfp_gold_settings_v1), ...safeObj(local.kfp_gold_settings_v1) });
-    }
-
-    if (Object.keys(deleted).length) out.kfp_deleted_keys_v1 = JSON.stringify(deleted);
-    else delete out.kfp_deleted_keys_v1;
     return out;
   }
 
@@ -191,29 +166,7 @@
 
   async function saveCloud(data = getLocalData()) {
     if (!currentUser || applyingCloud) return;
-    data = normalizeDataKeys(data);
-    const deleted = getDeletedKeys(data);
-    let cloud = {};
-    try {
-      const row = await getCloudRow(currentUser.id);
-      cloud = normalizeDataKeys(row?.data || {});
-    } catch (_) {}
-
-    // Preserve unrelated cloud domains. Only keys explicitly present locally
-    // or explicitly tombstoned are changed. This prevents deleting salary from
-    // accidentally deleting the Korea contract/exchange-rate domains.
-    const merged = mergeData(data, cloud);
-    const revision = Math.max(
-      Number(data.kfp_sync_revision_v1) || 0,
-      Number(localStorage.getItem("kfp_sync_revision_v1")) || 0,
-      Number(cloud.kfp_sync_revision_v1) || 0,
-      Date.now()
-    );
-    merged.kfp_sync_revision_v1 = String(revision);
-    try { localStorage.setItem("kfp_sync_revision_v1", String(revision)); } catch (_) {}
-    if (Object.keys(deleted).length) merged.kfp_deleted_keys_v1 = JSON.stringify(deleted);
-
-    const payload = { user_id: currentUser.id, data: merged, updated_at: new Date().toISOString() };
+    const payload = { user_id: currentUser.id, data, updated_at: new Date().toISOString() };
     const { error } = await supabase.from("user_data").upsert(payload, { onConflict: "user_id" });
     if (error) console.error("KFP cloud sync:", error);
   }
@@ -293,26 +246,11 @@
       .kfp-auth-modal{width:min(430px,100%);max-height:90vh;overflow:auto;background:#181818;border:1px solid #d4af37;border-radius:18px;padding:22px;box-shadow:0 0 40px rgba(212,175,55,.18);color:#fff}
       .kfp-auth-modal h2{color:#d4af37;margin:0 0 8px}.kfp-auth-modal p{color:#aaa;margin:6px 0 16px}
       .kfp-auth-modal label{display:block;color:#d4af37;margin:12px 0 7px}.kfp-auth-modal input{width:100%;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#fff;font-size:16px}
-      .kfp-auth-row{display:flex;gap:10px;margin-top:14px}
-       .kfp-auth-row button{
-         flex:1;width:auto!important;margin:0!important;padding:12px 14px!important;
-         border:1px solid #b18d21!important;border-radius:10px!important;
-         background:#d4af37!important;color:#111!important;font-weight:700!important;
-         cursor:pointer;box-shadow:0 3px 12px rgba(212,175,55,.12);
-       }
-       .kfp-auth-row button:hover{filter:brightness(1.06);transform:translateY(-1px)}
-       .kfp-auth-row button:active{transform:translateY(0)}
+      .kfp-auth-row{display:flex;gap:10px;margin-top:14px}.kfp-auth-row button{flex:1;width:auto!important;margin:0!important}
       .kfp-auth-secondary{background:#2a2a2a!important;color:#fff!important;border:1px solid #555!important}.kfp-auth-danger{background:#421d1d!important;color:#ff7777!important;border:1px solid #a33!important}
       .kfp-auth-status{min-height:20px;margin-top:10px;color:#aaa}.kfp-auth-status.ok{color:#37d478}.kfp-auth-status.error{color:#ff6b6b}.kfp-auth-account{background:#222;border-radius:12px;padding:12px;margin:12px 0}
       .kfp-auth-cloud{border:1px solid #d4af37;border-radius:14px;padding:16px;background:#151515;margin-top:12px}.kfp-auth-cloud h3{color:#d4af37;margin:0 0 8px}
-      .kfp-choice{display:grid;gap:9px;margin-top:12px}
-       .kfp-choice button{
-         margin:0!important;width:100%!important;padding:12px 14px!important;
-         border:1px solid #b18d21!important;border-radius:10px!important;
-         background:#d4af37!important;color:#111!important;font-weight:700!important;
-         cursor:pointer;
-       }
-       .kfp-choice button:hover{filter:brightness(1.06)}
+      .kfp-choice{display:grid;gap:9px;margin-top:12px}.kfp-choice button{margin:0!important;width:100%!important}
       .kfp-small{font-size:12px;color:#888!important}
       @media(max-width:600px){#kfpAuthRoot{top:8px;right:8px}.kfp-auth-modal{padding:18px}}
     `;
@@ -446,7 +384,7 @@
     // Guest backup is captured only once per login session, before cloud data is loaded.
     saveGuestBackup(local);
     const row = await getCloudRow(user.id);
-    const cloud = normalizeDataKeys(row?.data || {});
+    const cloud = row?.data || {};
 
     if (hasData(local) && hasData(cloud)) {
       const choice = await showDataChoice(local, cloud);
@@ -492,28 +430,12 @@ hideAuthPanel();
 
       if (!payload.new?.data || applyingCloud) return;
 
-      const cloudData = normalizeDataKeys(payload.new.data);
-      const cloudRev = Number(cloudData.kfp_sync_revision_v1) || 0;
-      const localRev = Number(localStorage.getItem("kfp_sync_revision_v1")) || 0;
+      const merged = mergeData(
+        getLocalData(),
+        payload.new.data
+      );
 
-      // Ignore stale realtime events. This prevents an older salary snapshot
-      // from resurrecting a record that was just deleted.
-      if (cloudRev <= localRev) return;
-
-      // Apply Cloud by independent domain. A local tombstone/empty array is preserved,
-      // and unrelated domains (contract/rate) are never cleared accidentally.
-      const merged = mergeData(getLocalData(), cloudData);
-      replaceLocalData(merged);
-      try { if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist(); } catch (_) {}
-
-      // Refresh index.html UI without reloading the page.
-      try {
-        if (typeof loadSalaryRecords === "function") loadSalaryRecords();
-        if (typeof updateAnalytics === "function") updateAnalytics();
-        if (typeof loadContract === "function") loadContract();
-        if (typeof updateSalaryPreview === "function") updateSalaryPreview();
-        if (typeof convertCurrency === "function") convertCurrency();
-      } catch (_) {}
+      putLocalData(merged);
 
       setAuthStatus(
         "☁️ ข้อมูล Cloud อัปเดตแล้ว",

@@ -1,63 +1,62 @@
-// Separate storage domains: monthly salary history, exchange-rate settings, and Korea contract.
-const SALARY_RECORDS_KEY = "kfp_salary_records_v2";
-const EXCHANGE_RATE_KEY = "kfp_exchange_rate_v1";
-const EXCHANGE_RATE_UPDATED_KEY = "kfp_exchange_rate_updated_v1";
-const CONTRACT_KEY = "kfp_contract_v1";
-const FINANCE_SYNC_REV_KEY = "kfp_sync_revision_v1";
+/* V15 finance compatibility layer
+ * Keep the original index.html finance logic intact.
+ * Adds only: realtime refresh hardening + deletion persistence/tombstones + V14 storage migration.
+ */
+const KFP_DELETED_KEYS = "__kfp_deleted_keys_v1";
 
-// Persist finance changes immediately so the PWA backup cannot resurrect deleted data.
-function persistFinanceNow(){
+function kfpReadDeletedKeys(){
     try {
-        if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist();
-    } catch (_) {}
+        const x = JSON.parse(localStorage.getItem(KFP_DELETED_KEYS) || "{}");
+        return x && typeof x === "object" && !Array.isArray(x) ? x : {};
+    } catch (_) { return {}; }
 }
 
-function touchFinanceSyncRevision(){
+function kfpMarkDeleted(key){
     try {
-        const current = Number(localStorage.getItem(FINANCE_SYNC_REV_KEY)) || 0;
-        const next = Math.max(Date.now(), current + 1);
-        localStorage.setItem(FINANCE_SYNC_REV_KEY, String(next));
+        const x = kfpReadDeletedKeys();
+        x[key] = Date.now();
+        localStorage.setItem(KFP_DELETED_KEYS, JSON.stringify(x));
     } catch (_) {}
-    persistFinanceNow();
+    try { if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist(); } catch (_) {}
 }
 
-function markFinanceDeleted(key){
+function kfpClearDeleted(key){
     try {
-        const tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}");
-        tombstones[key] = Date.now();
-        localStorage.setItem("kfp_deleted_keys_v1", JSON.stringify(tombstones));
-    } catch (_) {}
-}
-
-function clearFinanceDeletedMark(key){
-    try {
-        const tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}");
-        if (Object.prototype.hasOwnProperty.call(tombstones, key)) {
-            delete tombstones[key];
-            localStorage.setItem("kfp_deleted_keys_v1", JSON.stringify(tombstones));
+        const x = kfpReadDeletedKeys();
+        if (Object.prototype.hasOwnProperty.call(x, key)) {
+            delete x[key];
+            localStorage.setItem(KFP_DELETED_KEYS, JSON.stringify(x));
         }
     } catch (_) {}
 }
 
-function migrateFinanceStorage() {
+function kfpPersistNow(){
+    try { if (typeof window.__kfpPwaPersist === "function") window.__kfpPwaPersist(); } catch (_) {}
+}
+
+// V14 stored finance data under isolated keys. Migrate it back to the original
+// index.html keys so the original finance module and existing Cloud schema continue to work.
+(function migrateV14FinanceKeys(){
     try {
+        const deleted = kfpReadDeletedKeys();
         const migrations = [
-            ["salaryRecords", SALARY_RECORDS_KEY],
-            ["rate", EXCHANGE_RATE_KEY],
-            ["rateUpdatedAt", EXCHANGE_RATE_UPDATED_KEY],
-            ["contractStartDate", CONTRACT_KEY]
+            ["kfp_salary_records_v2", "salaryRecords"],
+            ["kfp_exchange_rate_v1", "rate"],
+            ["kfp_exchange_rate_updated_v1", "rateUpdatedAt"],
+            ["kfp_contract_v1", "contractStartDate"]
         ];
-        for (const [oldKey, newKey] of migrations) {
-            const oldValue = localStorage.getItem(oldKey);
-            const newValue = localStorage.getItem(newKey);
-            if (newValue === null && oldValue !== null) localStorage.setItem(newKey, oldValue);
-            if (oldValue !== null) localStorage.removeItem(oldKey);
+        for (const [from, to] of migrations) {
+            const fromValue = localStorage.getItem(from);
+            const isDeleted = Object.prototype.hasOwnProperty.call(deleted, from);
+            if (isDeleted) {
+                localStorage.removeItem(to);
+            } else if (localStorage.getItem(to) === null && fromValue !== null) {
+                localStorage.setItem(to, fromValue);
+            }
+            if (fromValue !== null || isDeleted) localStorage.removeItem(from);
         }
     } catch (_) {}
-}
-
-migrateFinanceStorage();
-persistFinanceNow();
+})();
 
 let salaryChart = null;
 let savingChart = null;
@@ -74,10 +73,9 @@ function saveData(){
     );
 
     localStorage.setItem(
-        EXCHANGE_RATE_KEY,
+        "rate",
         document.getElementById("rate").value
     );
-    touchFinanceSyncRevision();
 }
 
 function updateSalaryPreview(){
@@ -141,7 +139,7 @@ function loadData(){
         localStorage.getItem("salary");
 
     const rate =
-        localStorage.getItem(EXCHANGE_RATE_KEY);
+        localStorage.getItem("rate");
 
     if(salary){
         document.getElementById("salary").value =
@@ -153,7 +151,9 @@ function loadData(){
             rate;
     }
     const updatedAt =
-    localStorage.getItem(EXCHANGE_RATE_UPDATED_KEY);
+    localStorage.getItem(
+        "rateUpdatedAt"
+    );
 
 if(updatedAt){
 
@@ -164,14 +164,6 @@ if(updatedAt){
         .toLocaleString("th-TH")}`;
 
 }
-}
-
-function refreshFinanceRealtime(){
-    // These outputs depend only on the current salary/rate inputs.
-    // They must never depend on whether salary history has any records.
-    updateSalaryPreview();
-    if (document.getElementById("convertAmount")?.value) convertCurrency();
-    if (typeof renderQuickConvert === "function") renderQuickConvert();
 }
 
 function calculate(){
@@ -209,8 +201,9 @@ function calculate(){
     document.getElementById("travel").innerHTML =
         `${formatNumber(travel)} KRW<br>
         ≈ ${formatNumber((travel*rate).toFixed(0))} THB`;
-
- renderPieChart();
+ 
+ renderPieChart();  
+ loadSalaryRecords();     
 }
 
 function saveGoalData(){
@@ -302,7 +295,7 @@ document
 );
 
 function loadSalaryRecords() {
-    const records = JSON.parse(localStorage.getItem(SALARY_RECORDS_KEY) || "[]");
+    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
     const historyDiv = document.getElementById("salaryHistory");
     const filterYearSelect = document.getElementById("filterYear");
     
@@ -403,16 +396,17 @@ function deleteSalaryRecord(index){
     
 
     localStorage.setItem(
-    SALARY_RECORDS_KEY,
+    "salaryRecords",
     JSON.stringify(records)
-    );
-    if (records.length === 0) markFinanceDeleted(SALARY_RECORDS_KEY);
-    else clearFinanceDeletedMark(SALARY_RECORDS_KEY);
-    touchFinanceSyncRevision();
+);
+
+    if(records.length === 0) kfpMarkDeleted("salaryRecords");
+    else kfpClearDeleted("salaryRecords");
+    kfpPersistNow();
 
     updateAnalytics();
 
-loadSalaryRecords();
+    loadSalaryRecords();
 }
 
 
@@ -800,14 +794,14 @@ async function updateExchangeRate(){
             thbRate.toFixed(4);
 
         localStorage.setItem(
-            EXCHANGE_RATE_KEY,
+            "rate",
             thbRate.toFixed(4)
         );
 
         const now = new Date();
 
         localStorage.setItem(
-            EXCHANGE_RATE_UPDATED_KEY,
+            "rateUpdatedAt",
             now.toISOString()
         );
 
@@ -815,9 +809,10 @@ async function updateExchangeRate(){
             `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
             | 1 KRW = ${thbRate.toFixed(4)} THB`;
 
-        // Refresh only finance calculations. Salary history and Korea contract are independent.
-        refreshFinanceRealtime();
-        touchFinanceSyncRevision();
+        updateSalaryPreview();
+        convertCurrency();
+        renderQuickConvert();
+        kfpPersistNow();
 
     }
     catch(error){
@@ -832,7 +827,7 @@ async function updateExchangeRate(){
 }
 
 function exportExcel() {
-    const records = JSON.parse(localStorage.getItem(SALARY_RECORDS_KEY) || "[]");
+    const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
     if (records.length === 0) {
         alert("ไม่มีข้อมูลที่จะส่งออก");
         return;
@@ -880,14 +875,6 @@ function convertCurrency(){
             "convertType"
         ).value;
 
-    const resultEl = document.getElementById("convertResult");
-    if (!resultEl) return;
-
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(rate) || rate <= 0) {
-        resultEl.innerHTML = "-";
-        return;
-    }
-
     let result;
 
     if(type === "KRW_TO_THB"){
@@ -923,51 +910,509 @@ function convertCurrency(){
 }
 
 function swapConverter(){
-    const select = document.getElementById("convertType");
-    if (!select) return;
-    select.value = select.value === "KRW_TO_THB" ? "THB_TO_KRW" : "KRW_TO_THB";
-    convertCurrency();
-}
 
+    const select =
+        document.getElementById(
+            "convertType"
+        );
 
-function initFinancePage(){
-    loadData();
-    loadSalaryRecords();
-    updateAnalytics();
-    updateGoalTracker();
-    loadContract();
-    updateSalaryPreview();
+    if(
+        select.value ===
+        "KRW_TO_THB"
+    ){
 
-    const salaryEl = document.getElementById("salary");
-    const rateEl = document.getElementById("rate");
-    const convertAmountEl = document.getElementById("convertAmount");
-    const convertTypeEl = document.getElementById("convertType");
+        select.value =
+            "THB_TO_KRW";
 
-    salaryEl?.addEventListener("input", updateSalaryPreview);
-    rateEl?.addEventListener("input", () => {
-        localStorage.setItem(EXCHANGE_RATE_KEY, rateEl.value);
-        clearFinanceDeletedMark(EXCHANGE_RATE_KEY);
-        touchFinanceSyncRevision();
-        refreshFinanceRealtime();
-    });
-    convertAmountEl?.addEventListener("input", convertCurrency);
-    convertTypeEl?.addEventListener("change", convertCurrency);
-
-    // Run once immediately. No salary-history record is required.
-    convertCurrency();
-    refreshFinanceRealtime();
-
-    const lastUpdate = localStorage.getItem(EXCHANGE_RATE_UPDATED_KEY);
-    if (!lastUpdate) {
-        updateExchangeRate();
-    } else {
-        const diffHours = (Date.now() - new Date(lastUpdate)) / (1000 * 60 * 60);
-        if (diffHours >= 24) updateExchangeRate();
     }
+    else{
+
+        select.value =
+            "KRW_TO_THB";
+
+    }
+
+    convertCurrency();
+
 }
 
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initFinancePage, { once:true });
-} else {
-    initFinancePage();
+function renderQuickConvert(){
+
+    const rate =
+        parseFloat(
+            document.getElementById(
+                "rate"
+            ).value
+        );
+
+    const amounts = [
+
+        100000,
+        500000,
+        1000000,
+        2000000
+
+    ];
+
+    const grid =
+        document.getElementById(
+            "quickConvertGrid"
+        );
+
+    grid.innerHTML = "";
+
+    amounts.forEach(amount=>{
+
+        const thb =
+            amount * rate;
+
+        grid.innerHTML +=
+        `
+        <div class="quick-card">
+
+            <strong>
+            ${amount.toLocaleString()}
+            KRW
+            </strong>
+
+            <br><br>
+
+            ≈
+
+            <br><br>
+
+            ${Math.round(thb)
+            .toLocaleString()}
+            THB
+
+        </div>
+        `;
+
+    });
+
 }
+
+function calculateRemit(){
+
+    const thb =
+        parseFloat(
+            document.getElementById(
+                "receiveTHB"
+            ).value
+        );
+
+    const transferFee =
+        parseFloat(
+            document.getElementById(
+                "transferFee"
+            ).value
+        ) || 0;
+
+    // ค่าธรรมเนียมรับเงินปลายทางเป็นค่าคงที่ 60 THB
+    // และต้องแปลงเป็น KRW ตามเรตสำหรับการส่งเงินจริง
+    // ดังนั้นเมื่อเปลี่ยน remitRate ค่า receiveFee จะเปลี่ยนตามทันที
+    const receiveFeeTHB = 60;
+
+    // เรตของธนาคารสำหรับการส่งเงินจริง:
+    // 1 THB = กี่ KRW
+    const remitRate =
+        parseFloat(
+            document.getElementById(
+                "remitRate"
+            ).value
+        );
+
+    if(
+        !thb ||
+        !remitRate ||
+        remitRate <= 0
+    ){
+        document.getElementById("remitResult").innerHTML = "-";
+        return;
+    }
+
+    // ค่าธรรมเนียมรับเงินปลายทาง 60 THB แปลงเป็น KRW ด้วยเรตเดียวกับการส่งเงินจริง
+    const receiveFee = Math.round(receiveFeeTHB * remitRate);
+
+    // อัปเดตช่องค่าธรรมเนียมรับเงินปลายทางให้เห็นค่าที่คำนวณจากเรตล่าสุด
+    const receiveFeeInput = document.getElementById("receiveFee");
+    if (receiveFeeInput) {
+        receiveFeeInput.value = receiveFee;
+    }
+
+    // จำนวน KRW ที่ต้องส่งเพื่อให้ปลายทางได้รับ THB ตามที่กำหนด
+    const krwForRecipient = thb * remitRate;
+
+    // รวมค่าธรรมเนียม
+    const totalFee = transferFee + receiveFee;
+
+    // ยอด KRW ที่ต้องโอนจริง
+    const krwNeeded = krwForRecipient + totalFee;
+
+    // แสดงเฉพาะข้อมูลสรุปที่จำเป็น
+    document.getElementById(
+        "remitResult"
+    ).innerHTML =
+    `
+    <div>
+        <strong>ค่าธรรมเนียมรวม: ${Math.round(totalFee).toLocaleString()} KRW</strong>
+    </div>
+    <br>
+    <div style="font-size:1.25em;">
+        <strong>ต้องโอนประมาณ ${Math.round(krwNeeded).toLocaleString()} KRW</strong>
+    </div>
+    `;
+}
+
+function renderPieChart(){
+    const ctx = document.getElementById("pieChart");
+    if(!ctx) return;
+
+    if(pieChart){
+        pieChart.destroy();
+    }
+
+    // ดึงค่าคำนวณล่าสุดเพื่อนำมาใส่ในกราฟ
+    const salary = Number(document.getElementById("salary").value) || 0;
+    const rate = Number(document.getElementById("rate").value) || 0;
+
+    // คำนวณยอดเงินแต่ละส่วน (ตามสัดส่วน % ของคุณ)
+    const dataValues = [
+        { label: "💰 เงินเก็บ 45%", krw: salary * 0.45 },
+        { label: "🥇 ออมทอง 15%", krw: salary * 0.15 },
+        { label: "🏠 ส่งบ้าน 25%", krw: salary * 0.25 },
+        { label: "🛒 ใช้ส่วนตัว 10%", krw: salary * 0.10 },
+        { label: "✈️ เที่ยว 5%", krw: salary * 0.05 }
+    ];
+
+    // เปิดใช้งานปลั๊กอินแสดงตัวเลขบนกราฟ
+    Chart.register(ChartDataLabels);
+
+    pieChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+            labels: dataValues.map(item => item.label.split(" ")[1]), // ดึงชื่อเช่น "เงินเก็บ", "ออมทอง"
+            datasets: [{
+                data: dataValues.map(item => item.krw),
+                backgroundColor: [
+                    '#36a2eb', // เงินเก็บ (น้ำเงิน)
+                    '#ff6384', // ออมทอง (ชมพู)
+                    '#ff9f40', // ส่งบ้าน (ส้ม)
+                    '#ffcd56', // ใช้ส่วนตัว (เหลือง)
+                    '#4bc0c0'  // เที่ยว (เขียวมิ้นต์)
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                // 1. จัดการข้อความอธิบายสี (ด้านบนกราฟ)
+                legend: {
+                    position: 'top',
+                    labels: {
+                        color: '#fff',
+                        font: { family: 'Arial, sans-serif' }
+                    }
+                },
+                // 2. ปรับแต่ง Tooltip ตอนเอาเมาส์ชี้/กด (ให้แสดงครบ 3 บรรทัดตามที่คุณต้องการ)
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            // แสดงหัวข้อเช่น "💰 เงินเก็บ 45%"
+                            return dataValues[context[0].dataIndex].label;
+                        },
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const krwAmt = dataValues[index].krw;
+                            const thbAmt = krwAmt * rate;
+                            
+                            // ส่งกลับมาเป็นอาร์เรย์เพื่อให้ Chart.js ขึ้นบรรทัดใหม่ให้ใน Tooltip
+                            return [
+                                `${formatNumber(krwAmt.toFixed(1))} KRW`,
+                                `≈ ${formatNumber(thbAmt.toFixed(0))} THB`
+                            ];
+                        }
+                    }
+                },
+                // 3. แสดงยอดเงินบาทไทยค้างไว้บนตัวกราฟตลอดเวลา (Data Labels)
+                datalabels: {
+                    color: '#181818',
+                    font: {
+                        weight: 'bold',
+                        size: 11
+                    },
+                    formatter: function(value, context) {
+                        const thbAmt = value * rate;
+                        // แสดงตัวเลขเงินบาท เช่น "22,378 THB" บนชิ้นเค้กเลย
+                        return formatNumber(thbAmt.toFixed(0)) + ' THB';
+                    },
+                    // ป้องกันไม่ให้ตัวเลขทับกันถ้าชิ้นเค้กเล็กเกินไป
+                    display: function(context) {
+                        return context.dataset.data[context.dataIndex] > 0;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function loadContract(){
+
+    const savedDate =
+        localStorage.getItem(
+            "contractStartDate"
+        );
+
+    if(!savedDate){
+        return;
+    }
+
+    document.getElementById(
+        "startDate"
+    ).value =
+        savedDate;
+
+    const start =
+        new Date(savedDate);
+
+    const end =
+        new Date(start);
+
+    // 4 ปี 10 เดือน
+    end.setMonth(
+        end.getMonth() + 58
+    );
+
+    const remainDays =
+        Math.ceil(
+            (
+                end -
+                new Date()
+            ) /
+            86400000
+        );
+
+    document.getElementById(
+        "contractResult"
+    ).innerHTML =
+    `
+    <div style="
+        background:#222;
+        padding:15px;
+        border-radius:10px;
+        border:1px solid #d4af37;
+    ">
+        <div>
+            <strong>
+            วันครบสัญญาจ้าง
+            </strong>
+        </div>
+
+        <br>
+
+        <div style="
+            color:#37d478;
+            font-size:20px;
+            font-weight:bold;
+        ">
+            ${
+                end.toLocaleDateString(
+                    "th-TH",
+                    {
+                        day:"numeric",
+                        month:"long",
+                        year:"numeric"
+                    }
+                )
+            }
+        </div>
+
+        <br>
+
+        <div>
+            เหลืออีก
+            <strong>
+            ${remainDays.toLocaleString()}
+            วัน
+            </strong>
+        </div>
+    </div>
+    `;
+}
+
+function deleteContract(){
+
+    if(
+        !confirm(
+            "ต้องการลบข้อมูลสัญญาหรือไม่?"
+        )
+    ){
+        return;
+    }
+
+    localStorage.removeItem(
+        "contractStartDate"
+    );
+    kfpMarkDeleted("contractStartDate");
+    kfpPersistNow();
+
+    document.getElementById(
+        "startDate"
+    ).value = "";
+
+    document.getElementById(
+        "contractResult"
+    ).innerHTML = "-";
+}
+
+function saveContract(){
+
+    const startDate =
+        document.getElementById(
+            "startDate"
+        ).value;
+
+    if(!startDate){
+
+        alert(
+            "กรุณาเลือกวันเริ่มงาน"
+        );
+
+        return;
+    }
+
+    localStorage.setItem(
+        "contractStartDate",
+        startDate
+    );
+    kfpClearDeleted("contractStartDate");
+    kfpPersistNow();
+
+    loadContract();
+}
+
+function addSalaryRecord() {
+    const month = document.getElementById("salaryMonth").value;
+    const salary = Number(document.getElementById("salaryRecord").value);
+    
+    // ดึงค่าเรตเงินปัจจุบัน ณ วินาทีที่กดบันทึกรายการ
+    const rate = Number(document.getElementById("rate").value) || 0.0240;
+
+    if (!month || !salary) {
+        alert("กรุณากรอกข้อมูลให้ครบถ้วน");
+        return;
+    }
+
+    const records =
+    getSalaryRecords();
+    const exists =
+    records.some(
+        item => item.month === month
+    );
+
+    if(exists){
+        alert("เดือนนี้มีข้อมูลแล้ว");
+        return;
+    }
+    
+    // อัปเกรด: บันทึกค่าเงิน (rate) ล็อกพ่วงติดไปกับเดือนและเงินวอนเลย
+    records.push({ month, salary, rate });
+    
+    localStorage.setItem("salaryRecords", JSON.stringify(records));
+    kfpClearDeleted("salaryRecords");
+    kfpPersistNow();
+
+    document.getElementById("filterYear").value = "latest"; 
+    
+    
+
+updateAnalytics();
+
+loadSalaryRecords();
+
+updateGoalTracker();
+    
+    document.getElementById("salaryRecord").value = "";
+}
+
+function getSalaryRecords(){
+    return JSON.parse(
+        localStorage.getItem("salaryRecords")
+        || "[]"
+    );
+}
+
+window.onload = function(){
+
+    loadData();
+
+loadSalaryRecords();
+
+updateAnalytics();
+
+updateGoalTracker();
+
+loadContract();
+updateSalaryPreview();
+
+    document
+    .getElementById("salary")
+    .addEventListener(
+        "input",
+        updateSalaryPreview
+    );
+
+    document
+    .getElementById("rate")
+    .addEventListener(
+        "input",
+        function(){
+            updateSalaryPreview();
+            convertCurrency();
+            renderQuickConvert();
+        }
+    );
+
+    document
+    .getElementById("convertAmount")
+    ?.addEventListener(
+        "input",
+        convertCurrency
+    );
+
+    document
+    .getElementById("convertType")
+    ?.addEventListener(
+        "change",
+        convertCurrency
+    );
+
+    const lastUpdate =
+    localStorage.getItem(
+        "rateUpdatedAt"
+    );
+
+if(!lastUpdate){
+
+    updateExchangeRate();
+
+}
+else{
+
+    const diffHours =
+        (
+            Date.now() -
+            new Date(lastUpdate)
+        ) /
+        (1000 * 60 * 60);
+
+    if(diffHours >= 24){
+
+        updateExchangeRate();
+        renderQuickConvert();
+
+    }
+
+}
+
+};

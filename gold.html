@@ -5,19 +5,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
-<link rel="stylesheet" href="gold.css?v=20260823-08-23-pwa11">
+<link rel="stylesheet" href="gold.css?v=20260819-thai-gold-pwa-ui">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=20260823-pwa11"></script>
-<script src="auth.js?v=20260823-pwa11"></script>
-<style>
-    .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
-    .gold2go-market-box{border-color:#d4af37}
-    .gold2go-market-box strong{color:#d4af37}
-    .gold2go-market-meta{grid-column:1/-1;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#999;font-size:12px;padding:2px 4px}
-    @media(max-width:700px){.gold2go-market-strip{grid-template-columns:1fr}}
-  </style>
+<script src="supabase-config.js?v=20260822-2"></script>
+<script src="auth.js?v=20260822-2"></script>
 </head>
 <body>
 <div class="gold-container">
@@ -43,8 +36,8 @@
   <section class="gold-card">
     <div class="section-head">
       <div>
-        <h2>📈 ราคาทอง & ราคา GOLD2go</h2>
-        <p>ราคาตลาดโลกใช้ดูแนวโน้ม · P/L ของพอร์ตหลักจะอิง <b>GOLD2go รับซื้อ 96.5%</b></p>
+        <h2>📈 ราคาทองปัจจุบัน</h2>
+        <p>ราคาตลาดสำหรับประเมินพอร์ต ไม่ใช่ราคา Gold Wallet โดยตรง</p>
       </div>
       <button class="small-gold-btn" id="refreshGoldBtn">🔄 อัปเดต</button>
     </div>
@@ -63,55 +56,35 @@
       <div class="market-box featured">
         <span>ทอง 99.99% โดยประมาณ</span>
         <strong id="goldThbGram">-</strong>
-        <small>THB / gram · ตลาดโลก</small>
+        <small>THB / gram</small>
       </div>
       <div class="market-box">
         <span>ทอง 99.99% โดยประมาณ</span>
         <strong id="goldThbOz">-</strong>
-        <small>THB / troy oz · ตลาดโลก</small>
-      </div>
-      <div class="market-box trade-split-box">
-        <div class="trade-half association-half">
-          <span>🏛️ สมาคมฯ · ทองแท่ง 96.5%</span>
-          <b class="trade-label">รับซื้อ</b>
-          <strong id="thaiBarBuy">-</strong>
-          <small>บาททองคำ</small>
-        </div>
-        <div class="trade-divider"></div>
-        <div class="trade-half gold2go-half">
-          <span>🟢 GOLD2go · 96.5%</span>
-          <b class="trade-label">รับซื้อ</b>
-          <strong id="gold2goReceivePrice">-</strong>
-          <small>บาททองคำ · ใช้คำนวณ P/L</small>
-        </div>
-      </div>
-
-      <div class="market-box trade-split-box">
-        <div class="trade-half association-half">
-          <span>🏛️ สมาคมฯ · ทองแท่ง 96.5%</span>
-          <b class="trade-label">ขายออก</b>
-          <strong id="thaiBarSell">-</strong>
-          <small>บาททองคำ</small>
-        </div>
-        <div class="trade-divider"></div>
-        <div class="trade-half gold2go-half">
-          <span>🔴 GOLD2go · 96.5%</span>
-          <b class="trade-label">ขายออก</b>
-          <strong id="gold2goSellPrice">-</strong>
-          <small>บาททองคำ · ราคาซื้อ</small>
-        </div>
+        <small>THB / troy oz</small>
       </div>
       <div class="market-box thai-gold-box">
-        <span>สมาคมฯ · ทองรูปพรรณ 96.5% · <b class="trade-label">รับซื้ออ้างอิง</b></span>
+        <span>ทองแท่ง 96.5% · <b class="trade-label">รับซื้อ</b></span>
+        <strong id="thaiBarBuy">-</strong>
+        <small>บาททองคำ</small>
+      </div>
+      <div class="market-box thai-gold-box">
+        <span>ทองแท่ง 96.5% · <b class="trade-label">ขายออก</b></span>
+        <strong id="thaiBarSell">-</strong>
+        <small>บาททองคำ</small>
+      </div>
+      <div class="market-box thai-gold-box">
+        <span>ทองรูปพรรณ 96.5% · <b class="trade-label">รับซื้ออ้างอิง</b></span>
         <strong id="thaiJewelryBuy">-</strong>
         <small>บาททองคำ</small>
       </div>
       <div class="market-box thai-gold-box">
-        <span>สมาคมฯ · ทองรูปพรรณ 96.5% · <b class="trade-label">ขายออก</b></span>
+        <span>ทองรูปพรรณ 96.5% · <b class="trade-label">ขายออก</b></span>
         <strong id="thaiJewelrySell">-</strong>
         <small>บาททองคำ</small>
       </div>
     </div>
+
     <div class="chart-wrap">
       <div class="chart-toolbar chart-toolbar-main">
         <div class="chart-tabs">
@@ -142,7 +115,7 @@
       </div>
 
       <div class="chart-panel">
-        <div class="chart-panel-title">ตลาดโลก XAU/THB · <b>ทอง 99.99% · THB / gram</b></div>
+        <div class="chart-panel-title">ทอง 99.99% · <b>THB / gram</b></div>
         <div class="chart-stage" id="chartStageGram">
           <div id="goldChart"></div>
           <svg id="chartOverlayGram" class="chart-overlay" aria-hidden="true"></svg>
@@ -291,7 +264,7 @@
     <div class="section-head">
       <div>
         <h2>📊 จำลองขาย</h2>
-        <p>จำลองยอดเงินที่คาดว่าจะได้รับ หากขายบางส่วนหรือทั้งหมดตาม <b>ราคา GOLD2go รับซื้อ</b> ตอนนี้</p>
+        <p>ดูว่าถ้าขายบางส่วนหรือทั้งหมดด้วยราคาตลาดตอนนี้ จะได้เท่าไหร่</p>
       </div>
     </div>
 
@@ -306,64 +279,19 @@
       เลือกสัดส่วนเพื่อจำลองการขาย
     </div>
 
-    <div class="override-box gold2go-quote-box">
-      <div class="quote-head">
+    <div class="override-box">
+      <label class="check-row">
+        <input id="useSellOverride" type="checkbox">
+        <span>ใช้ราคาขายจริงจาก Gold Wallet แทนราคาตลาดประมาณ</span>
+      </label>
+      <div class="form-row">
         <div>
-          <label for="valuationSource">แหล่งราคาที่ใช้คำนวณ P/L</label>
-          <select id="valuationSource">
-            <option value="gold2go">🟢 GOLD2go · รับซื้อ 96.5% (แนะนำ)</option>
-            <option value="market">🌐 XAU/THB · ตลาดโลก (ประมาณการ)</option>
-          </select>
+          <label for="sellOverride">ราคาขายคืนจริง (THB / gram)</label>
+          <input id="sellOverride" type="number" min="0" step="0.0001" placeholder="ใส่เมื่อคุณต้องการล็อก quote จากแอป">
         </div>
-        <div class="quote-badge">P/L หลัก = ราคาที่คุณขายคืนได้</div>
-      </div>
-
-      <div id="gold2goQuoteFields">
-        <div class="gold2go-levels">
-          <div class="gold2go-level">
-            <div class="gold2go-level-title">🥇 ระดับ 1 · Auto</div>
-            <div class="gold2go-auto-row">
-              <div>
-                <div id="gold2goPriceMode" class="gold2go-price-mode">⏳ กำลังตรวจสอบราคา...</div>
-                <div id="gold2goQuoteStatus" class="gold2go-status">กำลังดึงราคา GOLD2go...</div>
-              </div>
-              <button type="button" id="autoGold2goBtn" class="small-gold-btn">🟢 ดึงราคา Auto</button>
-            </div>
-            <div class="override-note compact-note">
-              ระบบจะพยายามอ่านราคา <b>InterGold 96.5% รับซื้อ</b> จากหน้า public โดยตรงก่อน
-              และใช้ proxy เฉพาะเมื่อ browser บล็อกการดึงข้ามโดเมน
-            </div>
-          </div>
-
-          <div class="gold2go-level">
-            <div class="gold2go-level-title">🥈 ระดับ 2 · Manual fallback</div>
-            <div class="form-row">
-              <div>
-                <label for="gold2goBuyBaht">GOLD2go รับซื้อ (THB / บาททอง)</label>
-                <input id="gold2goBuyBaht" type="number" min="0" step="1" placeholder="เช่น 70971">
-              </div>
-              <div class="override-note compact-note">
-                ถ้า Auto ใช้ไม่ได้ ให้เปิด GOLD2go แล้วกรอกตัวเลข <b>รับซื้อ</b> จากแอป
-              </div>
-            </div>
-            <div class="quote-meta">
-              <span>ราคาที่กรอกจะถูกเก็บเป็นราคาหลักของพอร์ตทันที</span>
-              <button type="button" id="saveGold2goQuoteBtn" class="small-gold-btn">✏️ ใช้ราคานี้</button>
-            </div>
-          </div>
-
-          <div class="gold2go-level gold2go-cache-level">
-            <div class="gold2go-level-title">🥉 ระดับ 3 · Last known / Cache</div>
-            <div class="override-note compact-note">
-              ถ้าอินเทอร์เน็ตหรือ API ใช้งานไม่ได้ เว็บจะไม่ล้างราคาเดิม
-              และ P/L จะคำนวณต่อด้วยราคาล่าสุดที่บันทึกไว้ พร้อมลอง Auto ใหม่อัตโนมัติในรอบถัดไป
-            </div>
-          </div>
+        <div class="override-note">
+          ถ้าไม่เปิดใช้งาน ระบบจะใช้ราคาตลาด XAU/THB จาก API และจะติดป้ายว่า “ประมาณการ”
         </div>
-      </div>
-
-      <div id="marketValuationNote" class="override-note" hidden>
-        โหมดนี้จะใช้ราคา XAU/THB จาก API เป็น <b>ราคาประมาณ</b> และยังคงแยกจากราคา GOLD2go จริง
       </div>
     </div>
   </section>
@@ -381,13 +309,6 @@
     </div>
 
     <div id="lotSummary" class="lot-summary"></div>
-
-    <div id="lotNavigator" class="lot-navigator" hidden>
-      <div class="lot-nav-label">🔎 ดูรอบย้อนหลัง</div>
-      <select id="lotPageSelect" aria-label="เลือกรอบที่ต้องการดู"></select>
-      <div id="lotPageHint" class="lot-page-hint">แสดง 3 รอบล่าสุด</div>
-    </div>
-
     <div id="lotsList" class="lots-list"></div>
   </section>
 
@@ -399,27 +320,24 @@
       </div>
     </div>
     <div class="info-grid">
-      <div><b>🟢 กำไรรอบ</b><span>มูลค่าที่คาดว่าจะขายคืนได้มากกว่าต้นทุน Lot</span></div>
-      <div><b>🔴 ขาดทุนรอบ</b><span>มูลค่าที่คาดว่าจะขายคืนได้ต่ำกว่าต้นทุน Lot</span></div>
-      <div><b>⚪ จุดคุ้มทุน</b><span>ราคาที่ใช้ประเมินเท่ากับต้นทุนเฉลี่ยของ Lot</span></div>
-      <div><b>🎯 P/L สุทธิ</b><span>กำไรรวมลบขาดทุนรวม โดย GOLD2go เป็นราคาหลัก</span></div>
+      <div><b>🟢 กำไรรอบ</b><span>มูลค่าปัจจุบันของ Lot มากกว่าต้นทุน Lot</span></div>
+      <div><b>🔴 ขาดทุนรอบ</b><span>มูลค่าปัจจุบันของ Lot ต่ำกว่าต้นทุน Lot</span></div>
+      <div><b>⚪ จุดคุ้มทุน</b><span>ราคาปัจจุบันเท่ากับต้นทุนเฉลี่ยของ Lot</span></div>
+      <div><b>🎯 P/L สุทธิ</b><span>กำไรรวมลบขาดทุนรวมของทุก Lot</span></div>
     </div>
   </section>
 
 </div>
 
-<script src="pwa-persistence.js?v=20260823-pwa11"></script>
-<script src="gold.js?v=20260823-pwa11"></script>
+<script src="pwa-persistence.js?v=20260819-1"></script>
+<script src="gold.js?v=20260819-thai-gold-fix"></script>
 <script>
-  // PWA update: versioned registration + immediate update check.
+  // PWA-only: register the root service worker so the Gold page can use
+  // cached API responses for a fast first paint in iOS standalone mode.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', async () => {
-      try {
-        const reg = await navigator.serviceWorker.register('./sw.js?v=20260823-pwa11', {updateViaCache:'none'});
-        await reg.update();
-      } catch (err) {
-        console.warn('PWA Service Worker:', err);
-      }
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js?v=20260819-gold-api-cache')
+        .catch(() => {});
     });
   }
 </script>

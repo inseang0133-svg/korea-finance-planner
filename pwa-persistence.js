@@ -11,7 +11,8 @@
   const STORE = "localStorageBackup";
   const SNAPSHOT_KEY = "__all_local_storage__";
   const RESTORED_FLAG = "__kfp_pwa_restored__";
-  const SNAPSHOT_MS = 1500;
+  const SNAPSHOT_MS = 1000;
+  const DELETED_KEYS = "__kfp_deleted_keys_v1";
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -65,9 +66,17 @@
     if (!snapshot || typeof snapshot !== "object") return restored;
     try {
       let tombstones = {};
-      try { tombstones = JSON.parse(localStorage.getItem("kfp_deleted_keys_v1") || "{}"); } catch (_) {}
+      try {
+        const raw = localStorage.getItem(DELETED_KEYS);
+        tombstones = raw ? JSON.parse(raw) : {};
+      } catch (_) {}
+      try {
+        const snapshotDeleted = snapshot?.[DELETED_KEYS];
+        const x = typeof snapshotDeleted === "string" ? JSON.parse(snapshotDeleted || "{}") : (snapshotDeleted || {});
+        if (x && typeof x === "object" && !Array.isArray(x)) tombstones = { ...x, ...tombstones };
+      } catch (_) {}
       for (const [key, value] of Object.entries(snapshot)) {
-        // Never resurrect a finance key explicitly marked deleted by the current app.
+        // Explicitly deleted data must never be restored from an older snapshot.
         if (tombstones && Object.prototype.hasOwnProperty.call(tombstones, key)) continue;
         if (localStorage.getItem(key) === null) {
           localStorage.setItem(key, value);

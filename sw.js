@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-v5';
-const API_CACHE_NAME = 'korea-finance-api-v3';
+const CACHE_NAME = 'korea-finance-v6';
+const API_CACHE_NAME = 'korea-finance-api-v4';
 
 const ASSETS = [
   'index.html',
@@ -82,6 +82,23 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (!isGet(request)) return;
+
+  // Navigation/HTML: network-first so phones/PWA receive deployed HTML updates
+  // instead of remaining on an old cache-first document.
+  if (request.mode === 'navigate' || request.destination === 'document') {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      try {
+        const response = await fetch(request, { cache: 'no-store' });
+        if (response && response.ok) await cache.put(request, response.clone());
+        return response;
+      } catch (_) {
+        const cached = await cache.match(request);
+        return cached || Response.error();
+      }
+    })());
+    return;
+  }
 
   if (isApiRequest(request)) {
     event.respondWith((async () => {

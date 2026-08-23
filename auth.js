@@ -225,11 +225,26 @@
       .kfp-auth-modal{width:min(430px,100%);max-height:90vh;overflow:auto;background:#181818;border:1px solid #d4af37;border-radius:18px;padding:22px;box-shadow:0 0 40px rgba(212,175,55,.18);color:#fff}
       .kfp-auth-modal h2{color:#d4af37;margin:0 0 8px}.kfp-auth-modal p{color:#aaa;margin:6px 0 16px}
       .kfp-auth-modal label{display:block;color:#d4af37;margin:12px 0 7px}.kfp-auth-modal input{width:100%;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#fff;font-size:16px}
-      .kfp-auth-row{display:flex;gap:10px;margin-top:14px}.kfp-auth-row button{flex:1;width:auto!important;margin:0!important}
+      .kfp-auth-row{display:flex;gap:10px;margin-top:14px}
+       .kfp-auth-row button{
+         flex:1;width:auto!important;margin:0!important;padding:12px 14px!important;
+         border:1px solid #b18d21!important;border-radius:10px!important;
+         background:#d4af37!important;color:#111!important;font-weight:700!important;
+         cursor:pointer;box-shadow:0 3px 12px rgba(212,175,55,.12);
+       }
+       .kfp-auth-row button:hover{filter:brightness(1.06);transform:translateY(-1px)}
+       .kfp-auth-row button:active{transform:translateY(0)}
       .kfp-auth-secondary{background:#2a2a2a!important;color:#fff!important;border:1px solid #555!important}.kfp-auth-danger{background:#421d1d!important;color:#ff7777!important;border:1px solid #a33!important}
       .kfp-auth-status{min-height:20px;margin-top:10px;color:#aaa}.kfp-auth-status.ok{color:#37d478}.kfp-auth-status.error{color:#ff6b6b}.kfp-auth-account{background:#222;border-radius:12px;padding:12px;margin:12px 0}
       .kfp-auth-cloud{border:1px solid #d4af37;border-radius:14px;padding:16px;background:#151515;margin-top:12px}.kfp-auth-cloud h3{color:#d4af37;margin:0 0 8px}
-      .kfp-choice{display:grid;gap:9px;margin-top:12px}.kfp-choice button{margin:0!important;width:100%!important}
+      .kfp-choice{display:grid;gap:9px;margin-top:12px}
+       .kfp-choice button{
+         margin:0!important;width:100%!important;padding:12px 14px!important;
+         border:1px solid #b18d21!important;border-radius:10px!important;
+         background:#d4af37!important;color:#111!important;font-weight:700!important;
+         cursor:pointer;
+       }
+       .kfp-choice button:hover{filter:brightness(1.06)}
       .kfp-small{font-size:12px;color:#888!important}
       @media(max-width:600px){#kfpAuthRoot{top:8px;right:8px}.kfp-auth-modal{padding:18px}}
     `;

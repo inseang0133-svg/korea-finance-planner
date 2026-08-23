@@ -1250,6 +1250,10 @@ function addLot(e){
   saveLots(lots);
   $("lotForm").reset();
   $("buyDate").value=isoDate(new Date());
+  // Normal use: Thai 96.5% gold measured in baht-weight.
+  $("goldType").value="96.5";
+  $("unit").value="baht";
+  updateLotPreview();
   renderPortfolio();renderLots();renderChart();
   alert("บันทึกรอบซื้อเรียบร้อยแล้ว");
 }
@@ -1310,6 +1314,9 @@ function clearAll(){
 
 function setup(){
   $("buyDate").value=isoDate(new Date());
+  // Purchase-form defaults.
+  $("goldType").value="96.5";
+  $("unit").value="baht";
   $("lotForm").addEventListener("submit",addLot);
   ["quantity","cost","unit"].forEach(id=>$(id).addEventListener("input",updateLotPreview));
   $("refreshGoldBtn").addEventListener("click",fetchGold);

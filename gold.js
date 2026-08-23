@@ -5,8 +5,10 @@
   Gold Portfolio module
   - Isolated from index.html / script.js
   - LocalStorage only for portfolio records
-  - Market reference: Gold API XAU/USD + USD/THB
-  - Current market is an estimate, not an official Gold Wallet quote.
+  - Primary portfolio valuation: GOLD2go 96.5% "รับซื้อ" quote.
+  - Auto quote: official InterGold public 96.5% bid feed, with a browser-readable proxy fallback.
+  - Manual fallback + last-known cached quote are preserved; failed auto fetch never clears a valid price.
+  - XAU/USD + USD/THB remains available as a separate market reference/chart
 */
 
 const STORAGE_KEY = "kfp_gold_lots_v1";
@@ -18,7 +20,18 @@ const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
 const OZ_TO_GRAM = 31.1034768;
 const PURCHASE_TIMEZONE = "Asia/Seoul";
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
-const POLL_MS = 60_000;
+const POLL_MS = 5 * 60_000; // GOLD2go auto refresh: every 5 minutes
+// GOLD2go official priceInfo endpoint discovered from the official app Network response.
+// API sellPrice = app "รับซื้อ"; API buyPrice = app "ขายออก".
+const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo";
+// GitHub Pages may be blocked by the API's CORS policy, so direct is attempted first,
+// then this optional browser CORS proxy, then the legacy public-feed/cache fallback.
+const GOLD2GO_CORS_PROXY = "https://corsproxy.io/?url=";
+const GOLD2GO_DIRECT_URL = "https://www.intergold.co.th/";
+const GOLD2GO_PROXY_URL = "https://r.jina.ai/http://www.intergold.co.th/";
+const GOLD2GO_AUTO_TIMEOUT_MS = 9000;
+const GOLD2GO_MIN_MANUAL_GAP_MS = 60_000;
+let lastGold2goAttemptAt = 0;
 
 let state = {
   spotUsdOz: null,
@@ -26,6 +39,8 @@ let state = {
   priceThbGram: null,
   priceThbOz: null,
   thaiGold: { barBuy: null, barSell: null, jewelryBuy: null, jewelrySell: null, updatedAt: null, source: null },
+  // GOLD2go's own 96.5% quotes. Names here follow the app labels, not API field names.
+  gold2go: { receivePrice: null, sellPrice: null, updatedAt: null, source: null },
   updatedAt: null,
   source: null,
   range: "1D",
@@ -40,6 +55,7 @@ let tvSeriesOz = null;
 let tvCandleSeriesOz = null;
 let chartMode = "line";
 let chartInterval = "5m";
+let selectedLotNumber = null;
 let tvChartReadyKey = null;
 const CHART_VIEW_KEY = "kfp_gold_chart_view_v2";
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};
@@ -103,26 +119,62 @@ function formatChartTime(timestamp){
 
 function getEffectiveSellPrice(){
   const settings = loadSettings();
+  const mode = settings.valuationSource === "market" ? "market" : "gold2go";
+  const gold2goBuyBaht = Number(settings.gold2goBuyBaht);
   const marketPrice = Number(state.priceThbGram);
-  // Use the live market quote by default. A manually entered Gold Wallet
-  // sell quote is used ONLY when the user explicitly enables the checkbox.
-  if(settings.useSellOverride === true && Number(settings.sellOverride) > 0){
-    return {price:Number(settings.sellOverride), exact:true, source:"wallet"};
+
+  // GOLD2go quote is entered exactly as shown in the app:
+  // "รับซื้อ XX,XXX บาท / บาททอง". Convert to THB/gram only for
+  // internal calculations; the displayed quote remains THB/บาททอง.
+  if(mode === "gold2go" && Number.isFinite(gold2goBuyBaht) && gold2goBuyBaht > 0){
+    return {
+      mode:"gold2go",
+      exact:true,
+      source:"GOLD2go",
+      pricePerBaht:gold2goBuyBaht,
+      pricePerGram:gold2goBuyBaht / BAHT_GOLD_GRAM,
+      updatedAt:settings.gold2goUpdatedAt || null
+    };
   }
-  return {price:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0, exact:false, source:"market"};
+
+  return {
+    mode:"market",
+    exact:false,
+    source:"market",
+    price:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0,
+    pricePerGram:Number.isFinite(marketPrice) && marketPrice > 0 ? marketPrice : 0,
+    gold2goMissing:mode === "gold2go"
+  };
 }
 
 function calculateLot(lot){
   const quote = getEffectiveSellPrice();
-  const purity = Number(lot.goldType || 99.99) / 99.99;
-  const sell = quote.exact ? quote.price : quote.price * purity;
   const grams = Number(lot.grams) || 0;
   const cost = Number(lot.costThb) || 0;
-  const value = grams * sell;
+
+  let value = 0;
+  let valuationSource = quote.mode;
+
+  if(quote.mode === "gold2go" && Number(lot.goldType || 99.99) === 96.5){
+    // GOLD2go quotes its 96.5% gold in "บาททอง". This is the correct
+    // valuation basis for a GOLD2go 96.5% holding.
+    const bahtGold = lot.unit === "baht"
+      ? (Number(lot.quantity) || 0)
+      : grams / BAHT_GOLD_GRAM;
+    value = bahtGold * quote.pricePerBaht;
+  }else{
+    // Non-GOLD2go lots continue to use the XAU/THB market estimate.
+    const purity = Number(lot.goldType || 99.99) / 99.99;
+    const marketPerGram = Number(state.priceThbGram) || 0;
+    const sell = marketPerGram * purity;
+    value = grams * sell;
+    valuationSource = quote.mode === "gold2go" ? "market-fallback" : "market";
+  }
+
   const pl = value - cost;
   const plPct = cost ? (pl / cost) * 100 : 0;
   const avgCost = grams ? cost / grams : 0;
-  return {...lot, grams, cost, value, pl, plPct, avgCost};
+  return {...lot, grams, cost, value, pl, plPct, avgCost, valuationSource};
 }
 
 function calculatePortfolio(){
@@ -151,6 +203,357 @@ async function fetchJSON(url){
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } finally { clearTimeout(timeout); }
+}
+
+
+function cleanGold2goPrice(v){
+  const n=Number(String(v??"").replace(/,/g,"").replace(/[^\d.]/g,""));
+  return Number.isFinite(n)&&n>5000&&n<500000 ? Math.round(n) : null;
+}
+
+function parseGold2goPublicPrice(text){
+  if(!text) return null;
+  const raw=String(text);
+
+  // InterGold public pages expose the structured 96.5% bid quote.
+  const fieldPatterns=[
+    /bidPrice96["'\]\s:=]+(\d[\d,]*(?:\.\d+)?)/i,
+    /"bidPrice96"\s*:\s*(\d+(?:\.\d+)?)/i,
+    /bidPrice96\s*[:=]\s*(\d+(?:\.\d+)?)/i
+  ];
+  for(const re of fieldPatterns){
+    const m=raw.match(re);
+    const n=cleanGold2goPrice(m?.[1]);
+    if(n) return n;
+  }
+
+  // Fallback for the rendered table:
+  // InterGold 96.5% (Baht) | รับซื้อ | ขายออก
+  const rowPatterns=[
+    /InterGold\s*96\.5%\s*\(Baht\)[^\d]{0,140}([\d,]+(?:\.\d+)?)\s*[|｜]\s*([\d,]+(?:\.\d+)?)/i,
+    /InterGold\s*96\.5%[^\d]{0,100}([\d,]+(?:\.\d+)?)/i
+  ];
+  for(const re of rowPatterns){
+    const m=raw.match(re);
+    const n=cleanGold2goPrice(m?.[1]);
+    if(n) return n;
+  }
+  return null;
+}
+
+function updateGold2goQuoteUI(){
+  const s=loadSettings();
+  const value=Number(s.gold2goBuyBaht);
+  const status=$("gold2goQuoteStatus");
+  const mode=$("gold2goPriceMode");
+
+  if(!status) return;
+
+  if(value>0){
+    const when=s.gold2goUpdatedAt
+      ? new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})
+      : "-";
+    const isManual=s.gold2goPriceMode==="manual";
+    const isApi=s.gold2goPriceMode==="auto" && String(s.gold2goPriceSource||"").includes("GOLD2go API");
+    const label=isManual ? "✏️ Manual" : (isApi ? "🟢 GOLD2go API" : "🟡 Last known");
+    status.className=`gold2go-status ${isManual?"manual":"cached"}`;
+    status.innerHTML=`${label} · <b>${money(value)}/บาททอง</b> · ${when}`;
+
+    if(mode){
+      mode.textContent=isManual
+        ? "✏️ Manual · ใช้ราคาที่คุณกรอก"
+        : (isApi ? "🟢 GOLD2go API · อัปเดตอัตโนมัติ" : "🟡 Last known · Auto จะพยายามอัปเดตอีกครั้ง");
+    }
+  }else{
+    status.className="gold2go-status warning";
+    status.innerHTML="⚠️ ยังไม่มีราคา GOLD2go · ระบบจะลอง Auto และคุณสามารถกรอกเองได้";
+    if(mode) mode.textContent="⚠️ ยังไม่มีราคา";
+  }
+}
+
+function saveGold2goAutoPrice(value, source){
+  const s=loadSettings();
+  s.valuationSource="gold2go";
+  s.gold2goBuyBaht=value;
+  s.gold2goReceiveBaht=value;
+  s.gold2goUpdatedAt=new Date().toISOString();
+  s.gold2goPriceMode="auto";
+  s.gold2goPriceSource=source;
+  // Legacy/public-feed fallback only has the receive ("รับซื้อ") quote.
+  saveSettings(s);
+  state.gold2go={
+    receivePrice:value,
+    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    updatedAt:s.gold2goUpdatedAt || null,
+    source
+  };
+
+  const input=$("gold2goBuyBaht");
+  if(input) input.value=value;
+
+  const status=$("gold2goQuoteStatus");
+  if(status){
+    status.className="gold2go-status success";
+    status.innerHTML=`🟢 <b>Auto</b> · ${money(value)}/บาททอง · อัปเดต ${new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`;
+  }
+
+  const mode=$("gold2goPriceMode");
+  if(mode) mode.textContent="🟢 Auto · ราคาจาก InterGold public feed";
+}
+
+function setGold2goFallbackStatus(message){
+  const s=loadSettings();
+  const hasLast=Number(s.gold2goBuyBaht)>0;
+  const status=$("gold2goQuoteStatus");
+  if(status){
+    status.className=`gold2go-status ${hasLast?"cached":"warning"}`;
+    if(hasLast){
+      const when=s.gold2goUpdatedAt
+        ? new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})
+        : "-";
+      const label=s.gold2goPriceMode==="manual" ? "✏️ Manual" :
+        (String(s.gold2goPriceSource||"").includes("GOLD2go API") ? "🟢 API Cache" : "🟡 Cache");
+      status.innerHTML=`${label} · <b>${money(Number(s.gold2goBuyBaht))}/บาททอง</b> · ล่าสุด ${when}<br><small>Auto ดึงราคาไม่สำเร็จ: ${esc(message)}</small>`;
+    }else{
+      status.innerHTML=`⚠️ <b>Auto ยังดึงราคาไม่ได้</b><br><small>${esc(message)}</small>`;
+    }
+  }
+  const mode=$("gold2goPriceMode");
+  if(mode) mode.textContent=hasLast
+    ? "🟡 ใช้ราคาล่าสุดที่บันทึกไว้ · Auto จะลองใหม่อัตโนมัติ"
+    : "⚠️ ยังไม่มีราคา · กรอกเองได้";
+}
+
+function normalizeGold2goApiResult(data){
+  const result=data?.result;
+  if(!result || data?.responseStatus?.status !== "SUCCESS") return null;
+
+  // Verified from the Network response:
+  // sellPrice = 70971 is shown by the app as "รับซื้อ"
+  // buyPrice  = 71151 is shown by the app as "ขายออก"
+  const receivePrice=cleanGold2goPrice(result.sellPrice);
+  const sellPrice=cleanGold2goPrice(result.buyPrice);
+  if(!(receivePrice>0) || !(sellPrice>0)) return null;
+
+  return {
+    receivePrice,
+    sellPrice,
+    updatedAt: result.lastUpdated || new Date().toISOString(),
+    source: "GOLD2go API · priceInfo"
+  };
+}
+
+async function fetchGold2goApiDirect(){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+  try{
+    const response=await fetch(GOLD2GO_API_URL,{
+      method:"POST",
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{
+        "Accept":"application/json",
+        "Content-Type":"application/json"
+      },
+      body:"{}"
+    });
+    if(!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data=await response.json();
+    const quote=normalizeGold2goApiResult(data);
+    if(!quote) throw new Error("API ตอบกลับสำเร็จแต่ไม่พบราคา 96.5%");
+    return quote;
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+async function fetchGold2goApiViaProxy(){
+  const target=encodeURIComponent(GOLD2GO_API_URL);
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+  try{
+    const response=await fetch(`${GOLD2GO_CORS_PROXY}${target}`,{
+      method:"POST",
+      cache:"no-store",
+      signal:controller.signal,
+      headers:{
+        "Accept":"application/json",
+        "Content-Type":"application/json"
+      },
+      body:"{}"
+    });
+    if(!response.ok) throw new Error(`Proxy HTTP ${response.status}`);
+    const data=await response.json();
+    const quote=normalizeGold2goApiResult(data);
+    if(!quote) throw new Error("Proxy ตอบกลับแต่ไม่พบราคา 96.5%");
+    return {...quote,source:"GOLD2go API · CORS proxy"};
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function saveGold2goApiQuote(quote){
+  const s=loadSettings();
+  s.valuationSource="gold2go";
+  s.gold2goBuyBaht=quote.receivePrice;
+  s.gold2goReceiveBaht=quote.receivePrice;
+  s.gold2goSellBaht=quote.sellPrice;
+  s.gold2goUpdatedAt=quote.updatedAt || new Date().toISOString();
+  s.gold2goPriceMode="auto";
+  s.gold2goPriceSource=quote.source;
+  saveSettings(s);
+
+  state.gold2go={
+    receivePrice:quote.receivePrice,
+    sellPrice:quote.sellPrice,
+    updatedAt:quote.updatedAt || null,
+    source:quote.source
+  };
+
+  const input=$("gold2goBuyBaht");
+  if(input) input.value=quote.receivePrice;
+
+  renderGold2goMarketUI();
+  updateGold2goQuoteUI();
+}
+
+function renderGold2goMarketUI(){
+  const receive=$("gold2goReceivePrice");
+  const sell=$("gold2goSellPrice");
+  const updated=$("gold2goMarketUpdated");
+  const source=$("gold2goMarketSource");
+  const q=state.gold2go||{};
+
+  if(receive) receive.textContent=Number.isFinite(q.receivePrice) ? money(q.receivePrice) : "-";
+  if(sell) sell.textContent=Number.isFinite(q.sellPrice) ? money(q.sellPrice) : "-";
+  if(updated){
+    updated.textContent=q.updatedAt
+      ? `อัปเดต ${new Date(q.updatedAt.replace(" ","T")+(q.updatedAt.includes("Z")?"":"")).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`
+      : "ยังไม่มีข้อมูล";
+  }
+  if(source){
+    source.textContent=q.source ? `Source: ${q.source}` : "Source: GOLD2go API";
+  }
+}
+
+async function fetchGold2goAutoPrice(force=false){
+  // Automatic polling is intentionally conservative. The quote is cached in
+  // LocalStorage, so there is no need to poll the endpoint every few seconds.
+  const now = Date.now();
+  if(lastGold2goAttemptAt && (now - lastGold2goAttemptAt) < GOLD2GO_MIN_MANUAL_GAP_MS){
+    return {ok:false,skipped:true,reason:"rate-limited"};
+  }
+
+  // Once the user explicitly selects Manual fallback, automatic polling
+  // must not overwrite that value. They can press "ดึงราคา Auto" to opt back in.
+  const currentSettings=loadSettings();
+  if(!force && currentSettings.gold2goPriceMode==="manual"){
+    return {ok:false,skipped:true,reason:"manual mode"};
+  }
+
+  lastGold2goAttemptAt = now;
+  const errors=[];
+
+  // LEVEL 1: GOLD2go's own priceInfo API.
+  // The official app's Network response proves the mapping:
+  // sellPrice = "รับซื้อ", buyPrice = "ขายออก".
+  try{
+    const quote=await fetchGold2goApiDirect();
+    saveGold2goApiQuote(quote);
+    renderPortfolio();
+    renderLots();
+    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+  }catch(e){
+    errors.push(`GOLD2go API Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`);
+  }
+
+  // LEVEL 1b: browser CORS proxy for the same GOLD2go API.
+  try{
+    const quote=await fetchGold2goApiViaProxy();
+    saveGold2goApiQuote(quote);
+    renderPortfolio();
+    renderLots();
+    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+  }catch(e){
+    errors.push(`GOLD2go API Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
+  }
+
+  // LEVEL 1c/legacy public-feed fallback.
+  const urls=[
+    `${GOLD2GO_DIRECT_URL}?kfp=${Date.now()}`,
+    `${GOLD2GO_PROXY_URL}?t=${Date.now()}`
+  ];
+
+  for(let i=0;i<urls.length;i++){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+    try{
+      const response=await fetch(urls[i],{
+        cache:"no-store",
+        signal:controller.signal,
+        headers: i===0 ? {"Accept":"text/html,application/xhtml+xml"} : {"Accept":"text/plain,text/html,*/*"}
+      });
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text=await response.text();
+      const price=parseGold2goPublicPrice(text);
+      if(!(price>0)) throw new Error("ไม่พบราคา InterGold 96.5% รับซื้อ");
+
+      saveGold2goAutoPrice(
+        price,
+        i===0 ? "InterGold public feed · direct" : "InterGold public feed · proxy"
+      );
+      renderPortfolio();
+      renderLots();
+      return {ok:true,price};
+    }catch(e){
+      errors.push(i===0
+        ? `Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`
+        : `Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
+    }finally{
+      clearTimeout(timer);
+    }
+  }
+
+  // Level 3: keep the last valid value in LocalStorage and continue retrying later.
+  setGold2goFallbackStatus(errors.join(" · "));
+  renderPortfolio();
+  renderLots();
+  return {ok:false,error:errors.join(" · ")};
+}
+
+function useManualGold2goPrice(){
+  const value=Number($("gold2goBuyBaht")?.value);
+  if(!(value>0)){
+    alert(`กรุณากรอกราคา GOLD2go "รับซื้อ" เช่น 70971 บาท/บาททอง`);
+    return false;
+  }
+
+  const s=loadSettings();
+  s.valuationSource="gold2go";
+  s.gold2goBuyBaht=value;
+  s.gold2goUpdatedAt=new Date().toISOString();
+  s.gold2goPriceMode="manual";
+  s.gold2goPriceSource="Manual";
+  saveSettings(s);
+
+  const status=$("gold2goQuoteStatus");
+  if(status){
+    status.className="gold2go-status manual";
+    status.innerHTML=`✏️ <b>Manual</b> · ${money(value)}/บาททอง · บันทึก ${new Date(s.gold2goUpdatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`;
+  }
+  const mode=$("gold2goPriceMode");
+  if(mode) mode.textContent="✏️ Manual · ใช้ราคาที่คุณกรอก";
+  state.gold2go={
+    receivePrice:value,
+    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    updatedAt:s.gold2goUpdatedAt,
+    source:"Manual"
+  };
+  renderGold2goMarketUI();
+
+  renderPortfolio();
+  renderLots();
+  return true;
 }
 
 async function fetchThaiGoldPrices(){
@@ -221,6 +624,9 @@ async function fetchThaiGoldPrices(){
 }
 
 async function fetchGold(){
+  // GOLD2go auto quote is independent from market APIs.
+  // If it fails, the last valid quote remains active.
+  fetchGold2goAutoPrice();
   /*
     Browser-safe primary source: XAUS.
     - CORS open
@@ -359,6 +765,7 @@ function renderMarket(){
   $("thaiBarSell").textContent=Number.isFinite(tg.barSell) ? money(tg.barSell) : "-";
   $("thaiJewelryBuy").textContent=Number.isFinite(tg.jewelryBuy) ? money(tg.jewelryBuy) : "-";
   $("thaiJewelrySell").textContent=Number.isFinite(tg.jewelrySell) ? money(tg.jewelrySell) : "-";
+  renderGold2goMarketUI();
 }
 
 function appendHistory(){
@@ -428,9 +835,16 @@ function renderPortfolio(){
   const sellQuote=getEffectiveSellPrice();
   const valueHint=$("portfolioValueHint");
   if(valueHint){
-    valueHint.textContent=sellQuote.exact
-      ? `ประเมินด้วยราคาขายคืนจริง ${money(sellQuote.price)}/g`
-      : `ประเมินด้วยราคาตลาด ${money(sellQuote.price)}/g`;
+    if(sellQuote.mode === "gold2go" && sellQuote.exact){
+      const updated = sellQuote.updatedAt
+        ? ` · อัปเดต ${new Date(sellQuote.updatedAt).toLocaleString("th-TH",{dateStyle:"short",timeStyle:"short"})}`
+        : "";
+      valueHint.textContent=`GOLD2go รับซื้อ ${money(sellQuote.pricePerBaht)}/บาททอง${updated}`;
+    }else if(sellQuote.gold2goMissing){
+      valueHint.textContent="ยังไม่มีราคา GOLD2go · ใช้ตลาด XAU/THB ประมาณการชั่วคราว";
+    }else{
+      valueHint.textContent=`ตลาด XAU/THB ประมาณ ${money(sellQuote.pricePerGram)}/g`;
+    }
   }
   $("winRate").textContent=`${p.wins} / ${p.lots.length}`;
   $("winRatePct").textContent=p.lots.length ? `${(p.wins/p.lots.length*100).toFixed(2)}%` : "0.00%";
@@ -440,17 +854,57 @@ function renderPortfolio(){
   card.classList.toggle("negative",p.netPL<0);
 }
 
+function getLotWindow(total, selected){
+  if(total <= 3) return {start:1,end:total};
+  let center=Math.max(1,Math.min(total,Number(selected)||total));
+  let start=center-1;
+  let end=center+1;
+  if(start<1){start=1;end=3;}
+  if(end>total){end=total;start=total-2;}
+  return {start,end};
+}
+
+function renderLotNavigator(total){
+  const nav=$("lotNavigator"), select=$("lotPageSelect"), hint=$("lotPageHint");
+  if(!nav || !select) return;
+  if(!total){
+    nav.hidden=true;
+    return;
+  }
+  nav.hidden=false;
+  if(!selectedLotNumber || selectedLotNumber>total) selectedLotNumber=total;
+  const current=String(selectedLotNumber);
+  // Rebuild only when the round count changes, so the select does not jump while prices refresh.
+  if(select.dataset.total!==String(total)){
+    select.innerHTML=Array.from({length:total},(_,i)=>{
+      const n=i+1;
+      return `<option value="${n}">รอบ #${String(n).padStart(3,"0")}</option>`;
+    }).join("");
+    select.dataset.total=String(total);
+  }
+  select.value=current;
+  const w=getLotWindow(total,selectedLotNumber);
+  hint.textContent=total<=3 ? `แสดง ${total} รอบทั้งหมด` : `กำลังดูรอบ #${String(selectedLotNumber).padStart(3,"0")} · แสดง #${String(w.start).padStart(3,"0")}–#${String(w.end).padStart(3,"0")}`;
+}
+
 function renderLots(){
   const p=calculatePortfolio();
   $("lotSummary").textContent=p.lots.length
-    ? `ทั้งหมด ${p.lots.length} รอบ · 🟢 ${p.wins} รอบกำไร · 🔴 ${p.losses} รอบขาดทุน · เรียงจากล่าสุด`
+    ? `ทั้งหมด ${p.lots.length} รอบ · 🟢 ${p.wins} รอบกำไร · 🔴 ${p.losses} รอบขาดทุน`
     : "";
   const box=$("lotsList");
   if(!p.lots.length){
+    renderLotNavigator(0);
     box.innerHTML=`<div class="empty-state">ยังไม่มีรายการซื้อ<br>เริ่มจากบันทึกรอบแรกด้านบนได้เลย</div>`;
     return;
   }
-  box.innerHTML=p.lots.slice().reverse().map((l,i)=>{
+
+  renderLotNavigator(p.lots.length);
+  const w=getLotWindow(p.lots.length,selectedLotNumber);
+  const display=p.lots.slice(w.start-1,w.end).reverse();
+
+  box.innerHTML=display.map(l=>{
+    const roundNumber=p.lots.indexOf(l)+1;
     const cls=l.pl>0?"positive":l.pl<0?"negative":"";
     const text=l.pl>0?"positive-text":l.pl<0?"negative-text":"neutral-text";
     const status=l.pl>0?"🟢 กำไร":l.pl<0?"🔴 ขาดทุน":"⚪ จุดคุ้มทุน";
@@ -458,7 +912,7 @@ function renderLots(){
       <article class="lot-item ${cls}">
         <div class="lot-main">
           <div>
-            <div class="lot-title">#${String(p.lots.length-i).padStart(3,"0")} · ${l.goldType||"99.99"}% · ${status}</div>
+            <div class="lot-title">#${String(roundNumber).padStart(3,"0")} · ${l.goldType||"99.99"}% · ${status}</div>
             <div class="lot-meta">${formatDateTime(l.date,l.time)} · ${num(l.grams,6)} g</div>
           </div>
           <div class="lot-pl ${text}">
@@ -470,7 +924,11 @@ function renderLots(){
           <div class="lot-cell"><span>ต้นทุน</span><b>${money(l.cost)}</b></div>
           <div class="lot-cell"><span>มูลค่าปัจจุบัน</span><b>${money(l.value)}</b></div>
           <div class="lot-cell"><span>ต้นทุนเฉลี่ย</span><b>${money(l.avgCost)}/g</b></div>
-          <div class="lot-cell"><span>ราคาประเมินขาย</span><b>${money(l.goldType === "96.5" && !getEffectiveSellPrice().exact ? getEffectiveSellPrice().price * 0.965 : getEffectiveSellPrice().price)}/g</b></div>
+          <div class="lot-cell"><span>${l.valuationSource === "gold2go" ? "GOLD2go รับซื้อ" : "ราคาประเมินตลาด"}</span><b>${
+            l.valuationSource === "gold2go"
+              ? `${money(getEffectiveSellPrice().pricePerBaht)}/บาททอง`
+              : `${money(getEffectiveSellPrice().pricePerGram * (Number(l.goldType || 99.99) / 99.99))}/g`
+          }</b></div>
         </div>
         ${l.note ? `<div class="lot-note">📝 ${escapeHTML(l.note)}</div>` : ""}
         <div class="lot-actions"><button class="delete-lot" data-id="${l.id}">ลบรอบนี้</button></div>
@@ -831,8 +1289,13 @@ function addLot(e){
     createdAt:new Date().toISOString()
   });
   saveLots(lots);
+  selectedLotNumber=lots.length;
   $("lotForm").reset();
   $("buyDate").value=isoDate(new Date());
+  // Normal use: Thai 96.5% gold measured in baht-weight.
+  $("goldType").value="96.5";
+  $("unit").value="baht";
+  updateLotPreview();
   renderPortfolio();renderLots();renderChart();
   alert("บันทึกรอบซื้อเรียบร้อยแล้ว");
 }
@@ -842,7 +1305,9 @@ function deleteLot(id){
   const target=lots.find(x=>x.id===id);
   if(!target)return;
   if(!confirm(`ลบรอบซื้อวันที่ ${target.date} ใช่หรือไม่?`))return;
-  saveLots(lots.filter(x=>x.id!==id));
+  const nextLots=lots.filter(x=>x.id!==id);
+  saveLots(nextLots);
+  selectedLotNumber=Math.min(selectedLotNumber || nextLots.length, nextLots.length || 1);
   renderPortfolio();renderLots();renderChart();
 }
 
@@ -858,7 +1323,13 @@ function simulate(percent){
     <div>ต้นทุนของส่วนที่ขายประมาณ <b>${money(cost)}</b></div>
     <div>มูลค่าขายโดยประมาณ <b>${money(value)}</b></div>
     <div class="big ${pl>=0?"positive-text":"negative-text"}">${pl>=0?"+":""}${money(pl)} (${pct(cost?pl/cost*100:0)})</div>
-    <small>${getEffectiveSellPrice().exact?"ใช้ราคาขายจริงที่คุณกรอก":"ใช้ราคาตลาดประมาณจาก API และคำนึงถึงเปอร์เซ็นต์ทองของแต่ละ Lot"}</small>`;
+    <small>${
+      getEffectiveSellPrice().mode === "gold2go" && getEffectiveSellPrice().exact
+        ? `ใช้ราคา GOLD2go "รับซื้อ" ที่บันทึกไว้ · ทอง 96.5% ใช้ราคานี้โดยตรง`
+        : getEffectiveSellPrice().gold2goMissing
+          ? "ยังไม่มีราคา GOLD2go ที่บันทึกไว้ จึงใช้ XAU/THB เป็นค่าประมาณชั่วคราว"
+          : "ใช้ราคาตลาด XAU/THB และคำนึงถึงเปอร์เซ็นต์ทองของแต่ละ Lot"
+    }</small>`;
 }
 
 function exportData(){
@@ -887,6 +1358,9 @@ function clearAll(){
 
 function setup(){
   $("buyDate").value=isoDate(new Date());
+  // Purchase-form defaults.
+  $("goldType").value="96.5";
+  $("unit").value="baht";
   $("lotForm").addEventListener("submit",addLot);
   ["quantity","cost","unit"].forEach(id=>$(id).addEventListener("input",updateLotPreview));
   $("refreshGoldBtn").addEventListener("click",fetchGold);
@@ -918,11 +1392,46 @@ function setup(){
     if(btn)deleteLot(btn.dataset.id);
   });
 
+  const lotPageSelect=$("lotPageSelect");
+  if(lotPageSelect){
+    lotPageSelect.addEventListener("change",()=>{
+      selectedLotNumber=Number(lotPageSelect.value)||1;
+      renderLots();
+      // Keep the portfolio page at the purchase-list section after changing rounds.
+      const section=lotPageSelect.closest(".gold-card");
+      if(section) section.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  }
+
   const settings=loadSettings();
-  $("useSellOverride").checked=!!settings.useSellOverride;
-  $("sellOverride").value=settings.sellOverride||"";
-  $("useSellOverride").addEventListener("change",saveOverride);
-  $("sellOverride").addEventListener("input",saveOverride);
+  state.gold2go={
+    receivePrice:Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht)>0
+      ? Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht) : null,
+    sellPrice:Number(settings.gold2goSellBaht)>0 ? Number(settings.gold2goSellBaht) : null,
+    updatedAt:settings.gold2goUpdatedAt || null,
+    source:settings.gold2goPriceSource || null
+  };
+  $("valuationSource").value=settings.valuationSource==="market" ? "market" : "gold2go";
+  $("gold2goBuyBaht").value=settings.gold2goBuyBaht||"";
+  updateValuationSourceUI();
+  updateGold2goQuoteUI();
+  $("valuationSource").addEventListener("change",()=>{
+    saveValuationSettings();
+    updateValuationSourceUI();
+  });
+  $("saveGold2goQuoteBtn").addEventListener("click",useManualGold2goPrice);
+  $("autoGold2goBtn").addEventListener("click",async()=>{
+    const btn=$("autoGold2goBtn");
+    if(btn){btn.disabled=true;btn.textContent="⏳ กำลังดึงราคา...";}
+    try{
+      const s=loadSettings();
+      s.gold2goPriceMode="auto";
+      saveSettings(s);
+      await fetchGold2goAutoPrice(true);
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent="🟢 ดึงราคา Auto";}
+    }
+  });
 
   $("chartFitBtn").addEventListener("click",fitChart);
   $("chartResetBtn").addEventListener("click",resetChartZoom);
@@ -944,13 +1453,24 @@ function setup(){
   setTimeout(fetchHistoricalGold,2500);
 }
 
-function saveOverride(){
-  const s=loadSettings();
-  s.useSellOverride=$("useSellOverride").checked;
-  s.sellOverride=Number($("sellOverride").value)||0;
-  saveSettings(s);
-  renderPortfolio();renderLots();
+function updateValuationSourceUI(){
+  const mode=$("valuationSource").value;
+  const fields=$("gold2goQuoteFields");
+  const note=$("marketValuationNote");
+  if(fields) fields.hidden=mode!=="gold2go";
+  if(note) note.hidden=mode!=="market";
+  renderPortfolio();
+  renderLots();
 }
 
+function saveValuationSettings(){
+  const s=loadSettings();
+  s.valuationSource=$("valuationSource").value==="market" ? "market" : "gold2go";
+  saveSettings(s);
+}
+
+function saveGold2goQuote(){
+  return useManualGold2goPrice();
+}
 document.addEventListener("DOMContentLoaded",setup);
 })();

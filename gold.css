@@ -464,3 +464,20 @@ input:focus,select:focus{border-color:#b18d21}
     font-size:11px;
   }
 }
+
+/* Purchase-list pagination: keep the portfolio compact on mobile. */
+.lot-navigator{
+  display:grid;grid-template-columns:auto minmax(180px,240px) 1fr;gap:10px;align-items:center;
+  margin:14px 0 12px;padding:10px 12px;border:1px solid #3d351d;border-radius:12px;background:#101314;
+}
+.lot-nav-label{color:#d4af37;font-weight:700;white-space:nowrap}
+.lot-navigator select{
+  width:100%;margin:0;padding:9px 12px;border:1px solid #6e5a1d;border-radius:9px;
+  background:#171817;color:#fff;min-width:0;
+}
+.lot-page-hint{color:#888;font-size:12px;line-height:1.4}
+@media(max-width:700px){
+  .lot-navigator{grid-template-columns:1fr;gap:7px}
+  .lot-nav-label{white-space:normal}
+  .lot-page-hint{font-size:11px}
+}

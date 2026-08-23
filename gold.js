@@ -55,6 +55,7 @@ let tvSeriesOz = null;
 let tvCandleSeriesOz = null;
 let chartMode = "line";
 let chartInterval = "5m";
+let selectedLotNumber = null;
 let tvChartReadyKey = null;
 const CHART_VIEW_KEY = "kfp_gold_chart_view_v2";
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};
@@ -853,17 +854,57 @@ function renderPortfolio(){
   card.classList.toggle("negative",p.netPL<0);
 }
 
+function getLotWindow(total, selected){
+  if(total <= 3) return {start:1,end:total};
+  let center=Math.max(1,Math.min(total,Number(selected)||total));
+  let start=center-1;
+  let end=center+1;
+  if(start<1){start=1;end=3;}
+  if(end>total){end=total;start=total-2;}
+  return {start,end};
+}
+
+function renderLotNavigator(total){
+  const nav=$("lotNavigator"), select=$("lotPageSelect"), hint=$("lotPageHint");
+  if(!nav || !select) return;
+  if(!total){
+    nav.hidden=true;
+    return;
+  }
+  nav.hidden=false;
+  if(!selectedLotNumber || selectedLotNumber>total) selectedLotNumber=total;
+  const current=String(selectedLotNumber);
+  // Rebuild only when the round count changes, so the select does not jump while prices refresh.
+  if(select.dataset.total!==String(total)){
+    select.innerHTML=Array.from({length:total},(_,i)=>{
+      const n=i+1;
+      return `<option value="${n}">รอบ #${String(n).padStart(3,"0")}</option>`;
+    }).join("");
+    select.dataset.total=String(total);
+  }
+  select.value=current;
+  const w=getLotWindow(total,selectedLotNumber);
+  hint.textContent=total<=3 ? `แสดง ${total} รอบทั้งหมด` : `กำลังดูรอบ #${String(selectedLotNumber).padStart(3,"0")} · แสดง #${String(w.start).padStart(3,"0")}–#${String(w.end).padStart(3,"0")}`;
+}
+
 function renderLots(){
   const p=calculatePortfolio();
   $("lotSummary").textContent=p.lots.length
-    ? `ทั้งหมด ${p.lots.length} รอบ · 🟢 ${p.wins} รอบกำไร · 🔴 ${p.losses} รอบขาดทุน · เรียงจากล่าสุด`
+    ? `ทั้งหมด ${p.lots.length} รอบ · 🟢 ${p.wins} รอบกำไร · 🔴 ${p.losses} รอบขาดทุน`
     : "";
   const box=$("lotsList");
   if(!p.lots.length){
+    renderLotNavigator(0);
     box.innerHTML=`<div class="empty-state">ยังไม่มีรายการซื้อ<br>เริ่มจากบันทึกรอบแรกด้านบนได้เลย</div>`;
     return;
   }
-  box.innerHTML=p.lots.slice().reverse().map((l,i)=>{
+
+  renderLotNavigator(p.lots.length);
+  const w=getLotWindow(p.lots.length,selectedLotNumber);
+  const display=p.lots.slice(w.start-1,w.end).reverse();
+
+  box.innerHTML=display.map(l=>{
+    const roundNumber=p.lots.indexOf(l)+1;
     const cls=l.pl>0?"positive":l.pl<0?"negative":"";
     const text=l.pl>0?"positive-text":l.pl<0?"negative-text":"neutral-text";
     const status=l.pl>0?"🟢 กำไร":l.pl<0?"🔴 ขาดทุน":"⚪ จุดคุ้มทุน";
@@ -871,7 +912,7 @@ function renderLots(){
       <article class="lot-item ${cls}">
         <div class="lot-main">
           <div>
-            <div class="lot-title">#${String(p.lots.length-i).padStart(3,"0")} · ${l.goldType||"99.99"}% · ${status}</div>
+            <div class="lot-title">#${String(roundNumber).padStart(3,"0")} · ${l.goldType||"99.99"}% · ${status}</div>
             <div class="lot-meta">${formatDateTime(l.date,l.time)} · ${num(l.grams,6)} g</div>
           </div>
           <div class="lot-pl ${text}">
@@ -1248,6 +1289,7 @@ function addLot(e){
     createdAt:new Date().toISOString()
   });
   saveLots(lots);
+  selectedLotNumber=lots.length;
   $("lotForm").reset();
   $("buyDate").value=isoDate(new Date());
   // Normal use: Thai 96.5% gold measured in baht-weight.
@@ -1263,7 +1305,9 @@ function deleteLot(id){
   const target=lots.find(x=>x.id===id);
   if(!target)return;
   if(!confirm(`ลบรอบซื้อวันที่ ${target.date} ใช่หรือไม่?`))return;
-  saveLots(lots.filter(x=>x.id!==id));
+  const nextLots=lots.filter(x=>x.id!==id);
+  saveLots(nextLots);
+  selectedLotNumber=Math.min(selectedLotNumber || nextLots.length, nextLots.length || 1);
   renderPortfolio();renderLots();renderChart();
 }
 
@@ -1347,6 +1391,17 @@ function setup(){
     const btn=e.target.closest(".delete-lot");
     if(btn)deleteLot(btn.dataset.id);
   });
+
+  const lotPageSelect=$("lotPageSelect");
+  if(lotPageSelect){
+    lotPageSelect.addEventListener("change",()=>{
+      selectedLotNumber=Number(lotPageSelect.value)||1;
+      renderLots();
+      // Keep the portfolio page at the purchase-list section after changing rounds.
+      const section=lotPageSelect.closest(".gold-card");
+      if(section) section.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  }
 
   const settings=loadSettings();
   state.gold2go={

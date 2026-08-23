@@ -309,3 +309,24 @@ input:focus,select:focus{border-color:#b18d21}
   .quote-meta{align-items:stretch;flex-direction:column}
   .quote-meta .small-gold-btn{width:100%}
 }
+
+
+/* GOLD2go 3-level quote system */
+.gold2go-levels{display:grid;gap:12px}
+.gold2go-level{padding:14px;border:1px solid #37331f;border-radius:13px;background:#111415}
+.gold2go-level-title{font-weight:700;color:#d4af37;margin-bottom:10px}
+.gold2go-auto-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.gold2go-price-mode{font-size:14px;color:#ddd;margin-bottom:5px}
+.gold2go-status{font-size:13px;color:#aaa;line-height:1.55}
+.gold2go-status.success{color:#67df91}
+.gold2go-status.manual{color:#e4c85b}
+.gold2go-status.cached{color:#e4c85b}
+.gold2go-status.warning{color:#ff9b7d}
+.compact-note{padding-top:8px!important}
+.gold2go-cache-level{background:#0f1212;border-style:dashed}
+#autoGold2goBtn{white-space:nowrap}
+#autoGold2goBtn:disabled{opacity:.6;cursor:wait}
+@media(max-width:600px){
+  .gold2go-auto-row{align-items:stretch;flex-direction:column}
+  #autoGold2goBtn{width:100%}
+}

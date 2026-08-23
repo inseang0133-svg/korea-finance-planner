@@ -292,19 +292,46 @@
       </div>
 
       <div id="gold2goQuoteFields">
-        <div class="form-row">
-          <div>
-            <label for="gold2goBuyBaht">GOLD2go รับซื้อ (THB / บาททอง)</label>
-            <input id="gold2goBuyBaht" type="number" min="0" step="1" placeholder="เช่น 70971">
+        <div class="gold2go-levels">
+          <div class="gold2go-level">
+            <div class="gold2go-level-title">🥇 ระดับ 1 · Auto</div>
+            <div class="gold2go-auto-row">
+              <div>
+                <div id="gold2goPriceMode" class="gold2go-price-mode">⏳ กำลังตรวจสอบราคา...</div>
+                <div id="gold2goQuoteStatus" class="gold2go-status">กำลังดึงราคา GOLD2go...</div>
+              </div>
+              <button type="button" id="autoGold2goBtn" class="small-gold-btn">🟢 ดึงราคา Auto</button>
+            </div>
+            <div class="override-note compact-note">
+              ระบบจะพยายามอ่านราคา <b>InterGold 96.5% รับซื้อ</b> จากหน้า public โดยตรงก่อน
+              และใช้ proxy เฉพาะเมื่อ browser บล็อกการดึงข้ามโดเมน
+            </div>
           </div>
-          <div class="override-note">
-            เปิด GOLD2go แล้วดูคำว่า <b>รับซื้อ</b> จากแอป เช่น 70,971 บาท/บาททอง
-            <br>กดบันทึกแล้วเว็บจะใช้ราคานี้เป็นหลักในการคำนวณ P/L
+
+          <div class="gold2go-level">
+            <div class="gold2go-level-title">🥈 ระดับ 2 · Manual fallback</div>
+            <div class="form-row">
+              <div>
+                <label for="gold2goBuyBaht">GOLD2go รับซื้อ (THB / บาททอง)</label>
+                <input id="gold2goBuyBaht" type="number" min="0" step="1" placeholder="เช่น 70971">
+              </div>
+              <div class="override-note compact-note">
+                ถ้า Auto ใช้ไม่ได้ ให้เปิด GOLD2go แล้วกรอกตัวเลข <b>รับซื้อ</b> จากแอป
+              </div>
+            </div>
+            <div class="quote-meta">
+              <span>ราคาที่กรอกจะถูกเก็บเป็นราคาหลักของพอร์ตทันที</span>
+              <button type="button" id="saveGold2goQuoteBtn" class="small-gold-btn">✏️ ใช้ราคานี้</button>
+            </div>
           </div>
-        </div>
-        <div class="quote-meta">
-          <span id="gold2goQuoteStatus">ยังไม่ได้บันทึกราคา GOLD2go</span>
-          <button type="button" id="saveGold2goQuoteBtn" class="small-gold-btn">💾 บันทึกราคา GOLD2go</button>
+
+          <div class="gold2go-level gold2go-cache-level">
+            <div class="gold2go-level-title">🥉 ระดับ 3 · Last known / Cache</div>
+            <div class="override-note compact-note">
+              ถ้าอินเทอร์เน็ตหรือ API ใช้งานไม่ได้ เว็บจะไม่ล้างราคาเดิม
+              และ P/L จะคำนวณต่อด้วยราคาล่าสุดที่บันทึกไว้ พร้อมลอง Auto ใหม่อัตโนมัติในรอบถัดไป
+            </div>
+          </div>
         </div>
       </div>
 

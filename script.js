@@ -1371,7 +1371,7 @@ function getSalaryRecords(){
     );
 }
 
-window.onload = function(){
+document.addEventListener("DOMContentLoaded", function(){
 
     loadData();
 
@@ -1427,4 +1427,4 @@ else{
 
 }
 
-};
+});

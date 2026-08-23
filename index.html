@@ -11,7 +11,7 @@
     
     <title>เป้าการเก็บเงิน</title>
 
-    <link rel="stylesheet" href="style.css?v=20260823-10">
+    <link rel="stylesheet" href="style.css?v=20260823-11">
     
     <link rel="manifest" href="manifest.json">
 
@@ -134,12 +134,12 @@
         <label>ค่าธรรมเนียมรับเงินปลายทาง (60 THB → KRW)</label>
         <input type="number" id="receiveFee" value="2565" readonly>
 
-        <label>เรต Cash Sell ของ Hana Bank (1 THB = ? KRW)</label>
+        <label>เรตอ้างอิงส่งกลับไทย (1 THB = ? KRW)</label>
         <div class="remit-rate-row">
             <input type="number" id="remitRate" placeholder="42.75" step="0.01" inputmode="decimal" oninput="handleRemitRateInput()">
             <button type="button" id="updateRemitRateBtn" class="remit-update-btn" onclick="updateRemitRate(true)">🔄 อัปเดตเรต</button>
         </div>
-        <div id="remitRateStatus" class="remit-rate-status info">⏳ กำลังตรวจสอบเรต Hana...</div>
+        <div id="remitRateStatus" class="remit-rate-status info">⏳ กำลังตรวจสอบเรตอ้างอิง...</div>
         <div id="remitResult">-</div>
     </div>
 
@@ -265,12 +265,12 @@
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20260823-10"></script>
+<script src="script.js?v=20260823-11"></script>
 <script>
     // PWA update: versioned registration helps installed phones pick up new JS/CSS.
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js?v=20260823-10')
+            navigator.serviceWorker.register('sw.js?v=20260823-11')
                 .then(reg => reg.update())
                 .catch(err => console.log('PWA Service Worker Registration Failed:', err));
         });

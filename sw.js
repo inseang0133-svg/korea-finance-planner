@@ -1,10 +1,10 @@
-const CACHE_NAME = 'korea-finance-v8-remit10';
+const CACHE_NAME = 'korea-finance-v8-remit11';
 const API_CACHE_NAME = 'korea-finance-api-v7';
 
 const ASSETS = [
   'index.html',
-  'style.css?v=20260823-10',
-  'script.js?v=20260823-10',
+  'style.css?v=20260823-11',
+  'script.js?v=20260823-11',
   'manifest.json',
   'gold.html',
   'gold.css',
@@ -17,7 +17,6 @@ const ASSETS = [
 const API_HOSTS = new Set([
   'xaus.com',
   'api.gold-api.com',
-  'api.frankfurter.app',
   'api.chnwt.dev',
   'script.google.com',
   'api.goldprice.dev'
@@ -33,8 +32,6 @@ function isApiRequest(request) {
       url.hostname === 'xaus.com' && url.pathname.startsWith('/api/v1/')
     ) || (
       url.hostname === 'api.gold-api.com' && url.pathname.startsWith('/price/')
-    ) || (
-      url.hostname === 'api.frankfurter.app' && url.pathname.startsWith('/latest')
     ) || (
       url.hostname === 'api.chnwt.dev' && url.pathname.includes('/thai-gold-api/')
     ) || (

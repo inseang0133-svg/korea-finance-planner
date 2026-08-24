@@ -31,6 +31,30 @@
   const ARRAY_KEYS = new Set(["salaryRecords", "kfp_gold_lots_v1"]);
   const GUEST_BACKUP_KEY = "__kfp_guest_backup_v1";
   const AUTH_USER_KEY = "__kfp_auth_user_v1";
+  const PROFILE_CACHE_KEY = "__kfp_profile_cache_v1";
+  const AUTH_TIMEOUT_MS = 15000;
+  const DATA_TIMEOUT_MS = 12000;
+
+  function withTimeout(promise, ms, message) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms))
+    ]);
+  }
+
+  function readCachedProfile(userId) {
+    try {
+      const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+      const p = raw ? JSON.parse(raw) : null;
+      return p && p.user_id === userId ? p : null;
+    } catch (_) { return null; }
+  }
+
+  function cacheProfile(profile) {
+    try {
+      if (profile?.user_id) localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } catch (_) {}
+  }
 
   let supabase = null;
   let currentUser = null;
@@ -313,35 +337,48 @@
   }
 
   async function loadCloudForUser(user, { captureGuestBackup = false, knownProfile = null } = {}) {
-    // Session identity is already trusted by Supabase. Show the logged-in state
-    // immediately; Cloud/PWA hydration must not block the Login button.
+    // Supabase has already authenticated the user. Do not wait for PWA/Cloud
+    // before showing the logged-in UI.
     currentUser = user;
-    if (knownProfile) currentProfile = knownProfile;
+    currentProfile = knownProfile || readCachedProfile(user.id) || null;
     localStorage.setItem(AUTH_USER_KEY, user.id);
     renderAuthButton();
     renderAccountArea();
 
-    // PWA restoration is for app data only. It must never control Auth state.
     try {
-      if (window.__kfpPwaReady && typeof window.__kfpPwaReady.then === "function") {
-        await window.__kfpPwaReady;
-      }
-    } catch (_) {}
+      if (captureGuestBackup) saveGuestBackup(getLocalData());
 
-    try {
-      if (!knownProfile) {
-        currentProfile = await getProfile(user.id);
+      // Profile + Cloud are independent requests; fetch them in parallel.
+      const profilePromise = withTimeout(
+        getProfile(user.id),
+        DATA_TIMEOUT_MS,
+        "โหลดโปรไฟล์ช้าเกินไป"
+      ).catch(e => {
+        console.warn("KFP profile:", e);
+        return null;
+      });
+
+      const cloudPromise = withTimeout(
+        getCloudRow(user.id),
+        DATA_TIMEOUT_MS,
+        "โหลดข้อมูล Cloud ช้าเกินไป"
+      ).catch(e => {
+        console.warn("KFP cloud:", e);
+        return null;
+      });
+
+      const [profile, row] = await Promise.all([profilePromise, cloudPromise]);
+
+      if (profile) {
+        currentProfile = profile;
+        cacheProfile(profile);
         renderAuthButton();
+        renderAccountArea();
       }
-      const local = getLocalData();
-      if (captureGuestBackup) saveGuestBackup(local);
 
-      const row = await getCloudRow(user.id);
       const cloud = row?.data && typeof row.data === "object" ? row.data : {};
 
       if (hasData(cloud)) {
-        // Cloud is authoritative when it exists. Clear every personal key first so
-        // stale LocalStorage from another device/account cannot leak into the session.
         clearPersonalLocalData();
         putLocalData(cloud);
         notifyCloudLoaded();
@@ -350,20 +387,19 @@
           "ok"
         );
       } else {
-        // First-time/empty Cloud: keep this device's LocalStorage. Nothing is uploaded.
         notifyCloudLoaded();
-        setAuthStatus("☁️ บัญชีนี้ยังไม่มีข้อมูล Cloud · ข้อมูลในเครื่องยังอยู่ และจะไม่อัปโหลดจนกดปุ่ม", "");
+        if (!row) {
+          setAuthStatus("เข้าสู่ระบบแล้ว · กำลังเชื่อมต่อข้อมูล Cloud…", "");
+        } else {
+          setAuthStatus("☁️ บัญชีนี้ยังไม่มีข้อมูล Cloud · ข้อมูลในเครื่องยังอยู่", "");
+        }
       }
     } catch (e) {
-      // Keep the authenticated UI visible even if profile/cloud loading is slow or fails.
+      console.warn("KFP cloud hydration:", e);
       renderAuthButton();
       renderAccountArea();
-      setAuthStatus(`โหลดข้อมูล Cloud ไม่สำเร็จ: ${e?.message || e}`, "error");
-      throw e;
+      setAuthStatus(`เข้าสู่ระบบแล้ว · Cloud ยังโหลดไม่เสร็จ (${e.message || "ช้า"})`, "");
     }
-
-    renderAuthButton();
-    renderAccountArea();
   }
 
   async function login(){
@@ -371,22 +407,34 @@
     const username = $("kfpUsername").value.trim();
     const password = $("kfpPassword").value;
     if (!username || !password) return setAuthStatus("กรุณากรอก Username และ Password", "error");
-    setAuthStatus("กำลังเข้าสู่ระบบ...");
+
+    const btn = $("kfpLoginBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังเข้าสู่ระบบ..."; }
+    setAuthStatus("กำลังเข้าสู่ระบบ…");
+
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: usernameEmail(username), password });
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: usernameEmail(username),
+          password
+        }),
+        AUTH_TIMEOUT_MS,
+        "Supabase ใช้เวลาตอบกลับนานเกิน 15 วินาที · ตรวจอินเทอร์เน็ตแล้วลองใหม่"
+      );
       if (error) throw error;
 
-      // Do not make the UI wait for Cloud hydration. The Supabase session is valid now.
       currentUser = data.user;
       localStorage.setItem(AUTH_USER_KEY, data.user.id);
       renderAuthButton();
       renderAccountArea();
       hideAuthPanel();
 
-      // Hydrate Cloud data after the authenticated UI is visible.
+      // Profile/Cloud load continues in background.
       loadCloudForUser(data.user, { captureGuestBackup:true }).catch(() => {});
     } catch (e) {
       setAuthStatus(`เข้าสู่ระบบไม่สำเร็จ: ${e.message}`, "error");
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "🔐 เข้าสู่ระบบ"; }
     }
   }
 
@@ -407,8 +455,12 @@
         setAuthStatus("สร้างบัญชีแล้ว แต่ยังต้องยืนยันอีเมลใน Supabase", "error");
         return;
       }
-      await loadCloudForUser(data.user, { captureGuestBackup:true });
+      currentUser = data.user;
+      localStorage.setItem(AUTH_USER_KEY, data.user.id);
+      renderAuthButton();
+      renderAccountArea();
       hideAuthPanel();
+      loadCloudForUser(data.user, { captureGuestBackup:true, knownProfile:{user_id:data.user.id, username, nickname} }).catch(() => {});
     } catch (e) {
       setAuthStatus(`สร้างบัญชีไม่สำเร็จ: ${e.message}`, "error");
     }
@@ -468,7 +520,11 @@
         auth:{ persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
       });
 
-      const { data } = await supabase.auth.getSession();
+      const { data } = await withTimeout(
+        supabase.auth.getSession(),
+        AUTH_TIMEOUT_MS,
+        "Supabase Session ใช้เวลาตอบกลับนานเกิน 15 วินาที"
+      );
       if (data?.session?.user) {
         // Session restoration is enough to show the logged-in state.
         currentUser = data.session.user;

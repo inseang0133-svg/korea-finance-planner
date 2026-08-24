@@ -11,7 +11,7 @@
   const STORE = "localStorageBackup";
   const SNAPSHOT_KEY = "__all_local_storage__";
   const RESTORED_FLAG = "__kfp_pwa_restored__";
-  const SNAPSHOT_MS = 1000;
+  const SNAPSHOT_MS = 10000;
   const DELETED_KEYS = "__kfp_deleted_keys_v1";
 
   function openDB() {

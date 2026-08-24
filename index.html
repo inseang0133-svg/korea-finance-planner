@@ -14,12 +14,11 @@
     <link rel="stylesheet" href="style.css">
     
     <link rel="manifest" href="manifest.json">
-
-    <!-- Optional cloud login layer. Existing finance logic remains unchanged. -->
+    <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="P260824-loginfix1"></script>
-<script src="P260824-loginfix1"></script>
-<script src="P260824-loginfix1"></script>
+    <script src="supabase-config.js?v=20260824-loginfix2"></script>
+    <script src="auth.js?v=20260824-loginfix2"></script>
+    <script src="pwa-persistence.js?v=20260824-loginfix2"></script>
 </head>
 <body>
 
@@ -265,12 +264,12 @@
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20260824-cloud17"></script>
+<script src="script.js?v=20260824-loginfix2"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('sw.js?v=20260824-cloud17', {updateViaCache:'none'});
+      const reg = await navigator.serviceWorker.register('sw.js?v=20260824-loginfix2', {updateViaCache:'none'});
       await reg.update();
     } catch (err) { console.warn('PWA Service Worker Registration Failed:', err); }
   });

@@ -1399,6 +1399,30 @@ function clearAll(){
   }
 }
 
+
+// Called by auth.js when Cloud data is loaded after login on an already-open gold page.
+window.__kfpRefreshGoldFromCloud = function(){
+  try {
+    const settings=loadSettings();
+    state.gold2go={
+      receivePrice:Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht)>0
+        ? Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht) : null,
+      sellPrice:Number(settings.gold2goSellBaht)>0 ? Number(settings.gold2goSellBaht) : null,
+      updatedAt:settings.gold2goUpdatedAt || null,
+      source:settings.gold2goPriceSource || null
+    };
+    if($('valuationSource')) $('valuationSource').value=settings.valuationSource==='market' ? 'market' : 'gold2go';
+    if($('gold2goBuyBaht')) $('gold2goBuyBaht').value=settings.gold2goBuyBaht||'';
+    updateValuationSourceUI();
+    updateGold2goQuoteUI();
+    renderPortfolio();
+    renderLots();
+    renderChart();
+  } catch(e) {
+    console.warn('KFP gold cloud UI refresh:', e);
+  }
+};
+
 function setup(){
   $("buyDate").value=isoDate(new Date());
   // Purchase-form defaults.

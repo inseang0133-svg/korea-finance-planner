@@ -1342,6 +1342,30 @@ function getSalaryRecords(){
     );
 }
 
+
+// Called by auth.js after Cloud data is loaded into LocalStorage.
+// Re-render the existing finance UI without changing the underlying finance logic.
+window.__kfpRefreshFromCloud = function(){
+    try {
+        loadData();
+        const goalValue = localStorage.getItem("goal");
+        const currentSavingValue = localStorage.getItem("currentSaving");
+        if(goalValue !== null) document.getElementById("goal").value = goalValue;
+        if(currentSavingValue !== null) document.getElementById("currentSaving").value = currentSavingValue;
+        loadSalaryRecords();
+        updateAnalytics();
+        updateGoalTracker();
+        loadContract();
+        updateSalaryPreview();
+        convertCurrency();
+        renderQuickConvert();
+        calculateRemit();
+        if(typeof renderPieChart === "function") renderPieChart();
+    } catch (e) {
+        console.warn("KFP cloud UI refresh:", e);
+    }
+};
+
 window.onload = function(){
 
     loadData();

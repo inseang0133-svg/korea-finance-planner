@@ -134,5 +134,7 @@
     }
   }
 
-  run();
+  // Expose the initialization promise so the Cloud login layer can wait
+  // until PWA LocalStorage restoration is finished before applying Cloud data.
+  window.__kfpPwaReady = run();
 })();

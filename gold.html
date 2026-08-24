@@ -5,12 +5,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>พอร์ตทองคำ</title>
-<link rel="stylesheet" href="gold.css?v=20260823-08-23-pwa11">
+<link rel="stylesheet" href="gold.css?v=20260824-pwa16">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=20260823-pwa11"></script>
-<script src="auth.js?v=20260823-pwa11"></script>
+<script src="supabase-config.js?v=20260824-pwa16"></script>
+<script src="auth.js?v=20260824-pwa16"></script>
 <style>
     .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
     .gold2go-market-box{border-color:#d4af37}
@@ -408,14 +408,14 @@
 
 </div>
 
-<script src="pwa-persistence.js?v=20260823-pwa11"></script>
-<script src="gold.js?v=20260823-pwa11"></script>
+<script src="pwa-persistence.js?v=20260824-pwa16"></script>
+<script src="gold.js?v=20260824-pwa16"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        const reg = await navigator.serviceWorker.register('./sw.js?v=20260823-pwa11', {updateViaCache:'none'});
+        const reg = await navigator.serviceWorker.register('./sw.js?v=20260824-pwa16', {updateViaCache:'none'});
         await reg.update();
       } catch (err) {
         console.warn('PWA Service Worker:', err);

@@ -20,7 +20,20 @@ const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
 const OZ_TO_GRAM = 31.1034768;
 const PURCHASE_TIMEZONE = "Asia/Seoul";
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
-const POLL_MS = 5 * 60_000; // GOLD2go auto refresh: every 5 minutes
+// Smart polling:
+// - visible page: every 5 seconds
+// - hidden/background: every 45 seconds
+// - after 429/403/timeout: back off for 45 seconds
+// - after repeated failures: keep Last Known and slow down to 60 seconds
+const POLL_VISIBLE_MS = 5_000;
+const POLL_HIDDEN_MS = 45_000;
+const POLL_BACKOFF_MS = 45_000;
+const POLL_FAILURE_MS = 60_000;
+const MAX_CONSECUTIVE_FAILURES = 3;
+let pollTimer = null;
+let pollBusy = false;
+let gold2goConsecutiveFailures = 0;
+let lastPollReason = "startup";
 // GOLD2go official priceInfo endpoint discovered from the official app Network response.
 // API sellPrice = app "รับซื้อ"; API buyPrice = app "ขายออก".
 const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo";
@@ -437,48 +450,57 @@ function renderGold2goMarketUI(){
 }
 
 async function fetchGold2goAutoPrice(force=false){
-  // Automatic polling is intentionally conservative. The quote is cached in
-  // LocalStorage, so there is no need to poll the endpoint every few seconds.
-  const now = Date.now();
-  if(lastGold2goAttemptAt && (now - lastGold2goAttemptAt) < GOLD2GO_MIN_MANUAL_GAP_MS){
+  // Manual mode is an explicit user choice. Automatic polling must never
+  // overwrite a manual quote unless the user presses "ดึงราคา Auto".
+  const now=Date.now();
+  if(!force && lastGold2goAttemptAt &&
+     (now-lastGold2goAttemptAt) < GOLD2GO_MIN_MANUAL_GAP_MS){
     return {ok:false,skipped:true,reason:"rate-limited"};
   }
 
-  // Once the user explicitly selects Manual fallback, automatic polling
-  // must not overwrite that value. They can press "ดึงราคา Auto" to opt back in.
   const currentSettings=loadSettings();
   if(!force && currentSettings.gold2goPriceMode==="manual"){
     return {ok:false,skipped:true,reason:"manual mode"};
   }
 
-  lastGold2goAttemptAt = now;
+  lastGold2goAttemptAt=now;
   const errors=[];
 
   // LEVEL 1: GOLD2go's own priceInfo API.
-  // The official app's Network response proves the mapping:
-  // sellPrice = "รับซื้อ", buyPrice = "ขายออก".
   try{
     const quote=await fetchGold2goApiDirect();
     saveGold2goApiQuote(quote);
     renderPortfolio();
     renderLots();
-    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+    return {
+      ok:true,
+      price:quote.receivePrice,
+      receivePrice:quote.receivePrice,
+      sellPrice:quote.sellPrice,
+      source:quote.source
+    };
   }catch(e){
     errors.push(`GOLD2go API Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`);
   }
 
-  // LEVEL 1b: browser CORS proxy for the same GOLD2go API.
+  // LEVEL 1b: browser CORS proxy for the same official API.
   try{
     const quote=await fetchGold2goApiViaProxy();
     saveGold2goApiQuote(quote);
     renderPortfolio();
     renderLots();
-    return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+    return {
+      ok:true,
+      price:quote.receivePrice,
+      receivePrice:quote.receivePrice,
+      sellPrice:quote.sellPrice,
+      source:quote.source
+    };
   }catch(e){
     errors.push(`GOLD2go API Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
   }
 
-  // LEVEL 1c/legacy public-feed fallback.
+  // LEVEL 1c: legacy/public feed fallback.
   const urls=[
     `${GOLD2GO_DIRECT_URL}?kfp=${Date.now()}`,
     `${GOLD2GO_PROXY_URL}?t=${Date.now()}`
@@ -491,9 +513,12 @@ async function fetchGold2goAutoPrice(force=false){
       const response=await fetch(urls[i],{
         cache:"no-store",
         signal:controller.signal,
-        headers: i===0 ? {"Accept":"text/html,application/xhtml+xml"} : {"Accept":"text/plain,text/html,*/*"}
+        headers:i===0
+          ? {"Accept":"text/html,application/xhtml+xml"}
+          : {"Accept":"text/plain,text/html,*/*"}
       });
       if(!response.ok) throw new Error(`HTTP ${response.status}`);
+
       const text=await response.text();
       const price=parseGold2goPublicPrice(text);
       if(!(price>0)) throw new Error("ไม่พบราคา InterGold 96.5% รับซื้อ");
@@ -504,21 +529,34 @@ async function fetchGold2goAutoPrice(force=false){
       );
       renderPortfolio();
       renderLots();
-      return {ok:true,price};
+      return {
+        ok:true,
+        price,
+        source:i===0 ? "InterGold public feed · direct" : "InterGold public feed · proxy"
+      };
     }catch(e){
-      errors.push(i===0
-        ? `Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`
-        : `Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
+      errors.push(
+        i===0
+          ? `Direct: ${e?.name==="AbortError"?"timeout":(e?.message||"CORS/blocked")}`
+          : `Proxy: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`
+      );
     }finally{
       clearTimeout(timer);
     }
   }
 
-  // Level 3: keep the last valid value in LocalStorage and continue retrying later.
-  setGold2goFallbackStatus(errors.join(" · "));
+  // Never clear a valid price. Keep Last Known and expose Manual fallback.
+  const errorMessage=errors.join(" · ");
+  setGold2goFallbackStatus(errorMessage);
   renderPortfolio();
   renderLots();
-  return {ok:false,error:errors.join(" · ")};
+
+  return {
+    ok:false,
+    error:errorMessage,
+    hardBackoff:/\b(429|403)\b|timeout/i.test(errorMessage),
+    errors
+  };
 }
 
 function useManualGold2goPrice(){
@@ -624,9 +662,10 @@ async function fetchThaiGoldPrices(){
 }
 
 async function fetchGold(){
-  // GOLD2go auto quote is independent from market APIs.
-  // If it fails, the last valid quote remains active.
-  fetchGold2goAutoPrice();
+  // GOLD2go is fetched as part of the smart polling cycle.
+  // If it fails, its last valid quote remains active.
+  const gold2goResult=await fetchGold2goAutoPrice();
+
   /*
     Browser-safe primary source: XAUS.
     - CORS open
@@ -656,8 +695,10 @@ async function fetchGold(){
     await fetchIntradayGold();
     renderMarket();renderPortfolio();renderLots();renderChart();
     fetchThaiGoldPrices();
-    return true;
-  }catch(e){ errors.push(`XAUS: ${e.message}`); }
+    return {ok:true,gold2go:gold2goResult};
+  }catch(e){
+    errors.push(`XAUS: ${e.message}`);
+  }
 
   try{
     const data=await fetchJSON(`https://api.gold-api.com/price/XAU?fresh=${Date.now()}`);
@@ -669,11 +710,13 @@ async function fetchGold(){
     applyMarket(spot,fx,"Gold API + Frankfurter");
     await fetchIntradayGold();
     fetchThaiGoldPrices();
-    return true;
-  }catch(e){ errors.push(`Gold API: ${e.message}`); }
+    return {ok:true,gold2go:gold2goResult};
+  }catch(e){
+    errors.push(`Gold API: ${e.message}`);
+  }
 
   setMarketOffline(errors.join(" | ")||"API unavailable");
-  return false;
+  return {ok:false,error:errors.join(" | "),gold2go:gold2goResult};
 }
 
 async function fetchIntradayGold(){
@@ -1448,9 +1491,81 @@ function setup(){
   renderPortfolio();
   renderLots();
   renderChart();
-  fetchGold().then(()=>fetchHistoricalGold());
-  state.timer=setInterval(fetchGold,POLL_MS);
+
+  // Smart polling scheduler.
+  // setTimeout is used instead of setInterval so slow requests can never
+  // overlap with the next request.
+  const runPoll=async(reason="timer")=>{
+    if(pollBusy) return;
+    pollBusy=true;
+    lastPollReason=reason;
+
+    let result=null;
+    try{
+      result=await fetchGold();
+      const g=result?.gold2go;
+
+      if(g?.ok){
+        gold2goConsecutiveFailures=0;
+      }else if(g?.skipped && g.reason==="manual mode"){
+        // Manual mode is not an error; keep the user-entered quote.
+      }else if(g && !g.skipped){
+        gold2goConsecutiveFailures++;
+      }
+
+      if(gold2goConsecutiveFailures>=MAX_CONSECUTIVE_FAILURES){
+        // Last Known is already preserved by fetchGold2goAutoPrice().
+        // Do not switch the user into Manual automatically; simply expose
+        // the Manual control and slow the next automatic attempt.
+        setGold2goFallbackStatus(
+          `${g?.error||"Auto ดึงราคาไม่สำเร็จ"} · ลองใหม่ช้าลง ${POLL_FAILURE_MS/1000} วินาที`
+        );
+      }
+    }catch(e){
+      gold2goConsecutiveFailures++;
+      setMarketOffline(e?.message||"Polling error");
+    }finally{
+      pollBusy=false;
+
+      const hidden=document.visibilityState!=="visible";
+      let delay=hidden ? POLL_HIDDEN_MS : POLL_VISIBLE_MS;
+
+      const g=result?.gold2go;
+      if(g?.hardBackoff) delay=POLL_BACKOFF_MS;
+      else if(gold2goConsecutiveFailures>=MAX_CONSECUTIVE_FAILURES) delay=POLL_FAILURE_MS;
+
+      clearTimeout(pollTimer);
+      pollTimer=setTimeout(()=>runPoll("timer"),delay);
+    }
+  };
+
+  window.__kfpGoldPoll=runPoll;
+
+  // First load immediately.
+  runPoll("startup");
   setTimeout(fetchHistoricalGold,2500);
+
+  // Returning to the page/app: fetch exactly once immediately,
+  // then return to the normal 5-second visible cadence.
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="visible"){
+      clearTimeout(pollTimer);
+      pollTimer=null;
+      runPoll("visible-return");
+    }else{
+      clearTimeout(pollTimer);
+      pollTimer=setTimeout(()=>runPoll("background"),POLL_HIDDEN_MS);
+    }
+  });
+
+  // Desktop browsers can keep visibility "visible" while focus changes.
+  window.addEventListener("focus",()=>{
+    if(document.visibilityState==="visible"){
+      clearTimeout(pollTimer);
+      pollTimer=null;
+      runPoll("focus");
+    }
+  });
 }
 
 function updateValuationSourceUI(){

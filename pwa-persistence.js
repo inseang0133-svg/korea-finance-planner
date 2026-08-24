@@ -7,7 +7,7 @@
 (() => {
   "use strict";
 
-  const DB_NAME = "kfp_pwa_persistence_v1";
+  const DB_NAME = "kfp_pwa_persistence_v2";
   const STORE = "localStorageBackup";
   const SNAPSHOT_KEY = "__all_local_storage__";
   const RESTORED_FLAG = "__kfp_pwa_restored__";
@@ -46,12 +46,26 @@
     });
   }
 
+  // Supabase Auth owns its own persisted session.
+  // Do NOT snapshot/restore Supabase auth keys in the iOS PWA backup.
+  // Otherwise an old snapshot can race with Supabase getSession() on a
+  // newly-opened standalone PWA and make different pages see different sessions.
+  function isAuthStorageKey(key) {
+    return typeof key === "string" && (
+      key.startsWith("sb-") ||
+      key === "supabase.auth.token" ||
+      key.includes("supabase.auth")
+    );
+  }
+
   function collectLocalStorage() {
     const data = {};
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key !== null) data[key] = localStorage.getItem(key);
+        if (key !== null && !isAuthStorageKey(key)) {
+          data[key] = localStorage.getItem(key);
+        }
       }
     } catch (_) {}
     return data;
@@ -76,6 +90,8 @@
         if (x && typeof x === "object" && !Array.isArray(x)) tombstones = { ...x, ...tombstones };
       } catch (_) {}
       for (const [key, value] of Object.entries(snapshot)) {
+        // Supabase Auth owns these keys; never restore them from our PWA snapshot.
+        if (isAuthStorageKey(key)) continue;
         // Explicitly deleted data must never be restored from an older snapshot.
         if (tombstones && Object.prototype.hasOwnProperty.call(tombstones, key)) continue;
         if (localStorage.getItem(key) === null) {

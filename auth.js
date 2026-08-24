@@ -312,39 +312,54 @@
     try { if (typeof window.__kfpRefreshGoldFromCloud === "function") window.__kfpRefreshGoldFromCloud(); } catch (_) {}
   }
 
-  async function loadCloudForUser(user, { captureGuestBackup = false } = {}) {
-    // PWA persistence can restore an older LocalStorage snapshot asynchronously.
-    // Wait for that step first, then let Cloud become authoritative.
+  async function loadCloudForUser(user, { captureGuestBackup = false, knownProfile = null } = {}) {
+    // Session identity is already trusted by Supabase. Show the logged-in state
+    // immediately; Cloud/PWA hydration must not block the Login button.
+    currentUser = user;
+    if (knownProfile) currentProfile = knownProfile;
+    localStorage.setItem(AUTH_USER_KEY, user.id);
+    renderAuthButton();
+    renderAccountArea();
+
+    // PWA restoration is for app data only. It must never control Auth state.
     try {
       if (window.__kfpPwaReady && typeof window.__kfpPwaReady.then === "function") {
         await window.__kfpPwaReady;
       }
     } catch (_) {}
 
-    currentUser = user;
-    currentProfile = await getProfile(user.id);
-    localStorage.setItem(AUTH_USER_KEY, user.id);
+    try {
+      if (!knownProfile) {
+        currentProfile = await getProfile(user.id);
+        renderAuthButton();
+      }
+      const local = getLocalData();
+      if (captureGuestBackup) saveGuestBackup(local);
 
-    const local = getLocalData();
-    if (captureGuestBackup) saveGuestBackup(local);
+      const row = await getCloudRow(user.id);
+      const cloud = row?.data && typeof row.data === "object" ? row.data : {};
 
-    const row = await getCloudRow(user.id);
-    const cloud = row?.data && typeof row.data === "object" ? row.data : {};
-
-    if (hasData(cloud)) {
-      // Cloud is authoritative when it exists. Clear every personal key first so
-      // stale LocalStorage from another device/account cannot leak into the session.
-      clearPersonalLocalData();
-      putLocalData(cloud);
-      notifyCloudLoaded();
-      setAuthStatus(
-        `☁️ โหลดข้อมูล Cloud แล้ว · ล่าสุด ${row?.updated_at ? new Date(row.updated_at).toLocaleString("th-TH", {dateStyle:"short", timeStyle:"medium"}) : "-"}`,
-        "ok"
-      );
-    } else {
-      // First-time/empty Cloud: keep this device's LocalStorage. Nothing is uploaded.
-      notifyCloudLoaded();
-      setAuthStatus("☁️ บัญชีนี้ยังไม่มีข้อมูล Cloud · ข้อมูลในเครื่องยังอยู่ และจะไม่อัปโหลดจนกดปุ่ม", "");
+      if (hasData(cloud)) {
+        // Cloud is authoritative when it exists. Clear every personal key first so
+        // stale LocalStorage from another device/account cannot leak into the session.
+        clearPersonalLocalData();
+        putLocalData(cloud);
+        notifyCloudLoaded();
+        setAuthStatus(
+          `☁️ โหลดข้อมูล Cloud แล้ว · ล่าสุด ${row?.updated_at ? new Date(row.updated_at).toLocaleString("th-TH", {dateStyle:"short", timeStyle:"medium"}) : "-"}`,
+          "ok"
+        );
+      } else {
+        // First-time/empty Cloud: keep this device's LocalStorage. Nothing is uploaded.
+        notifyCloudLoaded();
+        setAuthStatus("☁️ บัญชีนี้ยังไม่มีข้อมูล Cloud · ข้อมูลในเครื่องยังอยู่ และจะไม่อัปโหลดจนกดปุ่ม", "");
+      }
+    } catch (e) {
+      // Keep the authenticated UI visible even if profile/cloud loading is slow or fails.
+      renderAuthButton();
+      renderAccountArea();
+      setAuthStatus(`โหลดข้อมูล Cloud ไม่สำเร็จ: ${e?.message || e}`, "error");
+      throw e;
     }
 
     renderAuthButton();
@@ -360,8 +375,16 @@
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: usernameEmail(username), password });
       if (error) throw error;
-      await loadCloudForUser(data.user, { captureGuestBackup:true });
+
+      // Do not make the UI wait for Cloud hydration. The Supabase session is valid now.
+      currentUser = data.user;
+      localStorage.setItem(AUTH_USER_KEY, data.user.id);
+      renderAuthButton();
+      renderAccountArea();
       hideAuthPanel();
+
+      // Hydrate Cloud data after the authenticated UI is visible.
+      loadCloudForUser(data.user, { captureGuestBackup:true }).catch(() => {});
     } catch (e) {
       setAuthStatus(`เข้าสู่ระบบไม่สำเร็จ: ${e.message}`, "error");
     }
@@ -447,14 +470,14 @@
 
       const { data } = await supabase.auth.getSession();
       if (data?.session?.user) {
-        try {
-          await loadCloudForUser(data.session.user, { captureGuestBackup:false });
-        } catch (e) {
-          currentUser = data.session.user;
-          renderAuthButton();
-          renderAccountArea();
-          setAuthStatus(`โหลดข้อมูล Cloud ไม่สำเร็จ: ${e.message}`, "error");
-        }
+        // Session restoration is enough to show the logged-in state.
+        currentUser = data.session.user;
+        localStorage.setItem(AUTH_USER_KEY, data.session.user.id);
+        renderAuthButton();
+        renderAccountArea();
+
+        // Continue profile/cloud hydration without blocking the page.
+        loadCloudForUser(data.session.user, { captureGuestBackup:false }).catch(() => {});
       } else {
         renderAuthButton();
         renderAccountArea();
@@ -469,10 +492,14 @@
           return;
         }
 
-        // Handles a session restored/signed in from another page without uploading anything.
+        // Session events can fire before/after page hydration on iOS PWA.
+        // Always reflect the authenticated state immediately, then hydrate Cloud.
         if (!currentUser || currentUser.id !== session.user.id) {
-          try { await loadCloudForUser(session.user, { captureGuestBackup:false }); }
-          catch (e) { setAuthStatus(`โหลดข้อมูล Cloud ไม่สำเร็จ: ${e.message}`, "error"); }
+          currentUser = session.user;
+          localStorage.setItem(AUTH_USER_KEY, session.user.id);
+          renderAuthButton();
+          renderAccountArea();
+          loadCloudForUser(session.user, { captureGuestBackup:false }).catch(() => {});
         }
       });
     } catch (e) {

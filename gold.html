@@ -9,8 +9,9 @@
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=20260824-cloud17"></script>
-<script src="auth.js?v=20260824-cloud17"></script>
+<script src="supabase-config.js?v=20260824-loginfix1"></script>
+<script src="pwa-persistence.js?v=20260824-loginfix1"></script>
+<script src="auth.js?v=20260824-loginfix1"></script>
 <style>
     .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
     .gold2go-market-box{border-color:#d4af37}
@@ -408,8 +409,7 @@
 
 </div>
 
-<script src="pwa-persistence.js?v=20260824-cloud17"></script>
-<script src="gold.js?v=20260824-cloud17"></script>
+<script src="gold.js?v=20260824-loginfix1"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

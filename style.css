@@ -1,149 +1,323 @@
+/* =========================================================
+   Korea Finance Planner — Black & Gold UI (หน้าหลัก)
+   ปรับเฉพาะหน้าตา (presentation only) ไม่แตะ logic
+   ========================================================= */
+:root{
+    --gold:#d4af37;
+    --gold-light:#f3d870;
+    --gold-deep:#a8841f;
+    --ink:#0a0a0b;
+    --surface:#141416;
+    --surface-2:#1c1c1f;
+    --line:rgba(212,175,55,.38);
+    --line-soft:rgba(212,175,55,.16);
+    --text:#f4f1e8;
+    --muted:#9b978c;
+    --green:#37d478;
+    --font:"Prompt","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+}
+
 *{
     margin:0;
     padding:0;
     box-sizing:border-box;
 }
 
-body{
-    background:#0f0f0f;
-    color:white;
-    font-family:Arial,sans-serif;
+html{
+    -webkit-text-size-adjust:100%;
+    scroll-behavior:smooth;
 }
 
+body{
+    min-height:100vh;
+    background:
+        radial-gradient(ellipse 80% 420px at 50% -80px, rgba(212,175,55,.16), transparent 70%),
+        var(--ink);
+    background-repeat:no-repeat;
+    color:var(--text);
+    font-family:var(--font);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+}
+
+::selection{background:rgba(212,175,55,.35);color:#fff}
+
 .container{
-    max-width:900px;
+    max-width:820px;
     margin:auto;
-    padding:30px 20px;
+    padding:64px 18px calc(48px + env(safe-area-inset-bottom));
 }
 
 h1{
     text-align:center;
-    color:#d4af37;
+    color:var(--gold);
+    background:linear-gradient(135deg,#f8e58c 0%,#d4af37 50%,#a8841f 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    font-size:34px;
+    font-weight:700;
+    letter-spacing:.3px;
+    line-height:1.25;
+    padding-top:6px;
 }
 
 .subtitle{
     text-align:center;
-    color:#aaa;
+    color:var(--muted);
     margin-top:10px;
     margin-bottom:30px;
+    font-size:15px;
 }
 
-.card {
-    background: #181818;
-    padding: 25px;
-    border-radius: 15px;
-    margin-bottom: 30px;
-    border: 1px solid #d4af37;
-    
-    /* V13: เพิ่มเงาออร่าแสงสีทองสะท้อนแบบ Premium */
-    box-shadow: 0 0 25px rgba(212, 175, 55, 0.2);
-    
-    /* เสริมการแสดงผลเวลากดบนมือถือไม่ให้มีไฮไลต์สีฟ้า */
-    -webkit-tap-highlight-color: transparent;
+.subtitle::after{
+    content:"";
+    display:block;
+    width:64px;
+    height:2px;
+    margin:16px auto 0;
+    border-radius:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
 }
 
-/* เพิ่มส่วนนี้ต่อท้ายไฟล์ เพื่อช่วยให้การแสดงผลบนจอมือถือเต็มนิ้วจับง่ายขึ้น */
-input, select, button {
-    font-size: 16px !important; /* ป้องกันไม่ให้ iOS ซูมหน้าจออัตโนมัติเวลาโฟกัสช่องกรอก */
+/* ---------- Cards ---------- */
+.card{
+    background:linear-gradient(160deg,#19191c 0%,#111113 100%);
+    padding:24px;
+    border-radius:20px;
+    margin-bottom:26px;
+    border:1px solid var(--line);
+    box-shadow:
+        0 14px 34px rgba(0,0,0,.5),
+        inset 0 1px 0 rgba(255,255,255,.04),
+        0 0 40px rgba(212,175,55,.07);
+    -webkit-tap-highlight-color:transparent;
+}
+
+.card h2{
+    font-size:19px;
+    font-weight:600;
+    color:var(--gold-light);
+    margin-bottom:20px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--line-soft);
+}
+
+/* ป้องกัน iOS ซูมหน้าจอเวลาโฟกัสช่องกรอก */
+input, select, button{
+    font-size:16px !important;
+    font-family:inherit;
 }
 
 label{
     display:block;
     margin-bottom:8px;
-    color:#d4af37;
+    color:#e6c552;
+    font-size:14px;
+    font-weight:500;
+    letter-spacing:.2px;
 }
 
 input{
     width:100%;
-    padding:12px;
+    min-height:48px;
+    padding:12px 14px;
     margin-bottom:20px;
-    border:none;
-    border-radius:10px;
-    background:#222;
-    color:white;
+    border:1px solid #2d2d31;
+    border-radius:12px;
+    background:#1b1b1e;
+    color:#fff;
+    color-scheme:dark;
+    outline:none;
+    transition:border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
+input::placeholder{color:#6d6a62}
+
+input:focus,
+select:focus{
+    border-color:var(--gold);
+    background:#202024;
+    box-shadow:0 0 0 3px rgba(212,175,55,.2);
+}
+
+input[readonly]{
+    color:#a9a69c;
+    background:#161618;
+}
+
+select{
+    width:100%;
+    min-height:48px;
+    padding:12px 40px 12px 14px;
+    margin-bottom:20px;
+    border:1px solid #2d2d31;
+    border-radius:12px;
+    background-color:#1b1b1e;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23d4af37' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 15px center;
+    -webkit-appearance:none;
+    appearance:none;
+    color:#fff;
+    color-scheme:dark;
+    outline:none;
+    transition:border-color .18s ease, box-shadow .18s ease;
+}
+
+/* ---------- Buttons ---------- */
 button{
     width:100%;
     padding:14px;
-    background:#d4af37;
-    color:black;
+    background:linear-gradient(135deg,#f3d870 0%,#d4af37 55%,#b8901f 100%);
+    color:#1a1400;
     border:none;
-    border-radius:10px;
-    font-weight:bold;
+    border-radius:12px;
+    font-weight:600;
     cursor:pointer;
-    margin-bottom: 12px;
+    margin-bottom:12px;
+    box-shadow:0 6px 16px rgba(212,175,55,.22);
+    transition:transform .12s ease, filter .18s ease, box-shadow .18s ease;
+    -webkit-tap-highlight-color:transparent;
 }
 
-button:last-of-type {
-    margin-bottom: 0;
+button:last-of-type{
+    margin-bottom:0;
 }
 
 button:hover{
-    opacity:.9;
+    filter:brightness(1.07);
 }
 
-.results {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-top: 20px;
-    margin-bottom: 30px; /* 🟢 เพิ่มบรรทัดนี้เพื่อผลักช่องไฟดันการ์ด Pie Chart ลงไปครับ */
+button:active{
+    transform:scale(.98);
+    box-shadow:0 2px 8px rgba(212,175,55,.2);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible{
+    outline:2px solid var(--gold-light);
+    outline-offset:2px;
+}
+
+/* ปุ่มรอง / ปุ่มอันตราย */
+.btn-secondary{
+    background:transparent;
+    color:var(--gold-light);
+    border:1px solid rgba(212,175,55,.55);
+    box-shadow:none;
+}
+
+.btn-secondary:hover{
+    background:rgba(212,175,55,.1);
+    filter:none;
+}
+
+.btn-secondary:active{
+    box-shadow:none;
+}
+
+.btn-danger{
+    background:linear-gradient(135deg,#3a1818,#2a1111);
+    color:#ff8c8c;
+    border:1px solid rgba(255,107,107,.45);
+    box-shadow:none;
+    margin-top:15px;
+}
+
+.btn-danger:hover{
+    background:linear-gradient(135deg,#471d1d,#331414);
+    filter:none;
+}
+
+/* ---------- Result cards ---------- */
+.results{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+    gap:14px;
+    margin-top:22px;
+    margin-bottom:30px;
 }
 
 .result-card{
-    background:#181818;
-    padding:20px;
-    border-radius:15px;
-    border:1px solid #d4af37;
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(160deg,#1a1a1d,#121214);
+    padding:18px 16px;
+    border-radius:16px;
+    border:1px solid var(--line);
+    box-shadow:0 8px 22px rgba(0,0,0,.4);
+}
+
+.result-card::before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:16px;
+    right:16px;
+    height:2px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);
 }
 
 .result-card h3{
     margin-bottom:10px;
-    color:#d4af37;
+    color:var(--gold-light);
+    font-size:16px;
+    font-weight:600;
 }
+
+.result-card p{
+    color:#ecebe6;
+    font-size:15px;
+    line-height:1.7;
+    overflow-wrap:anywhere;
+}
+
+/* ---------- Progress ---------- */
 .progress-container{
     width:100%;
-    height:28px;
-    background:#2a2a2a;
+    height:16px;
+    background:#232326;
     border-radius:999px;
     overflow:hidden;
-    margin-top:15px;
+    margin-top:16px;
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.55);
 }
 
 .progress-bar{
     width:0%;
     height:100%;
-    background:linear-gradient(
-        90deg,
-        #b8860b,
-        #d4af37,
-        #ffd700
-    );
+    background:linear-gradient(90deg,#b8860b,#d4af37,#ffe27a);
+    border-radius:999px;
+    box-shadow:0 0 12px rgba(212,175,55,.55);
     transition:.5s;
 }
 
 #progressText{
-    margin-top:12px;
-    font-size:20px;
-    font-weight:bold;
-    color:#d4af37;
+    margin-top:14px;
+    font-size:24px;
+    font-weight:700;
+    color:var(--gold-light);
 }
 
 #goalInfo{
     margin-top:10px;
-    color:#ddd;
+    color:#d6d3c8;
+    line-height:1.7;
 }
+
+/* ---------- Salary history ---------- */
 #salaryHistory{
     margin-top:20px;
 }
 
 .salary-item{
-    background:#222;
+    background:#202023;
     padding:15px;
     margin-top:10px;
-    border-radius:10px;
-    border-left:4px solid #d4af37;
+    border-radius:12px;
+    border-left:4px solid var(--gold);
 }
 
 .salary-item button{
@@ -151,70 +325,93 @@ button:hover{
     width:auto;
     padding:8px 15px;
 }
+
+/* รายการประวัติ (สไตล์ inline จาก script.js จึงต้องใช้ !important) */
+.history-item{
+    background:linear-gradient(160deg,#1e1e21,#17171a) !important;
+    border:1px solid var(--line-soft) !important;
+    border-left:3px solid var(--gold) !important;
+    border-radius:14px !important;
+    padding:14px 16px !important;
+    gap:12px;
+    box-shadow:0 4px 14px rgba(0,0,0,.3);
+}
+
+.history-item button{
+    background:rgba(255,107,107,.08) !important;
+    color:#ff8c8c !important;
+    border:1px solid rgba(255,107,107,.45) !important;
+    border-radius:10px !important;
+    padding:8px 12px !important;
+    box-shadow:none !important;
+    margin:0 !important;
+    flex-shrink:0;
+}
+
+/* ---------- Stats ---------- */
 .stats-grid{
     display:grid;
-    gap:15px;
+    gap:14px;
     margin-bottom:25px;
-
-    grid-template-columns:
-        repeat(
-            auto-fit,
-            minmax(250px,1fr)
-        );
+    grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
 }
+
 @media(max-width:768px){
-
     .stats-grid{
-
-        grid-template-columns:
-            repeat(2,1fr);
-
+        grid-template-columns:repeat(2,minmax(0,1fr));
     }
-
 }
-.stat-box{
 
+.stat-box{
+    position:relative;
     min-height:140px;
-
     display:flex;
-
     flex-direction:column;
-
     justify-content:center;
-
-}
-.stat-box{
-    background:#222;
-    padding:20px;
-    border-radius:12px;
+    background:linear-gradient(160deg,#1d1d20,#141416);
+    padding:20px 14px;
+    border-radius:16px;
     text-align:center;
-    border:1px solid #d4af37;
+    border:1px solid var(--line);
+    box-shadow:0 8px 20px rgba(0,0,0,.35);
+    min-width:0;
 }
 
 .stat-box span{
-    color:#bbb;
+    color:#c4c0b4;
     font-size:14px;
 }
 
 .stat-box h3{
     margin-top:10px;
-    color:#d4af37;
+    color:var(--gold-light);
+    font-size:19px;
+    font-weight:700;
+    overflow-wrap:anywhere;
+}
+
+.stat-box p{
+    margin-top:8px;
+    color:var(--green);
+    font-size:14px;
+    font-weight:600;
 }
 
 #salaryChart{
     margin-top:25px;
 }
+
 .prediction-card{
     margin-top:20px;
-    background:#222;
+    background:#202023;
     padding:20px;
-    border-radius:12px;
-    border:1px solid #d4af37;
+    border-radius:14px;
+    border:1px solid var(--line);
     text-align:center;
 }
 
 .prediction-card h3{
-    color:#d4af37;
+    color:var(--gold);
     margin-bottom:10px;
 }
 
@@ -222,162 +419,151 @@ button:hover{
     font-size:20px;
     font-weight:bold;
 }
+
+/* ---------- Exchange rate / converters ---------- */
 #exchangeStatus{
-    margin-top:10px;
-    color:#37d478;
-    font-size:14px;
-}
-
-
-#convertResult{
-
-    margin-top:20px;
-
-    font-size:28px;
-
-    font-weight:bold;
-
-    color:#d4af37;
-
-}
-#quickConvertGrid{
-
-    display:grid;
-
-    grid-template-columns:
-    repeat(
-        auto-fit,
-        minmax(180px,1fr)
-    );
-
-    gap:12px;
-
-    margin-top:20px;
-
-}
-
-.quick-card{
-
-    background:#1b1b1b;
-
-    border:1px solid #d4af37;
-
-    border-radius:12px;
-
-    padding:15px;
-
+    margin-top:14px;
+    color:var(--green);
+    font-size:13px;
+    line-height:1.6;
     text-align:center;
-
 }
 
-
-#remitResult{
-
-    margin-top:20px;
-
-    font-size:24px;
-
-    font-weight:bold;
-
-    color:#d4af37;
-
-}
-/* เพิ่มหรือแทนที่สไตล์ของส่วน pieChart และ section ที่หุ้ม */
-#pieChart {
-    max-width: 320px; /* จำกัดขนาดให้เล็กลงมาเป็นขนาดการ์ด */
-    margin: 20px auto 0 auto; /* จัดให้อยู่กึ่งกลาง */
+#exchangeStatus:empty{
+    display:none;
 }
 
-/* หากต้องการให้กล่องข้อความอธิบาย (Legend) ของ Chart.js เรียงตัวสวยๆ */
-.card canvas {
-    display: block;
-}
-
-/* ลบสไตล์เก่าของคลาส .converter-card, .remit-card ออก (เพราะเราใช้ .card ตัวกลางแล้ว) */
-
-/* เพิ่มตัวสไตล์ควบคุมกลุ่มปุ่มกดให้แบ่งพื้นที่เท่ากัน 2 ฝั่ง และเว้นช่องไฟ */
-.button-group {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-.button-group button {
-    flex: 1;
-}
-
-/* ควบคุมสัดส่วนของพายชาร์ตย่อส่วนให้เป็นการ์ดขนาดกะทัดรัด */
-.pie-chart-container {
-    max-width: 320px;
-    margin: 20px auto 0 auto;
-    display: block;
-}
-
-/* เพิ่มเติมสไตล์ของ select ในส่วนของตัวแปลงสกุลเงิน */
-select {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 20px;
-    border: none;
-    border-radius: 10px;
-    background: #222;
-    color: white;
-    font-size: 15px;
-}
-
-/* เคลียร์วงเล็บปีกกาที่อาจเกินมาตรงท้ายไฟล์ */
-.year-filter{
-    width:auto;
-    min-width:130px;
-
-    padding:8px 12px;
-
-    border:2px solid #fff;
-
-    border-radius:14px;
-
-    background:#222;
-    color:#fff;
-
-    font-weight:600;
-
-    margin-bottom:0;
-}
-.stat-box p{
-    margin-top:8px;
-    color:#37d478;
-    font-size:14px;
-    font-weight:bold;
-}
 .salary-preview{
     margin-top:-10px;
-    margin-bottom:20px;
-
-    font-size:16px;
-    font-weight:bold;
-
-    color:#999;
+    margin-bottom:22px;
+    font-size:17px;
+    font-weight:700;
+    color:#8f8c82;
 }
 
 .salary-preview.success{
-    color:#37d478;
+    color:var(--green);
 }
+
+#convertResult,
+#remitResult{
+    margin-top:20px;
+    padding:16px;
+    border-radius:14px;
+    background:rgba(212,175,55,.07);
+    border:1px dashed rgba(212,175,55,.4);
+    font-weight:700;
+    color:var(--gold-light);
+    overflow-wrap:anywhere;
+}
+
+#convertResult{
+    font-size:28px;
+    text-align:center;
+}
+
+#remitResult{
+    font-size:24px;
+}
+
+#quickConvertGrid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+    gap:12px;
+    margin-top:20px;
+}
+
+.quick-card{
+    background:#1b1b1e;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:15px;
+    text-align:center;
+}
+
+/* ---------- Charts / misc ---------- */
+#pieChart{
+    max-width:320px;
+    margin:20px auto 0 auto;
+}
+
+.card canvas{
+    display:block;
+}
+
+.pie-chart-container{
+    max-width:320px;
+    margin:20px auto 0 auto;
+    display:block;
+}
+
+.button-group{
+    display:flex;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.button-group button{
+    flex:1;
+    margin-bottom:0;
+}
+
+.year-filter{
+    width:auto;
+    min-width:130px;
+    padding:8px 12px;
+    border:1px solid var(--gold);
+    border-radius:12px;
+    background:#1b1b1e;
+    color:#fff;
+    font-weight:600;
+    margin-bottom:0;
+}
+
+/* ---------- Gold portfolio shortcut ---------- */
 .gold-portfolio-card{
-
     justify-content:space-between;
+    grid-column:1 / -1;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(212,175,55,.2), transparent 55%),
+        linear-gradient(160deg,#1f1b10,#141416);
+    border-color:rgba(212,175,55,.6);
+    text-align:left;
+    padding:20px 18px;
+}
 
+.gold-portfolio-card span{
+    color:var(--gold-light);
+    font-size:17px;
+    font-weight:600;
+}
+
+.gold-portfolio-card p{
+    color:#b9b5a8 !important;
+    font-weight:400 !important;
+    margin-top:6px;
 }
 
 .gold-btn{
-
     margin-top:15px;
-
-    background:#d4af37;
-
-    color:#000;
-
+    background:linear-gradient(135deg,#f3d870 0%,#d4af37 55%,#b8901f 100%);
+    color:#1a1400;
     font-size:14px;
+    padding:12px;
+}
 
-    padding:10px;
+/* ---------- Mobile ---------- */
+@media(max-width:600px){
+    .container{padding:60px 14px calc(40px + env(safe-area-inset-bottom))}
+    h1{font-size:30px}
+    .card{padding:20px 16px;border-radius:18px}
+    .results{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .result-card{padding:16px 13px}
+    .result-card h3{font-size:15px}
+    .result-card p{font-size:14px}
+    .stat-box h3{font-size:16px}
+}
 
+@media(prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important;scroll-behavior:auto !important}
 }

@@ -418,17 +418,18 @@ function updateAnalytics(){
 
     if(records.length === 0){
 
-        document.getElementById(
-            "avgSalary"
-        ).innerText = "0 KRW";
+        // element เหล่านี้ไม่มีใน index.html: ต้องเช็ก null ก่อน
+        // ไม่เช่นนั้น window.onload จะหยุดกลางทาง (ทำให้ไม่ได้อัปเดตเรตอัตโนมัติ)
+        const emptyTargets = [
+            ["avgSalary", "0 KRW"],
+            ["avgSaving", "0 KRW"],
+            ["monthsToGoal", "-"]
+        ];
 
-        document.getElementById(
-            "avgSaving"
-        ).innerText = "0 KRW";
-
-        document.getElementById(
-            "monthsToGoal"
-        ).innerText = "-";
+        emptyTargets.forEach(([id, text]) => {
+            const el = document.getElementById(id);
+            if(el) el.innerText = text;
+        });
 
         return;
     }
@@ -782,11 +783,19 @@ async function updateExchangeRate(){
                 "https://open.er-api.com/v6/latest/KRW"
             );
 
+        if(!response.ok){
+            throw new Error("HTTP " + response.status);
+        }
+
         const data =
             await response.json();
 
         const thbRate =
-            data.rates.THB;
+            Number(data && data.rates && data.rates.THB);
+
+        if(!Number.isFinite(thbRate) || thbRate <= 0){
+            throw new Error("Invalid THB rate");
+        }
 
         document.getElementById(
             "rate"
@@ -809,9 +818,16 @@ async function updateExchangeRate(){
             `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
             | 1 KRW = ${thbRate.toFixed(4)} THB`;
 
-        updateSalaryPreview();
-        convertCurrency();
-        renderQuickConvert();
+        // รีเฟรชหน้าจอแยกจากการดึงเรต เพื่อไม่ให้ error ฝั่ง UI ถูกแสดงว่า "ดึงค่าเงินไม่ได้"
+        try{
+            updateSalaryPreview();
+            convertCurrency();
+            renderQuickConvert();
+        }
+        catch(uiError){
+            console.warn("rate UI refresh:", uiError);
+        }
+
         kfpPersistNow();
 
     }
@@ -958,6 +974,8 @@ function renderQuickConvert(){
         document.getElementById(
             "quickConvertGrid"
         );
+
+    if(!grid) return;
 
     grid.innerHTML = "";
 
@@ -1411,32 +1429,47 @@ updateSalaryPreview();
         convertCurrency
     );
 
+    kfpAutoUpdateRateIfStale();
+
+};
+
+// อัปเดตเรตอัตโนมัติเมื่อไม่เคยอัปเดต หรือเรตเก่าเกิน 24 ชั่วโมง
+// (แยกเป็นฟังก์ชันเพื่อให้ทำงานได้แม้ส่วนอื่นของ onload เช่น กราฟ จะ error ก่อนถึงบรรทัดนี้)
+function kfpAutoUpdateRateIfStale(){
+
+    if(window.__kfpRateAutoChecked) return;
+    window.__kfpRateAutoChecked = true;
+
     const lastUpdate =
     localStorage.getItem(
         "rateUpdatedAt"
     );
 
-if(!lastUpdate){
-
-    updateExchangeRate();
-
-}
-else{
-
-    const diffHours =
-        (
-            Date.now() -
-            new Date(lastUpdate)
-        ) /
-        (1000 * 60 * 60);
-
-    if(diffHours >= 24){
+    if(!lastUpdate){
 
         updateExchangeRate();
-        renderQuickConvert();
 
     }
+    else{
 
+        const diffHours =
+            (
+                Date.now() -
+                new Date(lastUpdate)
+            ) /
+            (1000 * 60 * 60);
+
+        if(!Number.isFinite(diffHours) || diffHours >= 24){
+
+            updateExchangeRate();
+            renderQuickConvert();
+
+        }
+
+    }
 }
 
-};
+// สำรอง: ถ้า window.onload หยุดกลางทางเพราะ error ก็ยังเช็กเรตให้
+window.addEventListener("load", function(){
+    try{ kfpAutoUpdateRateIfStale(); }catch(_){}
+});

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#d4af37">
+    <meta name="theme-color" content="#0a0a0b">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,14 +11,17 @@
     
     <title>เป้าการเก็บเงิน</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=20261018-uifix1">
     
     <link rel="manifest" href="manifest.json">
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20260824-loginfix2"></script>
-    <script src="auth.js?v=20260824-loginfix2"></script>
-    <script src="pwa-persistence.js?v=20260824-loginfix2"></script>
+    <script src="supabase-config.js?v=20261018-uifix1"></script>
+    <script src="auth.js?v=20261018-uifix1"></script>
+    <script src="pwa-persistence.js?v=20261018-uifix1"></script>
 </head>
 <body>
 
@@ -46,7 +49,7 @@
             id="rate"
             value="0.0240"
             oninput="updateSalaryPreview(); convertCurrency(); renderQuickConvert();">
-            <button onclick="updateExchangeRate()">
+            <button class="btn-secondary" onclick="updateExchangeRate()">
         🔄 อัปเดตค่าเงินล่าสุด
         </button>
 
@@ -118,7 +121,7 @@
         <input type="number" id="convertAmount" oninput="convertCurrency()">
 
         <div class="button-group">
-            <button onclick="swapConverter()">🔄 สลับ</button>
+            <button class="btn-secondary" onclick="swapConverter()">🔄 สลับ</button>
             <button onclick="convertCurrency()">คำนวณ</button>
         </div>
 
@@ -181,12 +184,8 @@
     </div>
 
     <button
+        class="btn-danger"
         onclick="deleteContract()"
-        style="
-        background:#dd4b39;
-        color:white;
-        margin-top:15px;
-        "
     >
         ❌ ลบข้อมูลสัญญา
     </button>
@@ -264,12 +263,12 @@
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20260824-loginfix2"></script>
+<script src="script.js?v=20261018-uifix1"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('sw.js?v=20260824-loginfix2', {updateViaCache:'none'});
+      const reg = await navigator.serviceWorker.register('sw.js?v=20261018-uifix1', {updateViaCache:'none'});
       await reg.update();
     } catch (err) { console.warn('PWA Service Worker Registration Failed:', err); }
   });

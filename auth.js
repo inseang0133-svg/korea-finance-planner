@@ -21,8 +21,10 @@
     SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR_SUPABASE");
 
   // Keep the existing Cloud payload/schema exactly the same.
+  // NOTE: "rate" / "rateUpdatedAt" (อัตราแลกเปลี่ยนหน้าหลัก) ถูกเก็บเฉพาะในเครื่อง
+  // ไม่อัปโหลด/ไม่ดาวน์โหลดผ่าน Cloud เพื่อไม่ให้เรตเก่าจาก Cloud มาทับเรตล่าสุด
   const DATA_KEYS = [
-    "salary", "rate", "rateUpdatedAt", "goal", "currentSaving",
+    "salary", "goal", "currentSaving",
     "contractStartDate", "salaryRecords",
     "__kfp_deleted_keys_v1",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
@@ -236,23 +238,28 @@
 
     const style = document.createElement("style");
     style.textContent = `
-      #kfpAuthRoot{position:fixed;top:14px;right:14px;z-index:99999;font-family:Arial,sans-serif}
-      #kfpAuthButton{width:auto!important;margin:0!important;padding:10px 14px!important;border:1px solid #d4af37!important;border-radius:12px!important;background:#181818!important;color:#fff!important;box-shadow:0 4px 18px rgba(0,0,0,.35);font-size:14px!important}
-      #kfpAuthButton.logged-in{background:#d4af37!important;color:#111!important}
-      #kfpAuthPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.68);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:18px}
+      #kfpAuthRoot{position:fixed;top:14px;right:14px;z-index:99999;font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif}
+      #kfpAuthButton{width:auto!important;margin:0!important;padding:10px 16px!important;border:1px solid rgba(212,175,55,.7)!important;border-radius:999px!important;background:rgba(18,18,20,.82)!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#f3d870!important;box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:14px!important;font-weight:600;cursor:pointer;transition:transform .12s ease,filter .18s ease}
+      #kfpAuthButton:active{transform:scale(.97)}
+      #kfpAuthButton.logged-in{background:linear-gradient(135deg,#f3d870,#d4af37 55%,#b8901f)!important;color:#1a1400!important;border-color:transparent!important;box-shadow:0 6px 20px rgba(212,175,55,.3)}
+      #kfpAuthPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:18px}
       #kfpAuthPanel.open{display:flex}
-      .kfp-auth-modal{width:min(460px,100%);max-height:90vh;overflow:auto;background:#181818;border:1px solid #d4af37;border-radius:18px;padding:22px;box-shadow:0 0 40px rgba(212,175,55,.18);color:#fff}
-      .kfp-auth-modal h2{color:#d4af37;margin:0 0 8px}.kfp-auth-modal p{color:#aaa;margin:6px 0 16px}
-      .kfp-auth-modal label{display:block;color:#d4af37;margin:12px 0 7px}.kfp-auth-modal input{width:100%;padding:12px;border-radius:10px;border:1px solid #333;background:#222;color:#fff;font-size:16px}
+      .kfp-auth-modal{width:min(460px,100%);max-height:90vh;overflow:auto;background:linear-gradient(160deg,#1b1b1e,#111113);border:1px solid rgba(212,175,55,.55);border-radius:22px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 44px rgba(212,175,55,.14);color:#f4f1e8}
+      .kfp-auth-modal h2{color:#f3d870;margin:0 0 8px;font-size:21px;font-weight:600}.kfp-auth-modal p{color:#a29e93;margin:6px 0 16px;line-height:1.55}
+      .kfp-auth-modal label{display:block;color:#e6c552;margin:12px 0 7px;font-size:14px;font-weight:500}.kfp-auth-modal input{width:100%;min-height:48px;padding:12px 14px;border-radius:12px;border:1px solid #2d2d31;background:#1b1b1e;color:#fff;font-size:16px;outline:none;transition:border-color .18s ease,box-shadow .18s ease}
+      .kfp-auth-modal input:focus{border-color:#d4af37;box-shadow:0 0 0 3px rgba(212,175,55,.2)}
+      .kfp-auth-modal button{padding:13px 14px;border:0;border-radius:12px;background:linear-gradient(135deg,#f3d870,#d4af37 55%,#b8901f);color:#1a1400;font-weight:600;font-size:15px;font-family:inherit;cursor:pointer;box-shadow:0 6px 16px rgba(212,175,55,.2);transition:transform .12s ease,filter .18s ease}
+      .kfp-auth-modal button:active{transform:scale(.98)}
+      .kfp-auth-modal button:disabled{opacity:.65;cursor:wait}
       .kfp-auth-row{display:flex;gap:10px;margin-top:14px}.kfp-auth-row button{flex:1;width:auto!important;margin:0!important}
-      .kfp-auth-secondary{background:#2a2a2a!important;color:#fff!important;border:1px solid #555!important}.kfp-auth-danger{background:#421d1d!important;color:#ff7777!important;border:1px solid #a33!important}
-      .kfp-auth-status{min-height:20px;margin-top:10px;color:#aaa;line-height:1.5}.kfp-auth-status.ok{color:#37d478}.kfp-auth-status.error{color:#ff6b6b}
-      .kfp-auth-account{background:#222;border-radius:12px;padding:12px;margin:12px 0}
-      .kfp-cloud-upload{margin-top:14px;padding:14px;border:1px solid #5c4b16;border-radius:13px;background:#151515}
+      .kfp-auth-secondary{background:#26262a!important;color:#f4f1e8!important;border:1px solid #4a4a50!important;box-shadow:none!important}.kfp-auth-danger{background:linear-gradient(135deg,#3a1818,#2a1111)!important;color:#ff8c8c!important;border:1px solid rgba(255,107,107,.5)!important;box-shadow:none!important}
+      .kfp-auth-status{min-height:20px;margin-top:12px;color:#a29e93;line-height:1.5;font-size:14px}.kfp-auth-status.ok{color:#37d478}.kfp-auth-status.error{color:#ff6b6b}
+      .kfp-auth-account{background:#202023;border:1px solid rgba(212,175,55,.2);border-radius:14px;padding:13px 14px;margin:12px 0}
+      .kfp-cloud-upload{margin-top:16px;padding:14px;border:1px solid rgba(212,175,55,.35);border-radius:15px;background:rgba(212,175,55,.05)}
       .kfp-cloud-upload button{width:100%!important;margin:0!important}
-      .kfp-cloud-upload .kfp-small{margin:8px 0 0!important}
-      .kfp-small{font-size:12px;color:#888!important}
-      @media(max-width:600px){#kfpAuthRoot{top:8px;right:8px}.kfp-auth-modal{padding:18px}}
+      .kfp-cloud-upload .kfp-small{margin:10px 0 0!important}
+      .kfp-small{font-size:12px;color:#8d897e!important}
+      @media(max-width:600px){#kfpAuthRoot{top:max(8px,env(safe-area-inset-top));right:8px}.kfp-auth-modal{padding:20px}}
     `;
     document.head.appendChild(style);
 

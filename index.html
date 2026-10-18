@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261018-uifix1">
+    <link rel="stylesheet" href="style.css?v=20261018-chartfix2">
     
     <link rel="manifest" href="manifest.json">
     <!-- Cloud login layer -->
@@ -151,7 +151,8 @@
         <input type="number" id="goal" value="2000000">
 
         <label>เงินสะสมปัจจุบัน (บาท)</label>
-        <input type="number" id="currentSaving" value="0">
+        <input type="number" id="currentSaving" value="0" readonly>
+        <p class="field-note">🔗 อ้างอิงอัตโนมัติจาก “สถิติการเงิน → เงินเก็บ 45%” (บาท)</p>
 
         <div class="progress-container">
             <div id="progressBar" class="progress-bar"></div>
@@ -255,15 +256,16 @@
 
 </div>
 
-        <canvas id="salaryChart"></canvas>
-        <h3 style="margin-top:40px; margin-bottom:15px; color:#d4af37;">📈 กราฟเงินเก็บสะสม</h3>
-        <canvas id="savingChart"></canvas>
+        <h3 class="chart-title">💵 รายได้แต่ละเดือน <small>(บาท)</small></h3>
+        <div class="chart-box"><canvas id="salaryChart"></canvas></div>
+
+        <h3 class="chart-title">📈 เงินเก็บสะสม 45% <small>(บาท)</small></h3>
+        <div class="chart-box"><canvas id="savingChart"></canvas></div>
     </div>
 
-</div> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+</div> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20261018-uifix1"></script>
+<script src="script.js?v=20261018-chartfix2"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {

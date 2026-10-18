@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js';document.head.appendChild(s);})()"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0a0a0b">
@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="gold.css?v=20261018-uifix1">
+<link rel="stylesheet" href="gold.css?v=20261018-chartfix2">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -136,7 +136,7 @@
           <button class="chart-tab chart-interval" data-interval="1H">1H</button>
           <button class="chart-tab chart-interval" data-interval="1D">1D</button>
         </div>
-        <span class="chart-interval-note">5m–1H ใช้ข้อมูล Intraday ที่มีอยู่ · 1D ใช้ข้อมูลรายวัน</span>
+        <span class="chart-interval-note">ช่วงเวลา = ขอบเขตที่มองเห็น · ช่วงแท่ง = ขนาดแท่งแต่ละแท่ง</span>
       </div>
 
       <div class="chart-actions">
@@ -146,22 +146,7 @@
         <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
       </div>
 
-      <div class="chart-panel">
-        <div class="chart-panel-title">ตลาดโลก XAU/THB · <b>ทอง 99.99% · THB / gram</b></div>
-        <div class="chart-stage" id="chartStageGram">
-          <div id="goldChart"></div>
-          <svg id="chartOverlayGram" class="chart-overlay" aria-hidden="true"></svg>
-        </div>
-        <div class="chart-info-row">
-          <span id="chartCurrent">ปัจจุบัน: -</span>
-          <span id="chartHigh">สูงสุด: -</span>
-          <span id="chartLow">ต่ำสุด: -</span>
-          <span id="chartChange">เปลี่ยนแปลง: -</span>
-        </div>
-        <div id="chartTooltip" class="chart-tooltip" aria-live="polite"></div>
-      </div>
-
-      <div class="chart-panel chart-panel-oz">
+      <div class="chart-panel chart-panel-oz chart-panel-main">
         <div class="chart-panel-title">🪙 Gold Spot · <b>USD / troy oz</b></div>
         <div class="chart-stage" id="chartStageOz">
           <div id="goldChartOz"></div>
@@ -413,7 +398,7 @@
 
 </div>
 
-<script src="gold.js?v=20261018-uifix1"></script>
+<script src="gold.js?v=20261018-chartfix2"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

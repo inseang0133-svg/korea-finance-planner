@@ -431,6 +431,9 @@ function updateAnalytics(){
             if(el) el.innerText = text;
         });
 
+        kfpSyncGoalFromSaving(0);
+        renderChart();
+        renderSavingChart();
         return;
     }
 
@@ -582,189 +585,325 @@ document.getElementById(
         Math.round(totalTravelTHB)
     ) +
     " THB";
+    kfpSyncGoalFromSaving(totalSavingTHB);
     renderChart();
     renderSavingChart();
 
 }
 
-function renderChart(){
-    const rate =
-    Number(
-        document.getElementById("rate").value
-    );
+// เงินสะสมปัจจุบัน (เป้าหมายเงินเก็บ) = "เงินเก็บ 45%" ในสถิติการเงิน (หน่วยบาท) อัตโนมัติ
+function kfpSyncGoalFromSaving(totalSavingTHB){
+    const el = document.getElementById("currentSaving");
+    if(!el) return;
+    el.value = Math.round(Number(totalSavingTHB) || 0);
+    try{ updateGoalTracker(); }catch(_){}
+}
 
-    const records =
-    getSalaryRecords();
+/* =========================================================
+   Charts (index page) — rewritten for stability
+   - ไม่ผูกกับ chartjs-plugin-datalabels (ใช้ plugin เล็กๆ ในไฟล์นี้แทน)
+   - ทุกกราฟอยู่ใน container ความสูงคงที่ + maintainAspectRatio:false
+   - ปิด animation เพื่อกันกราฟค้างครึ่งทางบน iOS PWA
+   - ไม่แตะ logic การคำนวณ/การบันทึกข้อมูลใดๆ
+   ========================================================= */
+const KFP_GOLD = "#d4af37";
+const KFP_GOLD_LIGHT = "#f3d870";
 
-const labels =
-    records.map(x => x.month);
+function kfpChartReady(){
+    return typeof Chart !== "undefined";
+}
 
-const data =
-    records.map(x => x.salary);
-
-    const ctx =
-        document
-        .getElementById(
-            "salaryChart"
-        );
-
-    if(salaryChart){
-
-        salaryChart.destroy();
-
-    }
-
-    salaryChart =
-        new Chart(ctx,{
-
-            type:"bar",
-
-            data:{
-
-                labels,
-
-                datasets:[{
-
-                    label:"รายได้ (KRW)",
-
-                    data
-
-                }]
-
-            },
-
-            options:{
-    responsive:true,
-
-    plugins:{
-        tooltip:{
-            callbacks:{
-                label:function(context){
-
-                    const krw =
-                        context.raw;
-
-                    const thb =
-                        krw * rate;
-
-                    return [
-                        `รายได้ (KRW): ${formatNumber(krw)}`,
-                        `≈ ${formatNumber(
-                            Math.round(thb)
-                        )} THB`
-                    ];
-                }
-            }
-        }
+function kfpEnsureChartLib(cb){
+    if(kfpChartReady()){ cb(); return; }
+    // CDN หลักโหลดไม่ขึ้น -> ลองสำรองหนึ่งครั้ง แล้ววาดใหม่เมื่อพร้อม
+    if(!window.__kfpChartFallbackTried){
+        window.__kfpChartFallbackTried = true;
+        const s = document.createElement("script");
+        s.src = "https://unpkg.com/chart.js@4.4.7/dist/chart.umd.js";
+        s.onload = () => { try{ cb(); }catch(e){ console.warn(e); } };
+        document.head.appendChild(s);
     }
 }
 
-        });
+function kfpMonthLabel(ym){
+    try{
+        const [y,m] = ym.split("-").map(Number);
+        return new Date(y, m-1, 1).toLocaleDateString("th-TH", { month:"short", year:"2-digit" });
+    }catch(_){ return ym; }
+}
 
+function kfpCompact(n){
+    const v = Math.abs(n);
+    if(v >= 1e6) return (n/1e6).toFixed(v >= 1e7 ? 0 : 1).replace(/\.0$/,"") + "M";
+    if(v >= 1e3) return (n/1e3).toFixed(v >= 1e4 ? 0 : 1).replace(/\.0$/,"") + "k";
+    return String(Math.round(n));
+}
+
+// ข้อมูลรายเดือน (เรียงเก่า -> ใหม่) ในหน่วยบาท โดยใช้เรตที่ล็อกไว้ของแต่ละเดือน
+// (เหมือนกับที่การ์ด "สถิติการเงิน" ใช้: item.rate || 0)
+function kfpMonthlySeries(){
+    const rows = [...getSalaryRecords()].sort((a,b)=> a.month.localeCompare(b.month));
+    let cumSaving = 0;
+    return rows.map(r => {
+        const thb = (Number(r.salary)||0) * (Number(r.rate)||0);
+        const savingThb = thb * 0.45;
+        cumSaving += savingThb;
+        return {
+            month: r.month,
+            label: kfpMonthLabel(r.month),
+            krw: Number(r.salary)||0,
+            rate: Number(r.rate)||0,
+            thb,
+            savingThb,
+            cumSavingThb: cumSaving,
+            cumSavingKrw: 0
+        };
+    }).map((x,i,arr)=>{
+        x.cumSavingKrw = arr.slice(0,i+1).reduce((s,y)=> s + y.krw*0.45, 0);
+        return x;
+    });
+}
+
+// plugin วาดตัวเลขเหนือแท่ง/จุด (แทน datalabels)
+const kfpValueLabels = {
+    id: "kfpValueLabels",
+    afterDatasetsDraw(chart, args, opts){
+        if(!opts || opts.display === false) return;
+        const meta = chart.getDatasetMeta(0);
+        if(!meta || meta.hidden) return;
+        const data = chart.data.datasets[0].data;
+        if(data.length > (opts.maxItems || 8)) return;
+        const { ctx, chartArea } = chart;
+        ctx.save();
+        ctx.font = "600 11px Prompt, system-ui, sans-serif";
+        ctx.fillStyle = opts.color || "#f4f1e8";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        meta.data.forEach((el, i) => {
+            const v = data[i];
+            if(!Number.isFinite(v) || v <= 0) return;
+            const pos = el.tooltipPosition ? el.tooltipPosition() : { x: el.x, y: el.y };
+            let y = pos.y - 8;
+            if(y < chartArea.top + 12) y = chartArea.top + 12;
+            ctx.fillText(opts.format ? opts.format(v) : String(v), pos.x, y);
+        });
+        ctx.restore();
+    }
+};
+
+function kfpBaseScales(){
+    return {
+        x: {
+            grid: { display:false },
+            border: { color:"rgba(212,175,55,.25)" },
+            ticks: { color:"#9b978c", font:{ size:11, family:"Prompt, system-ui, sans-serif" } }
+        },
+        y: {
+            beginAtZero: true,
+            grace: "12%",
+            border: { display:false },
+            grid: { color:"rgba(212,175,55,.10)" },
+            ticks: {
+                color:"#9b978c",
+                font:{ size:11, family:"Prompt, system-ui, sans-serif" },
+                maxTicksLimit: 5,
+                callback: v => "฿" + kfpCompact(v)
+            }
+        }
+    };
+}
+
+function kfpTooltipStyle(){
+    return {
+        backgroundColor:"rgba(20,20,22,.96)",
+        borderColor:"rgba(212,175,55,.55)",
+        borderWidth:1,
+        titleColor:KFP_GOLD_LIGHT,
+        bodyColor:"#f4f1e8",
+        padding:10,
+        cornerRadius:10,
+        displayColors:false,
+        titleFont:{ family:"Prompt, system-ui, sans-serif", weight:"600" },
+        bodyFont:{ family:"Prompt, system-ui, sans-serif" }
+    };
+}
+
+function kfpShowChartEmpty(canvasId, show, text){
+    const c = document.getElementById(canvasId);
+    if(!c) return;
+    const wrap = c.parentElement;
+    if(!wrap) return;
+    let msg = wrap.querySelector(".chart-empty");
+    if(show){
+        if(!msg){
+            msg = document.createElement("div");
+            msg.className = "chart-empty";
+            wrap.appendChild(msg);
+        }
+        msg.textContent = text || "ยังไม่มีข้อมูล";
+        c.style.visibility = "hidden";
+    }else{
+        if(msg) msg.remove();
+        c.style.visibility = "visible";
+    }
+}
+
+function renderChart(){
+    const canvas = document.getElementById("salaryChart");
+    if(!canvas) return;
+
+    if(!kfpChartReady()){
+        kfpEnsureChartLib(renderChart);
+        kfpShowChartEmpty("salaryChart", true, "กำลังโหลดกราฟ…");
+        return;
+    }
+
+    if(salaryChart){ salaryChart.destroy(); salaryChart = null; }
+
+    const rows = kfpMonthlySeries();
+    if(rows.length === 0){
+        kfpShowChartEmpty("salaryChart", true, "ยังไม่มีข้อมูลรายได้ · เพิ่มรายการเพื่อดูกราฟ");
+        return;
+    }
+    kfpShowChartEmpty("salaryChart", false);
+
+    const ctx = canvas.getContext("2d");
+    salaryChart = new Chart(ctx, {
+        type: "bar",
+        plugins: [kfpValueLabels],
+        data: {
+            labels: rows.map(r => r.label),
+            datasets: [{
+                label: "รายได้ (THB)",
+                data: rows.map(r => Math.round(r.thb)),
+                borderRadius: 10,
+                borderSkipped: false,
+                maxBarThickness: 46,
+                borderWidth: 1,
+                borderColor: "rgba(243,216,112,.9)",
+                backgroundColor: function(c){
+                    const { chart } = c;
+                    const area = chart.chartArea;
+                    if(!area) return KFP_GOLD;
+                    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                    g.addColorStop(0, "rgba(243,216,112,.95)");
+                    g.addColorStop(1, "rgba(168,132,31,.55)");
+                    return g;
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            layout: { padding: { top: 18, right: 6 } },
+            scales: kfpBaseScales(),
+            plugins: {
+                legend: { display:false },
+                kfpValueLabels: {
+                    maxItems: 8,
+                    color: "#f3d870",
+                    format: v => "฿" + kfpCompact(v)
+                },
+                tooltip: Object.assign(kfpTooltipStyle(), {
+                    callbacks: {
+                        title: items => rows[items[0].dataIndex].label,
+                        label: item => {
+                            const r = rows[item.dataIndex];
+                            return [
+                                "รายได้: " + formatNumber(Math.round(r.thb)) + " THB",
+                                formatNumber(r.krw) + " KRW",
+                                "เรต 1 KRW = " + (r.rate ? r.rate.toFixed(4) : "-") + " THB"
+                            ];
+                        }
+                    }
+                })
+            }
+        }
+    });
 }
 
 function renderSavingChart(){
-    const rate =
-    Number(
-        document.getElementById("rate").value
-    );
-    const records =
-    getSalaryRecords();
+    const canvas = document.getElementById("savingChart");
+    if(!canvas) return;
 
-    if(records.length === 0){
-
-    if(savingChart){
-        savingChart.destroy();
-        savingChart = null;
+    if(!kfpChartReady()){
+        kfpEnsureChartLib(renderSavingChart);
+        kfpShowChartEmpty("savingChart", true, "กำลังโหลดกราฟ…");
+        return;
     }
 
-    return;
-}
+    if(savingChart){ savingChart.destroy(); savingChart = null; }
 
-    const labels = [];
-    const savingsData = [];
-
-    let totalSaving = 0;
-
-    const sortedRecords =
-        [...records]
-        .sort((a,b)=>
-            a.month.localeCompare(b.month)
-        );
-    sortedRecords.forEach(item=>{
-
-        labels.push(item.month);
-
-        totalSaving += item.salary * 0.45;
-
-        savingsData.push(
-            Math.round(totalSaving)
-        );
-
-    });
-
-    const ctx =
-        document.getElementById(
-            "savingChart"
-        );
-
-    if(savingChart){
-
-        savingChart.destroy();
-
+    const rows = kfpMonthlySeries();
+    if(rows.length === 0){
+        kfpShowChartEmpty("savingChart", true, "ยังไม่มีข้อมูลเงินเก็บสะสม");
+        return;
     }
+    kfpShowChartEmpty("savingChart", false);
 
-    savingChart =
-        new Chart(ctx,{
-
-            type:"line",
-
-            data:{
-
-                labels,
-
-                datasets:[{
-
-                    label:"เงินเก็บสะสม (KRW)",
-
-                    data:savingsData,
-
-                    tension:0.3,
-
-                    fill:false
-
-                }]
-
-            },
-
-            options:{
-    responsive:true,
-
-    plugins:{
-        tooltip:{
-            callbacks:{
-                label:function(context){
-
-                    const krw =
-                        context.raw;
-
-                    const thb =
-                        krw * rate;
-
-                    return [
-                        `เงินเก็บสะสม (KRW): ${formatNumber(krw)}`,
-                        `≈ ${formatNumber(
-                            Math.round(thb)
-                        )} THB`
-                    ];
+    const ctx = canvas.getContext("2d");
+    savingChart = new Chart(ctx, {
+        type: "line",
+        plugins: [kfpValueLabels],
+        data: {
+            labels: rows.map(r => r.label),
+            datasets: [{
+                label: "เงินเก็บสะสม 45% (THB)",
+                data: rows.map(r => Math.round(r.cumSavingThb)),
+                tension: 0.35,
+                fill: true,
+                borderColor: KFP_GOLD_LIGHT,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: KFP_GOLD,
+                pointBorderColor: "#0a0a0b",
+                pointBorderWidth: 2,
+                backgroundColor: function(c){
+                    const { chart } = c;
+                    const area = chart.chartArea;
+                    if(!area) return "rgba(212,175,55,.2)";
+                    const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+                    g.addColorStop(0, "rgba(243,216,112,.38)");
+                    g.addColorStop(1, "rgba(212,175,55,0)");
+                    return g;
                 }
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            layout: { padding: { top: 18, right: 14, left: 2 } },
+            scales: (function(){
+                const sc = kfpBaseScales();
+                sc.x.offset = true;   // จุดเดียวก็อยู่กลางกราฟ ไม่ติดขอบ
+                return sc;
+            })(),
+            plugins: {
+                legend: { display:false },
+                kfpValueLabels: {
+                    maxItems: 8,
+                    color: "#f3d870",
+                    format: v => "฿" + kfpCompact(v)
+                },
+                tooltip: Object.assign(kfpTooltipStyle(), {
+                    callbacks: {
+                        title: items => rows[items[0].dataIndex].label,
+                        label: item => {
+                            const r = rows[item.dataIndex];
+                            return [
+                                "สะสม: " + formatNumber(Math.round(r.cumSavingThb)) + " THB",
+                                "เดือนนี้ +" + formatNumber(Math.round(r.savingThb)) + " THB",
+                                "(" + formatNumber(Math.round(r.cumSavingKrw)) + " KRW)"
+                            ];
+                        }
+                    }
+                })
             }
         }
-    }
-}
-
-        });
-
+    });
 }
 async function updateExchangeRate(){
 
@@ -1083,92 +1222,98 @@ function calculateRemit(){
 }
 
 function renderPieChart(){
-    const ctx = document.getElementById("pieChart");
-    if(!ctx) return;
+    const canvas = document.getElementById("pieChart");
+    if(!canvas) return;
 
-    if(pieChart){
-        pieChart.destroy();
+    if(!kfpChartReady()){
+        kfpEnsureChartLib(renderPieChart);
+        kfpShowChartEmpty("pieChart", true, "กำลังโหลดกราฟ…");
+        return;
     }
 
-    // ดึงค่าคำนวณล่าสุดเพื่อนำมาใส่ในกราฟ
+    if(pieChart){ pieChart.destroy(); pieChart = null; }
+
     const salary = Number(document.getElementById("salary").value) || 0;
     const rate = Number(document.getElementById("rate").value) || 0;
 
-    // คำนวณยอดเงินแต่ละส่วน (ตามสัดส่วน % ของคุณ)
+    if(salary <= 0){
+        kfpShowChartEmpty("pieChart", true, "กรอกเงินเดือนแล้วกด “คำนวณ”");
+        return;
+    }
+    kfpShowChartEmpty("pieChart", false);
+
     const dataValues = [
-        { label: "💰 เงินเก็บ 45%", krw: salary * 0.45 },
-        { label: "🥇 ออมทอง 15%", krw: salary * 0.15 },
-        { label: "🏠 ส่งบ้าน 25%", krw: salary * 0.25 },
-        { label: "🛒 ใช้ส่วนตัว 10%", krw: salary * 0.10 },
-        { label: "✈️ เที่ยว 5%", krw: salary * 0.05 }
+        { name: "เงินเก็บ",   label: "💰 เงินเก็บ 45%",   krw: salary * 0.45 },
+        { name: "ออมทอง",    label: "🥇 ออมทอง 15%",    krw: salary * 0.15 },
+        { name: "ส่งบ้าน",    label: "🏠 ส่งบ้าน 25%",    krw: salary * 0.25 },
+        { name: "ใช้ส่วนตัว", label: "🛒 ใช้ส่วนตัว 10%", krw: salary * 0.10 },
+        { name: "เที่ยว",     label: "✈️ เที่ยว 5%",      krw: salary * 0.05 }
     ];
 
-    // เปิดใช้งานปลั๊กอินแสดงตัวเลขบนกราฟ
-    Chart.register(ChartDataLabels);
+    // plugin เล็กๆ วางยอดเงินบาทบนชิ้นเค้ก (ไม่ต้องพึ่ง chartjs-plugin-datalabels)
+    const pieLabels = {
+        id: "kfpPieLabels",
+        afterDatasetsDraw(chart){
+            const meta = chart.getDatasetMeta(0);
+            const { ctx } = chart;
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#141416";
+            ctx.font = "700 11px Prompt, system-ui, sans-serif";
+            meta.data.forEach((arc, i) => {
+                const frac = dataValues[i].krw / salary;
+                if(frac < 0.07) return;               // ชิ้นเล็กเกินไปไม่วาดตัวเลข
+                const p = arc.tooltipPosition();
+                ctx.fillText(formatNumber(Math.round(dataValues[i].krw * rate)), p.x, p.y - 7);
+                ctx.font = "600 9px Prompt, system-ui, sans-serif";
+                ctx.fillText("THB", p.x, p.y + 6);
+                ctx.font = "700 11px Prompt, system-ui, sans-serif";
+            });
+            ctx.restore();
+        }
+    };
 
-    pieChart = new Chart(ctx, {
+    pieChart = new Chart(canvas.getContext("2d"), {
         type: "pie",
+        plugins: [pieLabels],
         data: {
-            labels: dataValues.map(item => item.label.split(" ")[1]), // ดึงชื่อเช่น "เงินเก็บ", "ออมทอง"
+            labels: dataValues.map(item => item.name),
             datasets: [{
                 data: dataValues.map(item => item.krw),
-                backgroundColor: [
-                    '#36a2eb', // เงินเก็บ (น้ำเงิน)
-                    '#ff6384', // ออมทอง (ชมพู)
-                    '#ff9f40', // ส่งบ้าน (ส้ม)
-                    '#ffcd56', // ใช้ส่วนตัว (เหลือง)
-                    '#4bc0c0'  // เที่ยว (เขียวมิ้นต์)
-                ]
+                backgroundColor: ["#36a2eb", "#ff6384", "#ff9f40", "#ffcd56", "#4bc0c0"],
+                borderColor: "#141416",
+                borderWidth: 3,
+                hoverOffset: 8
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            layout: { padding: 6 },
             plugins: {
-                // 1. จัดการข้อความอธิบายสี (ด้านบนกราฟ)
                 legend: {
-                    position: 'top',
+                    position: "bottom",
                     labels: {
-                        color: '#fff',
-                        font: { family: 'Arial, sans-serif' }
+                        color: "#f4f1e8",
+                        boxWidth: 12,
+                        padding: 12,
+                        font: { family: "Prompt, system-ui, sans-serif", size: 12 }
                     }
                 },
-                // 2. ปรับแต่ง Tooltip ตอนเอาเมาส์ชี้/กด (ให้แสดงครบ 3 บรรทัดตามที่คุณต้องการ)
-                tooltip: {
+                tooltip: Object.assign(kfpTooltipStyle(), {
                     callbacks: {
-                        title: function(context) {
-                            // แสดงหัวข้อเช่น "💰 เงินเก็บ 45%"
-                            return dataValues[context[0].dataIndex].label;
-                        },
-                        label: function(context) {
-                            const index = context.dataIndex;
-                            const krwAmt = dataValues[index].krw;
-                            const thbAmt = krwAmt * rate;
-                            
-                            // ส่งกลับมาเป็นอาร์เรย์เพื่อให้ Chart.js ขึ้นบรรทัดใหม่ให้ใน Tooltip
+                        title: items => dataValues[items[0].dataIndex].label,
+                        label: item => {
+                            const d = dataValues[item.dataIndex];
                             return [
-                                `${formatNumber(krwAmt.toFixed(1))} KRW`,
-                                `≈ ${formatNumber(thbAmt.toFixed(0))} THB`
+                                formatNumber(d.krw.toFixed(1)) + " KRW",
+                                "≈ " + formatNumber((d.krw * rate).toFixed(0)) + " THB"
                             ];
                         }
                     }
-                },
-                // 3. แสดงยอดเงินบาทไทยค้างไว้บนตัวกราฟตลอดเวลา (Data Labels)
-                datalabels: {
-                    color: '#181818',
-                    font: {
-                        weight: 'bold',
-                        size: 11
-                    },
-                    formatter: function(value, context) {
-                        const thbAmt = value * rate;
-                        // แสดงตัวเลขเงินบาท เช่น "22,378 THB" บนชิ้นเค้กเลย
-                        return formatNumber(thbAmt.toFixed(0)) + ' THB';
-                    },
-                    // ป้องกันไม่ให้ตัวเลขทับกันถ้าชิ้นเค้กเล็กเกินไป
-                    display: function(context) {
-                        return context.dataset.data[context.dataIndex] > 0;
-                    }
-                }
+                })
             }
         }
     });

@@ -60,17 +60,9 @@ let state = {
   timer: null
 };
 
-let tvChart = null;
-let tvSeries = null;
-let tvCandleSeries = null;
-let tvChartOz = null;
-let tvSeriesOz = null;
-let tvCandleSeriesOz = null;
 let chartMode = "line";
 let chartInterval = "5m";
 let selectedLotNumber = null;
-let tvChartReadyKey = null;
-const CHART_VIEW_KEY = "kfp_gold_chart_view_v2";
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};
 
 const $ = id => document.getElementById(id);
@@ -719,28 +711,6 @@ async function fetchGold(){
   return {ok:false,error:errors.join(" | "),gold2go:gold2goResult};
 }
 
-async function fetchIntradayGold(){
-  try{
-    const data=await fetchJSON(`https://xaus.com/api/v1/intraday?symbol=xau&hours=24&fresh=${Date.now()}`);
-    const raw=Array.isArray(data?.points)?data.points:[];
-    if(!raw.length) return false;
-    const rows=raw.map(p=>{
-      const ts=typeof p.t==="number" ? (p.t<1e12?p.t*1000:p.t) : Date.parse(p.t);
-      const price=Number(p.p);
-      if(!Number.isFinite(ts)||!Number.isFinite(price)||price<=0)return null;
-      // Intraday endpoint is XAU/USD. Convert with the current FX as a
-      // reference; live THB price above remains the authoritative portfolio quote.
-      const fx=Number(state.usdThb);
-      const thb=Number.isFinite(fx)&&fx>0 ? price*fx/OZ_TO_GRAM*(99.99/100) : null;
-      return thb?{ts,price:thb,usd:price,source:"xaus-intraday"}:null;
-    }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
-    if(rows.length){
-      localStorage.setItem(INTRADAY_HISTORY_KEY,JSON.stringify(rows.slice(-1500)));
-      renderChart();
-    }
-    return true;
-  }catch(_){ return false; }
-}
 function persistLastMarket(){
   localStorage.setItem("kfp_gold_last_market",JSON.stringify({
     spotUsdOz:state.spotUsdOz,usdThb:state.usdThb,
@@ -822,46 +792,6 @@ function appendHistory(){
 function loadDailyHistory(){try{return JSON.parse(localStorage.getItem(DAILY_HISTORY_KEY)||"[]")}catch{return []}}
 function saveDailyHistory(rows){localStorage.setItem(DAILY_HISTORY_KEY,JSON.stringify(rows.slice(-400)))}
 function ymd(d){return new Date(d).toISOString().slice(0,10)}
-
-async function fetchHistoricalGold(){
-  const now=new Date(), from=new Date(now.getTime()-31*86400000);
-  const fromDate=ymd(from),toDate=ymd(now);
-  try{
-    const data=await fetchJSON(`https://xaus.com/api/v1/history?fresh=${Date.now()}`);
-    const points=Array.isArray(data?.points)?data.points:[];
-    if(!points.length) throw new Error("ไม่มี daily history");
-    const fx=Number(state.usdThb);
-    const rows=points.map(p=>{
-      const date=String(p.d||"").slice(0,10), usd=Number(p.c);
-      if(!date||!Number.isFinite(usd))return null;
-      const thb=Number.isFinite(fx)&&fx>0 ? usd*fx/OZ_TO_GRAM*(99.99/100) : null;
-      return thb?{ts:new Date(`${date}T12:00:00Z`).getTime(),price:thb,usd, date,source:"xaus-daily"}:null;
-    }).filter(Boolean).filter(x=>x.ts>=from.getTime()).sort((a,b)=>a.ts-b.ts);
-    if(rows.length){
-      saveDailyHistory(rows);
-      renderChart();
-      const hint=$("chartHint");
-      if(hint&&state.range!=="1D") hint.textContent=`ข้อมูลย้อนหลัง ${rows.length} วัน · XAU/USD × FX ปัจจุบัน (ประมาณ)`;
-    }
-    return true;
-  }catch(_){
-    // Secondary historical source. Kept as a fallback if XAUS history is unavailable.
-    try{
-      const data=await fetchJSON(`https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${fromDate}&to=${toDate}&limit=100`);
-      const bars=Array.isArray(data?.bars)?data.bars:[];
-      const fx=Number(state.usdThb);
-      const rows=bars.map(b=>{
-        const date=String(b.bar_start||"").slice(0,10),usd=Number(b.close);
-        const thb=Number.isFinite(fx)&&fx>0?usd*fx/OZ_TO_GRAM*(99.99/100):null;
-        return date&&Number.isFinite(usd)&&thb?{ts:new Date(`${date}T12:00:00Z`).getTime(),price:thb,usd,date,source:"goldprice-daily"}:null;
-      }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
-      if(rows.length){saveDailyHistory(rows);renderChart();return true;}
-    }catch(_){ }
-    const hint=$("chartHint");
-    if(hint&&state.range!=="1D")hint.textContent="โหลดข้อมูลย้อนหลังไม่ได้ · แสดงข้อมูลที่เคยบันทึกไว้แทน";
-    return false;
-  }
-}
 
 function renderPortfolio(){
   const p=calculatePortfolio();
@@ -983,322 +913,614 @@ function escapeHTML(s){
   return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 }
 
-function loadChartViews(){
-  try{return JSON.parse(localStorage.getItem(CHART_VIEW_KEY)||"{}")}catch{return {}}
-}
-function saveChartView(){
-  if(!tvChart)return;
+/* =========================================================================
+   Gold chart — ONE chart: Gold Spot USD / troy oz
+   Rewritten for stability:
+   - Data kept in USD (no THB/FX mixing) in two stores:
+       ticks  : 1-minute samples (live polling + XAUS intraday), 35 days
+       daily  : daily OHLC bars (XAUS history / goldprice.dev), 400 days
+   - Every range/interval/mode switch rebuilds the series from scratch
+     (strictly ascending, de-duplicated times -> setData never throws)
+   - Live ticks only call series.update() on the last 1-2 bars, and never
+     touch the user's zoom/scroll position
+   - Full history is loaded, the range button only decides the visible window,
+     so the user can always scroll back (fixLeftEdge -> no empty void)
+   - Reset / Fit / Fullscreen only touch the view, never the data
+   ========================================================================= */
+const USD_TICKS_KEY = "kfp_gold_usd_ticks_v3";
+const USD_DAILY_KEY = "kfp_gold_usd_daily_v3";
+const TICK_RES_MS = 60_000;
+const TICK_KEEP_MS = 35 * 86400000;
+const RANGE_DAYS = { "1D": 1, "7D": 7, "30D": 30 };
+const TARGET_MAX_BARS = 400;
+
+let tickMap = null;          // Map<bucketMs, usd>
+let tickArr = null;          // sorted [bucketMs, usd]
+let tickLastSave = 0, tickDirty = false;
+let dailyBars = null;        // [{time,open,high,low,close}] time = 12:00 UTC of the date
+let lastIntradayFetch = 0, lastHistoryFetch = 0;
+
+let chart = null, areaSeries = null, candleSeries = null;
+let chartBars = [];
+let chartKey = "";
+let chartRetryTimer = null;
+let overlayRaf = 0;
+let chartInfo = { firstIntradaySec: null };
+
+/* ---------- tick store ---------- */
+function loadTickStore(){
+  if(tickMap) return;
+  tickMap = new Map(); tickArr = [];
   try{
-    const visible=tvChart.timeScale().getVisibleRange();
-    if(!visible)return;
-    const views=loadChartViews();
-    views[`${state.range}_${chartInterval}`]={from:visible.from,to:visible.to};
-    localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));
-  }catch(_){ }
-}
-function chartRangeKey(){return `${state.range}_${chartInterval}`}
-function getLotsForChart(){
-  const now=Date.now();
-  const days=state.range==="1D"?1:(state.range==="7D"?7:30);
-  const start=now-days*86400000;
-  const end=now+86400000;
-  return loadLots().filter(l=>{
-    const ts=parseLotTimestamp(l.date,l.time);
-    if(!Number.isFinite(ts)) return false;
-    // Keep the chart's 1D data window unchanged, but allow a purchase
-    // marker from the immediately preceding day to remain discoverable.
-    // This is important for a purchase such as yesterday 02:34 when the
-    // current time is today 07:xx: the marker should not silently vanish.
-    const markerStart = state.range==="1D" ? start-86400000 : start;
-    return ts>=markerStart && ts<=end;
-  });
-}
-function extendRangeForLots(data){
-  if(!data.length)return null;
-  const times=data.map(x=>x.time);
-  let from=Math.min(...times),to=Math.max(...times);
-  const lots=getLotsForChart();
-  for(const l of lots){
-    const ts=Math.floor(parseLotTimestamp(l.date,l.time)/1000);
-    if(Number.isFinite(ts)){from=Math.min(from,ts);to=Math.max(to,ts);}
-  }
-  const span=Math.max(3600,to-from);
-  return {from:from-span*0.03,to:to+span*0.03};
-}
-
-function rawIntradayPoints(){
-  const now=Date.now();
-  const remote=(()=>{try{return JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY)||"[]")}catch{return []}})();
-  return remote.filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price)))
-    .concat(loadHistory().filter(x=>x.ts>=now-86400000&&Number.isFinite(Number(x.price))))
-    .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
-    .filter(x=>Number.isFinite(x.ts)&&Number.isFinite(x.price)&&x.price>0)
-    .sort((a,b)=>a.ts-b.ts);
-}
-function rawDailyPoints(){
-  const now=Date.now(),days=state.range==="7D"?7:30,start=now-days*86400000;
-  return loadDailyHistory().filter(x=>x.ts>=start&&Number.isFinite(Number(x.price)))
-    .map(x=>({ts:Number(x.ts),price:Number(x.price),usd:Number(x.usd)}))
-    .sort((a,b)=>a.ts-b.ts);
-}
-function chartFx(){
-  if(Number.isFinite(Number(state.usdThb))&&Number(state.usdThb)>0)return Number(state.usdThb);
-  if(Number.isFinite(Number(state.priceThbOz))&&Number(state.priceThbOz)>0&&Number.isFinite(Number(state.spotUsdOz))&&Number(state.spotUsdOz)>0) return Number(state.priceThbOz)/Number(state.spotUsdOz);
-  return null;
-}
-function pointUsdOz(p){
-  if(Number.isFinite(p.usd)&&p.usd>0)return p.usd;
-  const fx=chartFx();
-  return fx&&p.price>0 ? (p.price*OZ_TO_GRAM/fx)/(99.99/100) : NaN;
-}
-function dedupPoints(points){
-  const out=[];
-  for(const p of points){
-    const prev=out[out.length-1];
-    if(prev && Math.abs(prev.ts-p.ts)<1000){prev.price=p.price;continue;}
-    out.push(p);
-  }
-  return out;
-}
-function aggregateIntraday(points,interval){
-  const bucket=CHART_INTERVALS[interval]||CHART_INTERVALS["5m"];
-  const map=new Map();
-  for(const p of points){
-    const b=Math.floor(p.ts/bucket)*bucket;
-    let x=map.get(b);
-    if(!x)x={time:Math.floor(b/1000),open:p.price,high:p.price,low:p.price,close:p.price};
-    else{x.high=Math.max(x.high,p.price);x.low=Math.min(x.low,p.price);x.close=p.price;}
-    map.set(b,x);
-  }
-  return [...map.values()].sort((a,b)=>a.time-b.time);
-}
-function aggregateDaily(points){
-  const out=[];
-  for(const p of points){
-    const close=p.price,prev=out[out.length-1]?.close;
-    const open=Number.isFinite(prev)?prev:close;
-    out.push({time:Math.floor(p.ts/1000),open,high:Math.max(open,close),low:Math.min(open,close),close});
-  }
-  return out;
-}
-function getChartOHLC(){
-  const points=state.range==="1D" ? rawIntradayPoints() : rawDailyPoints();
-  if(!points.length)return [];
-  return state.range==="1D" ? aggregateIntraday(dedupPoints(points),chartInterval) : aggregateDaily(points);
-}
-function getChartUSD_OHLC(){
-  const points=state.range==="1D" ? rawIntradayPoints() : rawDailyPoints();
-  if(!points.length)return [];
-  const usdPoints=points.map(p=>({ts:p.ts,price:pointUsdOz(p)})).filter(p=>Number.isFinite(p.price)&&p.price>0);
-  if(!usdPoints.length)return [];
-  return state.range==="1D" ? aggregateIntraday(dedupPoints(usdPoints),chartInterval) : aggregateDaily(usdPoints);
-}
-function lineDataFromOHLC(data){return data.map(x=>({time:x.time,value:x.close}));}
-function scaleOHLC(data,factor){return data.map(x=>({time:x.time,open:x.open*factor,high:x.high*factor,low:x.low*factor,close:x.close*factor}));}
-function chartTime(ts){return Math.floor(Number(ts)/1000)}
-function formatChartPrice(v,dec=2){return `฿${Number(v).toLocaleString("th-TH",{minimumFractionDigits:dec,maximumFractionDigits:dec})}`}
-function formatUsdPrice(v,dec=2){return `$${Number(v).toLocaleString("en-US",{minimumFractionDigits:dec,maximumFractionDigits:dec})}`}
-
-function ensureTradingViewChart(){
-  if(tvChart&&tvChartOz)return true;
-  if(!window.LightweightCharts){
-    const hint=$("chartHint");if(hint)hint.textContent="กำลังโหลดระบบกราฟ…";return false;
-  }
-  const makeChart=(id)=>{
-    const el=$(id);if(!el)return null;
-    return LightweightCharts.createChart(el,{autoSize:true,layout:{background:{type:"solid",color:"#0f1112"},textColor:"#777"},localization:{timeFormatter:formatChartTime},grid:{vertLines:{color:"#171919"},horzLines:{color:"#292b2b"}},rightPriceScale:{borderColor:"#292b2b",scaleMargins:{top:.08,bottom:.08}},timeScale:{borderColor:"#292b2b",timeVisible:true,secondsVisible:false,rightOffset:5,barSpacing:7,minBarSpacing:2},crosshair:{mode:LightweightCharts.CrosshairMode.Normal,vertLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"},horzLine:{color:"#d4af37",width:1,style:2,labelBackgroundColor:"#8f7218"}},handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},handleScale:{mouseWheel:true,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true}});
-  };
-  tvChart=makeChart("goldChart"); tvChartOz=makeChart("goldChartOz");
-  if(!tvChart||!tvChartOz)return false;
-  const areaOpts={topColor:"rgba(212,175,55,.24)",bottomColor:"rgba(212,175,55,.015)",lineColor:"#d4af37",lineWidth:2,priceLineVisible:true,lastValueVisible:true,crosshairMarkerVisible:true,crosshairMarkerRadius:4,priceFormat:{type:"price",precision:2,minMove:.01}};
-  const candleOpts={upColor:"#62db8a",downColor:"#ff5d68",borderUpColor:"#62db8a",borderDownColor:"#ff5d68",wickUpColor:"#62db8a",wickDownColor:"#ff5d68",priceFormat:{type:"price",precision:2,minMove:.01}};
-  tvSeries=tvChart.addAreaSeries(areaOpts);tvCandleSeries=tvChart.addCandlestickSeries(candleOpts);
-  tvSeriesOz=tvChartOz.addAreaSeries(areaOpts);tvCandleSeriesOz=tvChartOz.addCandlestickSeries(candleOpts);
-
-  // Keep purchase markers/lines inside the visible price scale.
-  // A lot bought well below the current market price (e.g. 4,372 vs 4,611)
-  // must still be visible on the chart instead of disappearing outside the plot.
-  const purchasePrices=(gramMode)=>{
-    const prices=[];
-    for(const lot of getLotsForChart()){
-      const grams=Number(lot.grams)||unitToGrams(Number(lot.quantity)||0,lot.unit);
-      if(!(grams>0)) continue;
-      const buyGram=Number(lot.buyPriceThbGram)>0?Number(lot.buyPriceThbGram):(Number(lot.costThb)>0?Number(lot.costThb)/grams:0);
-      if(!(buyGram>0)) continue;
-      if(gramMode) prices.push(buyGram);
-      else {
-        const fx=chartFx();
-        const buyOz=fx&&fx>0?buyGram*OZ_TO_GRAM/fx:0;
-        if(buyOz>0) prices.push(buyOz);
-      }
+    const raw = JSON.parse(localStorage.getItem(USD_TICKS_KEY) || "[]");
+    for(const r of raw){
+      if(Array.isArray(r) && r[0] > 0 && r[1] > 0) tickMap.set(r[0], r[1]);
     }
-    return prices;
-  };
-  const autoscale=(gramMode)=>(original)=>{
-    const info=original();
-    if(!info?.priceRange) return info;
-    const prices=purchasePrices(gramMode);
-    if(!prices.length) return info;
-    const min=Math.min(info.priceRange.minValue,...prices);
-    const max=Math.max(info.priceRange.maxValue,...prices);
-    if(!(Number.isFinite(min)&&Number.isFinite(max))) return info;
-    const span=Math.max(max-min,0.000001);
-    const pad=span*0.03;
-    return {...info,priceRange:{minValue:min-pad,maxValue:max+pad}};
-  };
-  tvSeries.applyOptions({autoscaleInfoProvider:autoscale(true)});
-  tvCandleSeries.applyOptions({autoscaleInfoProvider:autoscale(true)});
-  tvSeriesOz.applyOptions({autoscaleInfoProvider:autoscale(false)});
-  tvCandleSeriesOz.applyOptions({autoscaleInfoProvider:autoscale(false)});
-
-  setChartMode(chartMode);
-  tvChart.timeScale().subscribeVisibleTimeRangeChange(()=>{saveChartView();drawPurchaseOverlays();});
-  tvChartOz.timeScale().subscribeVisibleTimeRangeChange(()=>drawPurchaseOverlays());
-  const cross=(chart,series,tip,isUsd)=>chart.subscribeCrosshairMove(param=>{
-    if(!param.time||!param.seriesData)return;
-    const target=chart===tvChartOz ? (chartMode==="candle"?tvCandleSeriesOz:tvSeriesOz) : (chartMode==="candle"?tvCandleSeries:tvSeries);
-    const row=param.seriesData.get(target);
-    const value=row?.value ?? row?.close;
-    if(!Number.isFinite(Number(value)))return;
-    const d=new Date(Number(param.time)*1000);
-    const label=isUsd?formatUsdPrice(Number(value))+"/troy oz":money(Number(value))+"/g";
-    const dt=new Intl.DateTimeFormat("th-TH",{timeZone:PURCHASE_TIMEZONE,day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
-    $(tip).textContent=`${dt} · ${label}`;
-  });
-  cross(tvChart,tvSeries,"chartTooltip",false);
-  cross(tvChartOz,tvSeriesOz,"chartTooltipOz",true);
+  }catch(_){ }
+  if(!tickMap.size){
+    // one-time migration from the previous chart versions (they stored USD too)
+    try{
+      const old = []
+        .concat(JSON.parse(localStorage.getItem(INTRADAY_HISTORY_KEY) || "[]"))
+        .concat(loadHistory());
+      for(const x of old){
+        const ts = Number(x.ts), usd = Number(x.usd);
+        if(ts > 0 && usd > 0) tickMap.set(Math.floor(ts / TICK_RES_MS) * TICK_RES_MS, usd);
+      }
+    }catch(_){ }
+  }
+  tickArr = [...tickMap.entries()].sort((a, b) => a[0] - b[0]);
+}
+function addTick(ts, usd, overwrite = true){
+  loadTickStore();
+  ts = Number(ts); usd = Number(usd);
+  if(!(ts > 0) || !(usd > 0) || ts > Date.now() + 120000) return false;
+  const b = Math.floor(ts / TICK_RES_MS) * TICK_RES_MS;
+  if(tickMap.has(b)){
+    if(!overwrite || tickMap.get(b) === usd) return false;
+    tickMap.set(b, usd);
+    let lo = 0, hi = tickArr.length - 1;
+    while(lo <= hi){ const m = (lo + hi) >> 1; if(tickArr[m][0] === b){ tickArr[m][1] = usd; break; } tickArr[m][0] < b ? lo = m + 1 : hi = m - 1; }
+  }else{
+    tickMap.set(b, usd);
+    const n = tickArr.length;
+    if(!n || b > tickArr[n - 1][0]) tickArr.push([b, usd]);
+    else{
+      let lo = 0, hi = n;
+      while(lo < hi){ const m = (lo + hi) >> 1; tickArr[m][0] < b ? lo = m + 1 : hi = m; }
+      tickArr.splice(lo, 0, [b, usd]);
+    }
+  }
+  tickDirty = true;
+  if(Date.now() - tickLastSave > 30000) saveTickStore();
   return true;
 }
-function setChartMode(mode){
-  chartMode=mode==="candle"?"candle":"line";
-  if(!tvSeries||!tvCandleSeries)return;
-  const lineVisible=chartMode==="line";
-  tvSeries.applyOptions({visible:lineVisible});tvCandleSeries.applyOptions({visible:!lineVisible});
-  tvSeriesOz.applyOptions({visible:lineVisible});tvCandleSeriesOz.applyOptions({visible:!lineVisible});
-  const btn=$("chartCandleBtn");if(btn){btn.classList.toggle("active",!lineVisible);btn.textContent=lineVisible?"🕯️ แท่งเทียน":"〽️ กราฟเส้น";}
-}
-function updateChartStats(pts){
-  const values=pts.map(x=>Number(x.close)).filter(Number.isFinite);
-  if(!values.length){["chartCurrent","chartHigh","chartLow","chartChange","chartCurrentOz","chartHighOz","chartLowOz","chartChangeOz"].forEach(id=>$(id).textContent="ปัจจุบัน: -");return;}
-  const current=values.at(-1),first=values[0],high=Math.max(...values),low=Math.min(...values),change=first?((current-first)/first)*100:0;
-  $("chartCurrent").textContent=`ปัจจุบัน: ${money(current)}/g`;
-  $("chartHigh").textContent=`สูงสุด: ${money(high)}/g`;
-  $("chartLow").textContent=`ต่ำสุด: ${money(low)}/g`;
-  $("chartChange").textContent=`เปลี่ยนแปลง: ${change>=0?"+":""}${change.toFixed(2)}%`;
-  const usd=getChartUSD_OHLC(),uv=usd.map(x=>Number(x.close)).filter(Number.isFinite);
-  if(uv.length){
-    const uc=uv.at(-1),uf=uv[0],uh=Math.max(...uv),ul=Math.min(...uv),uchange=uf?((uc-uf)/uf)*100:0;
-    $("chartCurrentOz").textContent=`ปัจจุบัน: ${formatUsdPrice(uc)}/troy oz`;
-    $("chartHighOz").textContent=`สูงสุด: ${formatUsdPrice(uh)}/troy oz`;
-    $("chartLowOz").textContent=`ต่ำสุด: ${formatUsdPrice(ul)}/troy oz`;
-    $("chartChangeOz").textContent=`เปลี่ยนแปลง: ${uchange>=0?"+":""}${uchange.toFixed(2)}%`;
-  }else{
-    ["chartCurrentOz","chartHighOz","chartLowOz"].forEach(id=>$(id).textContent="ปัจจุบัน: -");
-    $("chartChangeOz").textContent="เปลี่ยนแปลง: -";
-  }
-}
-function svgEl(tag,attrs){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,String(v));return e;}
-function drawPurchaseOverlay(chart,series,svgId,gramMode){
-  const svg=$(svgId);if(!svg||!chart||!series)return;
-  const host=svg.parentElement;const w=host?.clientWidth||svg.clientWidth,h=host?.clientHeight||svg.clientHeight;svg.setAttribute("viewBox",`0 0 ${w} ${h}`);svg.innerHTML="";
-  const lots=getLotsForChart();
-  const visible=chart.timeScale().getVisibleRange();if(!visible)return;
-  for(const lot of lots){
-    const ts=chartTime(parseLotTimestamp(lot.date,lot.time));
-    if(!Number.isFinite(ts)||ts<visible.from||ts>visible.to)continue;
-    const x=chart.timeScale().timeToCoordinate(ts);if(x==null)continue;
-    const grams=Number(lot.grams)||unitToGrams(Number(lot.quantity)||0,lot.unit);
-    if(!(grams>0))continue;
-    const buyGram=Number(lot.buyPriceThbGram)>0?Number(lot.buyPriceThbGram):(Number(lot.costThb)>0?Number(lot.costThb)/grams:0);
-    if(!(buyGram>0))continue;
-    const fx=chartFx();
-    const buy=gramMode?buyGram:(fx&&fx>0?buyGram*OZ_TO_GRAM/fx:0);
-    if(!buy)continue;
-    const current=Number(state.priceThbGram)||0;
-    if(!(current>0))continue;
-    const purity=Number(lot.goldType||99.99)/99.99;
-    const currentForLot=current*purity;
-    const pl=(currentForLot-buyGram)*grams;
-    const y=series.priceToCoordinate(buy);if(y==null){
-      // The chart can briefly report null while autoscaling after a data update.
-      // Retry on the next frame instead of silently losing the purchase marker.
-      requestAnimationFrame(()=>drawPurchaseOverlays());
-      continue;
-    }
-    const positive=pl>=0,color=positive?"#62db8a":"#ff5d68";
-    const v=svgEl("line",{x1:x,y1:0,x2:x,y2:h,stroke:color,class:"purchase-vline"});
-    const hl=svgEl("line",{x1:0,y1:y,x2:w,y2:y,stroke:color,class:"purchase-hline"});
-    const dot=svgEl("circle",{cx:x,cy:y,r:6,fill:color,class:"purchase-dot"});
-    const labelX=Math.min(Math.max(x+8,8),Math.max(8,w-145));
-    const label=svgEl("text",{x:labelX,y:Math.max(16,y-9),fill:color,class:"purchase-label"});label.textContent=`${positive?"+":""}${money(pl)}`;
-    const price=svgEl("text",{x:labelX,y:Math.min(h-8,Math.max(30,y+15)),fill:"#d4af37",class:"purchase-sub"});price.textContent=gramMode?`ซื้อ ${formatChartPrice(buy)}`:`ซื้อ ${formatUsdPrice(buy)}/oz`;
-    const time=svgEl("text",{x:Math.min(Math.max(x+5,5),Math.max(5,w-125)),y:h-8,fill:"#bdbdbd",class:"purchase-sub"});time.textContent=`${lot.date} ${lot.time||""} · ${num(grams,4)}g`;
-    svg.append(v,hl,dot,label,price,time);
-  }
-}
-function drawPurchaseOverlays(){
-  if(!tvChart)return;
-  drawPurchaseOverlay(tvChart,chartMode==="candle"?tvCandleSeries:tvSeries,"chartOverlayGram",true);
-  drawPurchaseOverlay(tvChartOz,chartMode==="candle"?tvCandleSeriesOz:tvSeriesOz,"chartOverlayOz",false);
-}
-function restoreChartView(){
-  if(!tvChart)return;
-  const views=loadChartViews(),saved=views[chartRangeKey()];
-  const data=getChartOHLC();
+function saveTickStore(force){
+  if(!tickMap || (!tickDirty && !force)) return;
+  const cutoff = Date.now() - TICK_KEEP_MS;
+  while(tickArr.length && tickArr[0][0] < cutoff){ tickMap.delete(tickArr[0][0]); tickArr.shift(); }
   try{
-    if(saved)tvChart.timeScale().setVisibleRange({from:saved.from,to:saved.to});
-    else{
-      tvChart.timeScale().fitContent();
-      const ext=extendRangeForLots(lineDataFromOHLC(data));
-      if(ext)tvChart.timeScale().setVisibleRange(ext);
-    }
-  }catch(_){tvChart.timeScale().fitContent()}
-  try{const r=tvChart.timeScale().getVisibleRange();if(r)tvChartOz.timeScale().setVisibleRange(r)}catch(_){ }
-  drawPurchaseOverlays();
-}
-function renderChart(){
-  const pts=getChartOHLC();updateChartStats(pts);
-  if(!ensureTradingViewChart())return;
-  const gramLine=lineDataFromOHLC(pts),gramCandle=pts,ozCandle=getChartUSD_OHLC(),ozLine=lineDataFromOHLC(ozCandle);
-  tvSeries.setData(gramLine);tvCandleSeries.setData(gramCandle);tvSeriesOz.setData(ozLine);tvCandleSeriesOz.setData(ozCandle);
-  const key=chartRangeKey();
-  if(tvChartReadyKey!==key){restoreChartView();tvChartReadyKey=key;}
-  const hint=$("chartHint");
-  if(hint){
-    const source=state.range==="1D"?`Intraday · ${chartInterval} · ${pts.length} แท่ง`:`ย้อนหลัง ${state.range} · ${pts.length} แท่ง`;
-    const candleNote=chartMode==="candle"?(state.range==="1D"?" · OHLC จากจุด Intraday":" · แท่งรายวันเป็นค่าประมาณจากราคาปิด"):" · กราฟเส้น";
-    hint.textContent=`ลาก/บีบนิ้วเพื่อเลื่อนและซูม · ${source}${candleNote} · กราฟที่ 2 = USD/troy oz`;
+    localStorage.setItem(USD_TICKS_KEY, JSON.stringify(tickArr));
+  }catch(_){
+    // quota: keep newer half and retry once
+    try{
+      const keep = tickArr.slice(Math.floor(tickArr.length / 2));
+      tickMap = new Map(keep); tickArr = keep.slice();
+      localStorage.setItem(USD_TICKS_KEY, JSON.stringify(tickArr));
+    }catch(__){ }
   }
-  drawPurchaseOverlays();
+  tickDirty = false; tickLastSave = Date.now();
 }
-function resetChartZoom(){
-  if(!tvChart)return;
-  const views=loadChartViews();delete views[chartRangeKey()];localStorage.setItem(CHART_VIEW_KEY,JSON.stringify(views));tvChart.timeScale().fitContent();
-  try{tvChartOz.timeScale().fitContent()}catch(_){ }
-  drawPurchaseOverlays();
+
+/* ---------- daily store ---------- */
+function dayTimeSec(dateStr){
+  const t = Date.parse(String(dateStr).slice(0, 10) + "T12:00:00Z");
+  return Number.isFinite(t) ? Math.floor(t / 1000) : null;
 }
-function fitChart(){
-  if(!tvChart)return;tvChart.timeScale().fitContent();
-  const data=getChartOHLC(),ext=extendRangeForLots(lineDataFromOHLC(data));
-  if(ext)try{tvChart.timeScale().setVisibleRange(ext)}catch(_){ }
-  try{const r=tvChart.timeScale().getVisibleRange();if(r)tvChartOz.timeScale().setVisibleRange(r)}catch(_){ }
-  drawPurchaseOverlays();
+function normalizeDaily(rows){
+  const m = new Map();
+  for(const r of rows){
+    const time = Number(r.time), o = Number(r.open), h = Number(r.high), l = Number(r.low), c = Number(r.close);
+    if(!(time > 0) || !(c > 0)) continue;
+    const open = o > 0 ? o : c;
+    m.set(time, { time, open, high: Math.max(h > 0 ? h : c, open, c), low: Math.min(l > 0 ? l : c, open, c), close: c });
+  }
+  return [...m.values()].sort((a, b) => a.time - b.time);
 }
-function toggleChartFullscreen(){
-  const wrap=$("goldChart")?.closest(".chart-wrap");if(!wrap)return;wrap.classList.toggle("chart-fullscreen");
-  const btn=$("chartFullscreenBtn");if(btn)btn.textContent=wrap.classList.contains("chart-fullscreen")?"✕ ออกจากเต็มจอ":"⛶ เต็มจอ";
-  setTimeout(()=>{if(tvChart)tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);if(tvChartOz)tvChartOz.resize($("goldChartOz").clientWidth,$("goldChartOz").clientHeight);drawPurchaseOverlays()},80);
+function closesToBars(list){ // [{time, close}] ascending
+  const out = []; let prev = null;
+  for(const x of list){
+    const close = Number(x.close); if(!(close > 0)) continue;
+    const open = prev ?? close;
+    out.push({ time: x.time, open, high: Math.max(open, close), low: Math.min(open, close), close });
+    prev = close;
+  }
+  return out;
+}
+function loadDailyStore(){
+  if(dailyBars) return dailyBars;
+  dailyBars = [];
+  try{ dailyBars = normalizeDaily(JSON.parse(localStorage.getItem(USD_DAILY_KEY) || "[]")); }catch(_){ }
+  if(!dailyBars.length){
+    try{ // migrate from previous version (rows carried a usd close)
+      const old = loadDailyHistory().map(x => ({ time: dayTimeSec(x.date || new Date(x.ts).toISOString()), close: Number(x.usd) }))
+        .filter(x => x.time && x.close > 0).sort((a, b) => a.time - b.time);
+      dailyBars = normalizeDaily(closesToBars(old));
+    }catch(_){ }
+  }
+  return dailyBars;
+}
+function saveDailyStore(rows){
+  dailyBars = normalizeDaily(rows).slice(-400);
+  try{ localStorage.setItem(USD_DAILY_KEY, JSON.stringify(dailyBars)); }catch(_){ }
+}
+function mergeDaily(newRows){
+  saveDailyStore(loadDailyStore().concat(newRows));
+}
+
+/* ---------- remote data (XAU/USD) ---------- */
+async function fetchIntradayGold(){
+  loadTickStore();
+  if(tickMap.size && Date.now() - lastIntradayFetch < 180000) return true; // throttle: 3 min
+  lastIntradayFetch = Date.now();
+  try{
+    const data = await fetchJSON(`https://xaus.com/api/v1/intraday?symbol=xau&hours=24&fresh=${Date.now()}`);
+    const raw = Array.isArray(data?.points) ? data.points : [];
+    if(!raw.length) return false;
+    let added = 0;
+    for(const p of raw){
+      const ts = typeof p.t === "number" ? (p.t < 1e12 ? p.t * 1000 : p.t) : Date.parse(p.t);
+      if(addTick(ts, Number(p.p), false)) added++;
+    }
+    saveTickStore(true);
+    if(added) renderChart("data");
+    return true;
+  }catch(_){ lastIntradayFetch = Date.now() - 120000; return false; }
+}
+async function fetchHistoricalGold(){
+  loadDailyStore();
+  if(dailyBars.length && Date.now() - lastHistoryFetch < 300000) return true; // throttle: 5 min
+  lastHistoryFetch = Date.now();
+  const now = new Date(), from = new Date(now.getTime() - 400 * 86400000);
+  try{
+    const data = await fetchJSON(`https://xaus.com/api/v1/history?fresh=${Date.now()}`);
+    const points = Array.isArray(data?.points) ? data.points : [];
+    if(!points.length) throw new Error("no daily history");
+    const list = points.map(p => ({ time: dayTimeSec(p.d), close: Number(p.c) }))
+      .filter(x => x.time && x.close > 0).sort((a, b) => a.time - b.time);
+    if(!list.length) throw new Error("bad daily history");
+    mergeDaily(closesToBars(list));
+    renderChart("data");
+    return true;
+  }catch(_){
+    try{
+      const data = await fetchJSON(`https://api.goldprice.dev/v1/bars?symbol=XAU-USD-SPOT&interval=1d&from=${ymd(from)}&to=${ymd(now)}&limit=400`);
+      const bars = Array.isArray(data?.bars) ? data.bars : [];
+      const rows = bars.map(b => ({ time: dayTimeSec(b.bar_start), open: Number(b.open), high: Number(b.high), low: Number(b.low), close: Number(b.close) }))
+        .filter(x => x.time && x.close > 0);
+      if(rows.length){ mergeDaily(rows); renderChart("data"); return true; }
+    }catch(__){ }
+    lastHistoryFetch = Date.now() - 240000;
+    return false;
+  }
+}
+
+/* ---------- live tick from the polling loop ---------- */
+function recordLiveTick(){
+  let usd = Number(state.spotUsdOz);
+  if(!(usd > 0)){
+    const fx = chartFx();
+    if(fx && Number(state.priceThbGram) > 0) usd = Number(state.priceThbGram) * OZ_TO_GRAM / fx / (99.99 / 100);
+  }
+  if(!(usd > 0)) return;
+  const u = state.updatedAt;
+  let ts = typeof u === "number" ? (u < 1e12 ? u * 1000 : u) : Date.parse(u);
+  if(!Number.isFinite(ts)) ts = Date.now();
+  addTick(Math.min(ts, Date.now()), usd, true);
+}
+function chartFx(){
+  if(Number.isFinite(Number(state.usdThb)) && Number(state.usdThb) > 0) return Number(state.usdThb);
+  if(Number(state.priceThbOz) > 0 && Number(state.spotUsdOz) > 0) return Number(state.priceThbOz) / Number(state.spotUsdOz);
+  return null;
+}
+
+/* ---------- bars ---------- */
+function aggregateTicks(arr, intervalMs){
+  const out = []; let cur = null;
+  for(const [ms, v] of arr){
+    const t = Math.floor(Math.floor(ms / intervalMs) * intervalMs / 1000);
+    if(!cur || cur.time !== t){
+      if(cur) out.push(cur);
+      cur = { time: t, open: v, high: v, low: v, close: v };
+    }else{
+      if(v > cur.high) cur.high = v;
+      if(v < cur.low) cur.low = v;
+      cur.close = v;
+    }
+  }
+  if(cur) out.push(cur);
+  return out;
+}
+function buildDailyBars(){
+  const daily = loadDailyStore().slice();
+  const byTime = new Map(daily.map(b => [b.time, b]));
+  // today's/recent days from ticks (UTC date, 12:00 UTC label like the daily store)
+  const days = new Map();
+  for(const [ms, v] of tickArr){
+    const t = Math.floor(ms / 86400000) * 86400 + 43200;
+    const d = days.get(t);
+    if(!d) days.set(t, { time: t, open: v, high: v, low: v, close: v });
+    else{ if(v > d.high) d.high = v; if(v < d.low) d.low = v; d.close = v; }
+  }
+  const merged = [...byTime.values()];
+  for(const d of days.values()){
+    const ex = byTime.get(d.time);
+    if(ex){ ex.high = Math.max(ex.high, d.high); ex.low = Math.min(ex.low, d.low); ex.close = d.close; }
+    else merged.push(d);
+  }
+  merged.sort((a, b) => a.time - b.time);
+  // chain opens so candles are continuous
+  for(let i = 1; i < merged.length; i++){
+    const b = merged[i], prev = merged[i - 1].close;
+    if(!byTime.has(b.time)){
+      b.open = prev; b.high = Math.max(b.high, prev); b.low = Math.min(b.low, prev);
+    }
+  }
+  return merged;
+}
+function buildBars(interval){
+  loadTickStore();
+  chartInfo.firstIntradaySec = null;
+  if(interval === "1D") return buildDailyBars();
+  const ms = CHART_INTERVALS[interval] || CHART_INTERVALS["5m"];
+  const intr = aggregateTicks(tickArr, ms);
+  const daily = loadDailyStore();
+  if(!intr.length) return daily.slice();
+  chartInfo.firstIntradaySec = intr[0].time;
+  const firstDay = Math.floor(intr[0].time / 86400) * 86400;
+  return daily.filter(d => d.time < firstDay).concat(intr);
+}
+function windowStartSec(){ return Date.now() / 1000 - (RANGE_DAYS[state.range] || 1) * 86400; }
+function firstIndexInWindow(bars){
+  const from = windowStartSec();
+  let idx = bars.findIndex(b => b.time >= from);
+  if(idx < 0) idx = Math.max(0, bars.length - 60);
+  return Math.min(idx, Math.max(0, bars.length - 8));
+}
+const toPoint = b => chartMode === "candle"
+  ? { time: b.time, open: b.open, high: b.high, low: b.low, close: b.close }
+  : { time: b.time, value: b.close };
+
+/* ---------- formatting ---------- */
+function formatChartPrice(v, dec = 2){ return `฿${Number(v).toLocaleString("th-TH", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`; }
+function formatUsdPrice(v, dec = 2){ return `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec })}`; }
+function chartTime(ts){ return Math.floor(Number(ts) / 1000); }
+function tickMarkFormatter(time, type){
+  const d = new Date(Number(time) * 1000);
+  const f = o => new Intl.DateTimeFormat("th-TH", Object.assign({ timeZone: PURCHASE_TIMEZONE }, o)).format(d);
+  switch(type){
+    case 0: return f({ year: "numeric" });
+    case 1: return f({ month: "short" });
+    case 2: return f({ day: "numeric", month: "short" });
+    default: return f({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  }
+}
+
+/* ---------- lots (purchase markers) ---------- */
+function getLotsForChart(){
+  const now = Date.now();
+  const days = RANGE_DAYS[state.range] || 1;
+  const start = now - days * 86400000;
+  const end = now + 86400000;
+  return loadLots().filter(l => {
+    const ts = parseLotTimestamp(l.date, l.time);
+    if(!Number.isFinite(ts)) return false;
+    const markerStart = state.range === "1D" ? start - 86400000 : start;
+    return ts >= markerStart && ts <= end;
+  });
+}
+function lotBuyUsdOz(lot){
+  const grams = Number(lot.grams) || unitToGrams(Number(lot.quantity) || 0, lot.unit);
+  if(!(grams > 0)) return null;
+  const buyGram = Number(lot.buyPriceThbGram) > 0 ? Number(lot.buyPriceThbGram) : (Number(lot.costThb) > 0 ? Number(lot.costThb) / grams : 0);
+  if(!(buyGram > 0)) return null;
+  const fx = chartFx();
+  const usd = fx && fx > 0 ? buyGram * OZ_TO_GRAM / fx : 0;
+  return usd > 0 ? { grams, buyGram, usd } : null;
+}
+
+/* ---------- chart creation ---------- */
+function setChartEmpty(text){
+  const stage = $("chartStageOz"); if(!stage) return;
+  let el = stage.querySelector(".chart-empty-msg");
+  if(!text){ if(el) el.remove(); return; }
+  if(!el){ el = document.createElement("div"); el.className = "chart-empty-msg"; stage.appendChild(el); }
+  el.textContent = text;
+}
+function scheduleChartRetry(){
+  if(chartRetryTimer) return;
+  chartRetryTimer = setTimeout(() => { chartRetryTimer = null; renderChart(); }, 800);
+}
+function ensureChart(){
+  if(chart) return true;
+  const el = $("goldChartOz"); if(!el) return false;
+  if(!window.LightweightCharts){
+    const hint = $("chartHint"); if(hint) hint.textContent = "กำลังโหลดระบบกราฟ…";
+    setChartEmpty("กำลังโหลดระบบกราฟ…");
+    scheduleChartRetry();
+    return false;
+  }
+  try{
+    chart = LightweightCharts.createChart(el, {
+      autoSize: true,
+      layout: { background: { type: "solid", color: "#0b0d0e" }, textColor: "#8d8d8d", fontSize: 11, fontFamily: "Prompt, system-ui, sans-serif" },
+      grid: { vertLines: { color: "rgba(212,175,55,.05)" }, horzLines: { color: "rgba(212,175,55,.09)" } },
+      rightPriceScale: { borderColor: "#292b2b", scaleMargins: { top: .12, bottom: .1 }, minimumWidth: 66 },
+      timeScale: { borderColor: "#292b2b", timeVisible: true, secondsVisible: false, rightOffset: 3, barSpacing: 8, minBarSpacing: .5, maxBarSpacing: 26, fixLeftEdge: true, lockVisibleTimeRangeOnResize: true, tickMarkFormatter },
+      localization: { timeFormatter: formatChartTime, priceFormatter: p => Number(p).toFixed(2) },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal, vertLine: { color: "#d4af37", width: 1, style: 2, labelBackgroundColor: "#8f7218" }, horzLine: { color: "#d4af37", width: 1, style: 2, labelBackgroundColor: "#8f7218" } },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
+      kineticScroll: { mouse: false, touch: true }
+    });
+    const pf = { type: "price", precision: 2, minMove: .01 };
+    areaSeries = chart.addAreaSeries({ topColor: "rgba(212,175,55,.30)", bottomColor: "rgba(212,175,55,.02)", lineColor: "#e6c34a", lineWidth: 2, priceLineVisible: true, lastValueVisible: true, crosshairMarkerVisible: true, crosshairMarkerRadius: 4, priceFormat: pf });
+    candleSeries = chart.addCandlestickSeries({ upColor: "#62db8a", downColor: "#ff5d68", borderUpColor: "#62db8a", borderDownColor: "#ff5d68", wickUpColor: "#62db8a", wickDownColor: "#ff5d68", priceFormat: pf });
+
+    // keep purchase prices inside the visible price range
+    const autoscale = original => {
+      const info = original();
+      if(!info?.priceRange) return info;
+      const prices = getLotsForChart().map(lotBuyUsdOz).filter(Boolean).map(x => x.usd);
+      if(!prices.length) return info;
+      const min = Math.min(info.priceRange.minValue, ...prices), max = Math.max(info.priceRange.maxValue, ...prices);
+      if(!(Number.isFinite(min) && Number.isFinite(max))) return info;
+      const pad = Math.max(max - min, 1e-6) * 0.03;
+      return { ...info, priceRange: { minValue: min - pad, maxValue: max + pad } };
+    };
+    areaSeries.applyOptions({ autoscaleInfoProvider: autoscale });
+    candleSeries.applyOptions({ autoscaleInfoProvider: autoscale });
+    applyChartModeVisibility();
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(scheduleOverlay);
+    chart.subscribeCrosshairMove(param => {
+      scheduleOverlay();
+      const tip = $("chartTooltipOz"); if(!tip) return;
+      const row = param?.seriesData?.get(activeSeries());
+      const value = row?.value ?? row?.close;
+      if(!param?.time || !Number.isFinite(Number(value))){ tip.textContent = lastBarText(); return; }
+      const dt = new Intl.DateTimeFormat("th-TH", { timeZone: PURCHASE_TIMEZONE, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(Number(param.time) * 1000));
+      const extra = row?.close != null && row?.open != null ? ` · O ${row.open.toFixed(2)} H ${row.high.toFixed(2)} L ${row.low.toFixed(2)} C ${row.close.toFixed(2)}` : "";
+      tip.textContent = `${dt} · ${formatUsdPrice(Number(value))}/troy oz${extra}`;
+    });
+    if(window.ResizeObserver){
+      new ResizeObserver(() => scheduleOverlay()).observe($("chartStageOz"));
+    }
+    setChartEmpty("");
+    return true;
+  }catch(e){
+    console.warn("chart init failed:", e);
+    chart = null; areaSeries = null; candleSeries = null;
+    const hint = $("chartHint"); if(hint) hint.textContent = "สร้างกราฟไม่สำเร็จ · ลองรีเฟรชหน้า";
+    return false;
+  }
+}
+function activeSeries(){ return chartMode === "candle" ? candleSeries : areaSeries; }
+function applyChartModeVisibility(){
+  if(!areaSeries || !candleSeries) return;
+  areaSeries.applyOptions({ visible: chartMode !== "candle" });
+  candleSeries.applyOptions({ visible: chartMode === "candle" });
+  const btn = $("chartCandleBtn");
+  if(btn){ btn.classList.toggle("active", chartMode === "candle"); btn.textContent = chartMode === "candle" ? "〽️ กราฟเส้น" : "🕯️ แท่งเทียน"; }
+}
+function lastBarText(){
+  const b = chartBars[chartBars.length - 1];
+  return b ? `ล่าสุด · ${formatUsdPrice(b.close)}/troy oz` : "";
+}
+
+/* ---------- rendering ---------- */
+function canIncremental(oldBars, newBars){
+  const n = oldBars.length, m = newBars.length;
+  if(!n || m < n || m - n > 2) return false;
+  if(oldBars[0].time !== newBars[0].time) return false;
+  if(n >= 2 && oldBars[n - 2].time !== newBars[n - 2].time) return false;
+  return oldBars[n - 1].time === newBars[n - 1].time;
+}
+function setActiveData(bars){
+  const a = activeSeries(), other = chartMode === "candle" ? areaSeries : candleSeries;
+  a.setData(bars.map(toPoint));
+  other.setData([]);
+}
+function renderChart(reason){
+  try{ recordLiveTick(); }catch(_){ }
+  if(!ensureChart()) { updateChartStats([]); return; }
+  let bars;
+  try{ bars = buildBars(chartInterval); }catch(e){ console.warn("buildBars", e); return; }
+  const key = `${state.range}|${chartInterval}|${chartMode}`;
+  const needFull = reason === true || reason === "reset" || key !== chartKey || !chartBars.length || !canIncremental(chartBars, bars);
+
+  if(!bars.length){
+    areaSeries.setData([]); candleSeries.setData([]);
+    chartBars = []; chartKey = key;
+    setChartEmpty("กำลังรวบรวมข้อมูลราคา…");
+    updateChartStats([]); updateChartHint([]); drawPurchaseOverlay();
+    return;
+  }
+  setChartEmpty("");
+
+  if(!needFull){
+    try{
+      for(let i = chartBars.length - 1; i < bars.length; i++) activeSeries().update(toPoint(bars[i]));
+      chartBars = bars;
+    }catch(_){ setActiveData(bars); chartBars = bars; }
+  }else{
+    const ts = chart.timeScale();
+    const sameKey = key === chartKey && chartBars.length && reason !== "reset";
+    let keep = null;
+    if(sameKey){ // data refreshed in background: keep the user's position
+      const lr = ts.getVisibleLogicalRange();
+      if(lr){
+        const aIdx = Math.max(0, Math.min(chartBars.length - 1, Math.round(lr.from)));
+        keep = { lr, aTime: chartBars[aIdx].time, aIdx, atEnd: lr.to >= chartBars.length - 2, oldLen: chartBars.length };
+      }
+    }
+    const modeLr = reason === "mode" ? ts.getVisibleLogicalRange() : null;
+    setActiveData(bars);
+    chartBars = bars; chartKey = key;
+    if(modeLr){
+      try{ ts.setVisibleLogicalRange(modeLr); }catch(_){ applyDefaultView(); }
+    }else if(keep){
+      const span = keep.lr.to - keep.lr.from;
+      let to, from;
+      if(keep.atEnd){ to = bars.length - 1 + (keep.lr.to - (keep.oldLen - 1)); from = to - span; }
+      else{
+        let nIdx = bars.findIndex(b => b.time >= keep.aTime); if(nIdx < 0) nIdx = 0;
+        from = nIdx + (keep.lr.from - keep.aIdx); to = from + span;
+      }
+      try{ ts.setVisibleLogicalRange({ from, to }); }catch(_){ applyDefaultView(); }
+    }else applyDefaultView();
+  }
+  updateChartStats(chartBars);
+  updateChartHint(chartBars);
+  scheduleOverlay();
+}
+function applyDefaultView(){
+  if(!chart || !chartBars.length) return;
+  const idx = firstIndexInWindow(chartBars);
+  try{
+    chart.priceScale("right").applyOptions({ autoScale: true });
+    chart.timeScale().setVisibleLogicalRange({ from: idx - 0.5, to: chartBars.length - 1 + 3 });
+  }catch(_){ try{ chart.timeScale().fitContent(); }catch(__){ } }
+  scheduleOverlay();
+}
+function windowBars(bars){
+  if(!bars.length) return [];
+  return bars.slice(firstIndexInWindow(bars));
+}
+function updateChartStats(bars){
+  const set = (id, t) => { const e = $(id); if(e) e.textContent = t; };
+  const win = windowBars(bars);
+  if(!win.length){
+    set("chartCurrentOz", "ปัจจุบัน: -"); set("chartHighOz", "สูงสุด: -"); set("chartLowOz", "ต่ำสุด: -"); set("chartChangeOz", "เปลี่ยนแปลง: -");
+    return;
+  }
+  const cur = bars[bars.length - 1].close, first = win[0].open;
+  const high = Math.max(...win.map(b => b.high)), low = Math.min(...win.map(b => b.low));
+  const ch = first ? ((cur - first) / first) * 100 : 0;
+  set("chartCurrentOz", `ปัจจุบัน: ${formatUsdPrice(cur)}`);
+  set("chartHighOz", `สูงสุด: ${formatUsdPrice(high)}`);
+  set("chartLowOz", `ต่ำสุด: ${formatUsdPrice(low)}`);
+  set("chartChangeOz", `เปลี่ยนแปลง: ${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%`);
+  const el = $("chartChangeOz"); if(el){ el.style.color = ch >= 0 ? "#62db8a" : "#ff5d68"; }
+}
+function updateChartHint(bars){
+  const hint = $("chartHint"); if(!hint) return;
+  const win = windowBars(bars);
+  let t = `${state.range} · แท่ง ${chartInterval} · ${win.length} แท่ง · ${chartMode === "candle" ? "แท่งเทียน" : "กราฟเส้น"} · ลาก/บีบนิ้วเพื่อเลื่อนและซูม`;
+  if(chartInterval !== "1D" && !chartInfo.firstIntradaySec && bars.length){
+    t += " · ยังไม่มีข้อมูล Intraday แสดงเป็นแท่งรายวันชั่วคราว";
+  }else if(chartInterval !== "1D" && chartInfo.firstIntradaySec && chartInfo.firstIntradaySec > windowStartSec() + 3600){
+    t += " · ช่วงก่อนหน้าข้อมูล Intraday แสดงเป็นแท่งรายวัน";
+  }
+  hint.textContent = t;
+}
+
+/* ---------- purchase overlay ---------- */
+function svgEl(tag, attrs){ const e = document.createElementNS("http://www.w3.org/2000/svg", tag); for(const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v)); return e; }
+function scheduleOverlay(){
+  if(overlayRaf) return;
+  overlayRaf = requestAnimationFrame(() => { overlayRaf = 0; try{ drawPurchaseOverlay(); }catch(_){ } });
+}
+function drawPurchaseOverlays(){ scheduleOverlay(); }
+function barTimeFor(ts){ // snap to the bar that contains ts
+  if(!chartBars.length) return null;
+  if(ts < chartBars[0].time) return null;
+  let lo = 0, hi = chartBars.length - 1;
+  while(lo < hi){ const m = (lo + hi + 1) >> 1; chartBars[m].time <= ts ? lo = m : hi = m - 1; }
+  return chartBars[lo].time;
+}
+function drawPurchaseOverlay(){
+  const svg = $("chartOverlayOz"); if(!svg) return;
+  const host = $("chartStageOz");
+  const w = host?.clientWidth || 0, h = host?.clientHeight || 0;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`); svg.innerHTML = "";
+  if(!chart || !chartBars.length || !w || !h) return;
+  const series = activeSeries();
+  const current = Number(state.priceThbGram) || 0;
+  if(!(current > 0)) return;
+  const priceW = 66; // right price axis
+  for(const lot of getLotsForChart()){
+    const info = lotBuyUsdOz(lot); if(!info) continue;
+    const ts = chartTime(parseLotTimestamp(lot.date, lot.time));
+    const bt = barTimeFor(ts); if(bt == null) continue;
+    const x = chart.timeScale().timeToCoordinate(bt);
+    const y = series.priceToCoordinate(info.usd);
+    if(x == null || y == null || x < 0 || x > w - priceW) continue;
+    const purity = Number(lot.goldType || 99.99) / 99.99;
+    const pl = (current * purity - info.buyGram) * info.grams;
+    const color = pl >= 0 ? "#62db8a" : "#ff5d68";
+    const v = svgEl("line", { x1: x, y1: 0, x2: x, y2: h, stroke: color, class: "purchase-vline" });
+    const hl = svgEl("line", { x1: 0, y1: y, x2: w - priceW, y2: y, stroke: color, class: "purchase-hline" });
+    const dot = svgEl("circle", { cx: x, cy: y, r: 6, fill: color, class: "purchase-dot" });
+    const lx = Math.min(Math.max(x + 8, 8), Math.max(8, w - priceW - 140));
+    const label = svgEl("text", { x: lx, y: Math.max(16, y - 9), fill: color, class: "purchase-label" }); label.textContent = `${pl >= 0 ? "+" : ""}${money(pl)}`;
+    const price = svgEl("text", { x: lx, y: Math.min(h - 22, Math.max(30, y + 15)), fill: "#d4af37", class: "purchase-sub" }); price.textContent = `ซื้อ ${formatUsdPrice(info.usd)}/oz`;
+    const time = svgEl("text", { x: Math.min(Math.max(x + 5, 5), Math.max(5, w - priceW - 125)), y: h - 8, fill: "#bdbdbd", class: "purchase-sub" }); time.textContent = `${lot.date} ${lot.time || ""} · ${num(info.grams, 4)}g`;
+    svg.append(v, hl, dot, label, price, time);
+  }
+}
+
+/* ---------- controls ---------- */
+function syncChartControls(){
+  document.querySelectorAll(".chart-tab[data-range]").forEach(x => x.classList.toggle("active", x.dataset.range === state.range));
+  document.querySelectorAll(".chart-interval").forEach(x => x.classList.toggle("active", x.dataset.interval === chartInterval));
+}
+function barsInWindow(range, interval){ return (RANGE_DAYS[range] * 86400000) / CHART_INTERVALS[interval]; }
+function setChartRange(range){
+  if(!RANGE_DAYS[range]) return;
+  state.range = range;
+  const order = ["5m", "15m", "30m", "1H", "1D"];
+  let n = barsInWindow(range, chartInterval);
+  if(n > TARGET_MAX_BARS || n < 12){
+    // choose the finest interval that keeps the window readable
+    chartInterval = order.find(i => barsInWindow(range, i) <= TARGET_MAX_BARS) || "1D";
+  }
+  syncChartControls();
+  chartKey = "";
+  renderChart("reset");
+  if(range !== "1D"){ fetchHistoricalGold(); }
 }
 function setChartInterval(interval){
-  if(!CHART_INTERVALS[interval])return;
-  chartInterval=interval;
-  document.querySelectorAll(".chart-interval").forEach(x=>x.classList.toggle("active",x.dataset.interval===interval));
-  if(interval!=="1D" && state.range!=="1D"){
-    document.querySelectorAll(".chart-tab").forEach(x=>x.classList.toggle("active",x.dataset.range==="1D"));
-    state.range="1D";
-  }
-  tvChartReadyKey=null;renderChart();
+  if(!CHART_INTERVALS[interval]) return;
+  chartInterval = interval;
+  if(interval === "1D" && state.range === "1D") state.range = "30D";
+  syncChartControls();
+  chartKey = "";
+  renderChart("reset");
 }
+function setChartMode(mode){
+  chartMode = mode === "candle" ? "candle" : "line";
+  applyChartModeVisibility();
+  renderChart("mode");
+}
+function resetChartZoom(){
+  if(!chart) return;
+  applyDefaultView();
+}
+function fitChart(){
+  if(!chart) return;
+  try{ chart.priceScale("right").applyOptions({ autoScale: true }); chart.timeScale().fitContent(); }catch(_){ }
+  scheduleOverlay();
+}
+function toggleChartFullscreen(){
+  const wrap = $("chartStageOz")?.closest(".chart-wrap"); if(!wrap) return;
+  const on = wrap.classList.toggle("chart-fullscreen");
+  document.documentElement.classList.toggle("chart-fs-lock", on);
+  const btn = $("chartFullscreenBtn"); if(btn) btn.textContent = on ? "✕ ออกจากเต็มจอ" : "⛶ เต็มจอ";
+  // autoSize follows the container; just redraw overlay once layout settled
+  setTimeout(scheduleOverlay, 120); setTimeout(scheduleOverlay, 400);
+}
+
 function updateLotPreview(){
   const q=Number($("quantity").value);
   const unit=$("unit").value;
@@ -1439,19 +1661,7 @@ function setup(){
   });
 
   document.querySelectorAll(".chart-tab[data-range]").forEach(btn=>{
-    btn.addEventListener("click",()=>{
-      document.querySelectorAll(".chart-tab[data-range]").forEach(x=>x.classList.remove("active"));
-      btn.classList.add("active");
-      if(state.range!==btn.dataset.range){
-        if(tvChart)saveChartView();
-        state.range=btn.dataset.range;
-        if(state.range!=="1D") chartInterval="1D";
-        document.querySelectorAll(".chart-interval").forEach(x=>x.classList.toggle("active",x.dataset.interval===chartInterval));
-        tvChartReadyKey=null;
-      }
-      renderChart();
-      if(state.range!=="1D") fetchHistoricalGold();
-    });
+    btn.addEventListener("click",()=>setChartRange(btn.dataset.range));
   });
 
   $("lotsList").addEventListener("click",e=>{
@@ -1503,14 +1713,20 @@ function setup(){
   $("chartFitBtn").addEventListener("click",fitChart);
   $("chartResetBtn").addEventListener("click",resetChartZoom);
   $("chartFullscreenBtn").addEventListener("click",toggleChartFullscreen);
-  $("chartCandleBtn").addEventListener("click",()=>{setChartMode(chartMode==="line"?"candle":"line");renderChart();});
+  $("chartCandleBtn").addEventListener("click",()=>setChartMode(chartMode==="line"?"candle":"line"));
   document.querySelectorAll(".chart-interval").forEach(btn=>btn.addEventListener("click",()=>setChartInterval(btn.dataset.interval)));
 
-  window.addEventListener("resize",()=>{
-    if(tvChart && $("goldChart")) tvChart.resize($("goldChart").clientWidth,$("goldChart").clientHeight);
-    if(tvChartOz && $("goldChartOz")) tvChartOz.resize($("goldChartOz").clientWidth,$("goldChartOz").clientHeight);
-    drawPurchaseOverlays();
+  // autoSize (ResizeObserver) handles chart resizing; only the overlay needs a redraw.
+  window.addEventListener("resize",scheduleOverlay);
+  window.addEventListener("orientationchange",()=>setTimeout(scheduleOverlay,300));
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"){
+      const wrap=$("chartStageOz")?.closest(".chart-wrap");
+      if(wrap?.classList.contains("chart-fullscreen")) toggleChartFullscreen();
+    }
   });
+  window.addEventListener("pagehide",()=>saveTickStore(true));
+  syncChartControls();
   loadLastMarket();
   renderPortfolio();
   renderLots();
@@ -1567,7 +1783,8 @@ function setup(){
 
   // First load immediately.
   runPoll("startup");
-  setTimeout(fetchHistoricalGold,2500);
+  setTimeout(fetchHistoricalGold,1500);
+  setInterval(fetchHistoricalGold,30*60*1000);
 
   // Returning to the page/app: fetch exactly once immediately,
   // then return to the normal 5-second visible cadence.
@@ -1577,6 +1794,7 @@ function setup(){
       pollTimer=null;
       runPoll("visible-return");
     }else{
+      saveTickStore(true);
       clearTimeout(pollTimer);
       pollTimer=setTimeout(()=>runPoll("background"),POLL_HIDDEN_MS);
     }

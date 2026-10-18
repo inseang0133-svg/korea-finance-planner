@@ -659,3 +659,20 @@ select{
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
 }
+
+
+/* ===== Single USD/oz chart — stable layout (chartfix2) ===== */
+.chart-stage{height:360px;touch-action:pan-y;-webkit-user-select:none;user-select:none}
+@media(max-width:600px){.chart-stage{height:340px}}
+.chart-panel-main{margin-top:10px}
+.chart-empty-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;color:#8d8d8d;font-size:13px;z-index:4;pointer-events:none}
+.chart-tooltip{min-height:18px}
+html.chart-fs-lock,html.chart-fs-lock body{overflow:hidden}
+.chart-wrap.chart-fullscreen{
+  display:flex;flex-direction:column;overflow:hidden;
+  padding-top:max(12px,env(safe-area-inset-top));
+  padding-bottom:max(12px,env(safe-area-inset-bottom));
+}
+.chart-wrap.chart-fullscreen .chart-panel{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;margin-top:6px}
+.chart-wrap.chart-fullscreen .chart-stage{flex:1 1 auto;height:auto;min-height:240px}
+.chart-wrap.chart-fullscreen .chart-interval-note{display:none}

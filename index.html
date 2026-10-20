@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261018-chartfix2">
+    <link rel="stylesheet" href="style.css?v=20261019-news2">
     
     <link rel="manifest" href="manifest.json">
     <!-- Cloud login layer -->
@@ -53,9 +53,15 @@
         🔄 อัปเดตค่าเงินล่าสุด
         </button>
 
-        <button onclick="calculate()">
-            คำนวณ
-        </button>
+        <div class="btn-row">
+            <button onclick="calculate()">
+                คำนวณ
+            </button>
+            <button type="button" class="btn-save-month" onclick="saveThisMonthSalary()">
+                📅 บันทึกเงินเดือนเดือนนี้
+            </button>
+        </div>
+        <p id="saveMonthStatus" class="save-month-status" role="status" aria-live="polite"></p>
         <p id="exchangeStatus"></p>
 
     </div> <div class="results">
@@ -110,6 +116,119 @@
     </div>
 
     <div class="card">
+        <h2>📅 บันทึกเงินเดือนรายเดือน</h2>
+        <label>เดือน</label>
+        <input type="month" id="salaryMonth">
+
+        <label>รายได้สุทธิ (KRW)</label>
+        <input type="number" id="salaryRecord">
+
+        <button onclick="addSalaryRecord()">➕ เพิ่มรายการ</button>
+        
+        <div class="history-header" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px;">
+            <h3 style="color: #d4af37; font-size: 16px;">📜 ประวัติการบันทึก</h3>
+            <select id="filterYear" class="year-filter" onchange="loadSalaryRecords()" style="width: auto; margin-bottom: 0; padding: 6px 12px; background: #222; border: 1px solid #d4af37; color: white;">
+                <option value="latest">3 เดือนล่าสุด</option>
+                </select>
+        </div>
+
+        <div id="salaryHistory" style="margin-top: 15px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>📊 สถิติการเงิน</h2>
+        <button onclick="exportExcel()" style="margin-bottom: 20px;">📁 Export Excel</button>
+        
+        <div class="stats-grid" style="margin-top:20px;">
+
+    <div class="stat-box">
+        <span>🎯 รายได้ทั้งหมด</span>
+        <h3 id="totalSalaryKRW">0 KRW</h3>
+        <p id="totalSalaryTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>💰 เงินเก็บ 45%</span>
+        <h3 id="totalSavingKRW">0 KRW</h3>
+        <p id="totalSavingTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>🏠 ส่งบ้าน 25%</span>
+        <h3 id="totalFamilyKRW">0 KRW</h3>
+        <p id="totalFamilyTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>🥇 ออมทอง 15%</span>
+        <h3 id="totalGoldKRW">0 KRW</h3>
+        <p id="totalGoldTHB">0 THB</p>
+        <div id="goldPortfolioInfo" class="stat-portfolio" hidden>
+            <div class="sp-label">🪙 พอร์ตทอง · มูลค่าปัจจุบัน</div>
+            <div class="sp-value" id="goldPortfolioValue">-</div>
+            <div class="sp-pl" id="goldPortfolioPL">-</div>
+            <div class="sp-time" id="goldPortfolioTime"></div>
+        </div>
+    </div>
+
+    <div class="stat-box">
+        <span>🛒 ใช้ส่วนตัว 10%</span>
+        <h3 id="totalPersonalKRW">0 KRW</h3>
+        <p id="totalPersonalTHB">0 THB</p>
+    </div>
+
+    <div class="stat-box">
+        <span>✈️ เที่ยว 5%</span>
+        <h3 id="totalTravelKRW">0 KRW</h3>
+        <p id="totalTravelTHB">0 THB</p>
+    </div>
+
+</div>
+
+        <h3 class="chart-title">💵 รายได้แต่ละเดือน <small>(บาท)</small></h3>
+        <div class="chart-box"><canvas id="salaryChart"></canvas></div>
+
+        <h3 class="chart-title">📈 เงินเก็บสะสม 45% <small>(บาท)</small></h3>
+        <div class="chart-box"><canvas id="savingChart"></canvas></div>
+    </div>
+
+    <div class="card">
+    <h2>สัญญาทำงานเกาหลี</h2>
+
+    <label>วันที่เริ่มงาน</label>
+
+    <input
+        type="date"
+        id="startDate"
+    >
+
+    <button onclick="saveContract()">
+        💾 บันทึกวันเริ่มงาน
+    </button>
+
+    <label style="margin-top:22px;">ระยะเวลาสัญญา</label>
+    <div class="contract-options" id="contractOptions">
+        <button type="button" class="contract-opt" data-months="22" onclick="setContractDuration(22)">1 ปี 10 เดือน</button>
+        <button type="button" class="contract-opt" data-months="36" onclick="setContractDuration(36)">3 ปี</button>
+        <button type="button" class="contract-opt" data-months="58" onclick="setContractDuration(58)">4 ปี 10 เดือน</button>
+    </div>
+
+    <div
+        id="contractResult"
+        style="margin-top:20px;"
+    >
+        -
+    </div>
+
+    <button
+        class="btn-danger"
+        onclick="deleteContract()"
+    >
+        ❌ ลบข้อมูลสัญญา
+    </button>
+</div>
+
+    <div class="card">
         <h2>💱 ตัวแปลงสกุลเงิน</h2>
         <label>แปลงจาก</label>
         <select id="convertType" onchange="convertCurrency()">
@@ -161,111 +280,9 @@
         <p id="goalInfo">-</p>
     </div>
 
-
-
-    <div class="card">
-    <h2>สัญญาทำงานเกาหลี</h2>
-
-    <label>วันที่เริ่มงาน</label>
-
-    <input
-        type="date"
-        id="startDate"
-    >
-
-    <button onclick="saveContract()">
-        💾 บันทึกวันเริ่มงาน
-    </button>
-
-    <div
-        id="contractResult"
-        style="margin-top:20px;"
-    >
-        -
-    </div>
-
-    <button
-        class="btn-danger"
-        onclick="deleteContract()"
-    >
-        ❌ ลบข้อมูลสัญญา
-    </button>
-</div>
-
-    <div class="card">
-        <h2>📅 บันทึกเงินเดือนรายเดือน</h2>
-        <label>เดือน</label>
-        <input type="month" id="salaryMonth">
-
-        <label>รายได้สุทธิ (KRW)</label>
-        <input type="number" id="salaryRecord">
-
-        <button onclick="addSalaryRecord()">➕ เพิ่มรายการ</button>
-        
-        <div class="history-header" style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 10px;">
-            <h3 style="color: #d4af37; font-size: 16px;">📜 ประวัติการบันทึก</h3>
-            <select id="filterYear" class="year-filter" onchange="loadSalaryRecords()" style="width: auto; margin-bottom: 0; padding: 6px 12px; background: #222; border: 1px solid #d4af37; color: white;">
-                <option value="latest">3 เดือนล่าสุด</option>
-                </select>
-        </div>
-
-        <div id="salaryHistory" style="margin-top: 15px;"></div>
-    </div>
-
-    <div class="card">
-        <h2>📊 สถิติการเงิน</h2>
-        <button onclick="exportExcel()" style="margin-bottom: 20px;">📁 Export Excel</button>
-        
-        <div class="stats-grid" style="margin-top:20px;">
-
-    <div class="stat-box">
-        <span>🎯 รายได้ทั้งหมด</span>
-        <h3 id="totalSalaryKRW">0 KRW</h3>
-        <p id="totalSalaryTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>💰 เงินเก็บ 45%</span>
-        <h3 id="totalSavingKRW">0 KRW</h3>
-        <p id="totalSavingTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>🏠 ส่งบ้าน 25%</span>
-        <h3 id="totalFamilyKRW">0 KRW</h3>
-        <p id="totalFamilyTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>🥇 ออมทอง 15%</span>
-        <h3 id="totalGoldKRW">0 KRW</h3>
-        <p id="totalGoldTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>🛒 ใช้ส่วนตัว 10%</span>
-        <h3 id="totalPersonalKRW">0 KRW</h3>
-        <p id="totalPersonalTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>✈️ เที่ยว 5%</span>
-        <h3 id="totalTravelKRW">0 KRW</h3>
-        <p id="totalTravelTHB">0 THB</p>
-    </div>
-
-</div>
-
-        <h3 class="chart-title">💵 รายได้แต่ละเดือน <small>(บาท)</small></h3>
-        <div class="chart-box"><canvas id="salaryChart"></canvas></div>
-
-        <h3 class="chart-title">📈 เงินเก็บสะสม 45% <small>(บาท)</small></h3>
-        <div class="chart-box"><canvas id="savingChart"></canvas></div>
-    </div>
-
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20261018-chartfix2"></script>
+<script src="script.js?v=20261019-news2"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {

@@ -1319,7 +1319,88 @@ function renderPieChart(){
     });
 }
 
+// ระยะเวลาสัญญา (เดือน) เก็บเฉพาะในเครื่อง: 22 = 1 ปี 10 เดือน, 36 = 3 ปี, 58 = 4 ปี 10 เดือน
+const CONTRACT_MONTHS_KEY = "contractMonths";
+const CONTRACT_DEFAULT_MONTHS = 58;
+const CONTRACT_OPTIONS = [22, 36, 58];
+
+function getContractMonths(){
+    const n = Number(localStorage.getItem(CONTRACT_MONTHS_KEY));
+    return CONTRACT_OPTIONS.includes(n) ? n : CONTRACT_DEFAULT_MONTHS;
+}
+
+function contractDurationLabel(months){
+    const y = Math.floor(months / 12), m = months % 12;
+    return [y ? y + " ปี" : "", m ? m + " เดือน" : ""].filter(Boolean).join(" ");
+}
+
+function kfpParseLocalDate(str){
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(str || ""));
+    if(!m) return null;
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+// บวกเดือนแบบไม่ให้วันที่ล้นเดือน (เช่น 31 ม.ค. + 1 เดือน = 28/29 ก.พ.)
+function kfpAddMonths(date, months){
+    const d = new Date(date.getFullYear(), date.getMonth() + months, 1);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(date.getDate(), lastDay));
+    return d;
+}
+
+function kfpDiffYMD(from, to){
+    let y = to.getFullYear() - from.getFullYear();
+    let m = to.getMonth() - from.getMonth();
+    let d = to.getDate() - from.getDate();
+    if(d < 0){
+        m--;
+        d += new Date(to.getFullYear(), to.getMonth(), 0).getDate();
+    }
+    if(m < 0){ y--; m += 12; }
+    return { y, m, d };
+}
+
+function kfpRemainingText(end){
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if(end <= today) return "ครบสัญญาแล้ว";
+    const { y, m, d } = kfpDiffYMD(today, end);
+    const parts = [];
+    if(y) parts.push(y + " ปี");
+    if(m) parts.push(m + " เดือน");
+    if(d) parts.push(d + " วัน");
+    return parts.length ? parts.join(" ") : "ไม่ถึง 1 วัน";
+}
+
+function updateContractButtons(){
+    const cur = getContractMonths();
+    document.querySelectorAll(".contract-opt").forEach(btn => {
+        btn.classList.toggle("active", Number(btn.dataset.months) === cur);
+    });
+}
+
+function setContractDuration(months){
+    if(!CONTRACT_OPTIONS.includes(months)) return;
+    localStorage.setItem(CONTRACT_MONTHS_KEY, String(months));
+    updateContractButtons();
+
+    // ถ้าเลือกวันเริ่มงานไว้ในช่องแล้ว (แม้ยังไม่ได้กดบันทึก) ให้บันทึกและคำนวณให้เลย
+    const input = document.getElementById("startDate").value;
+    if(input){
+        localStorage.setItem("contractStartDate", input);
+        kfpClearDeleted("contractStartDate");
+        kfpPersistNow();
+        loadContract();
+    }else if(localStorage.getItem("contractStartDate")){
+        loadContract();
+    }else{
+        alert("กรุณาเลือกวันเริ่มงานก่อน");
+    }
+}
+
 function loadContract(){
+
+    updateContractButtons();
 
     const savedDate =
         localStorage.getItem(
@@ -1335,25 +1416,14 @@ function loadContract(){
     ).value =
         savedDate;
 
-    const start =
-        new Date(savedDate);
+    const start = kfpParseLocalDate(savedDate);
+    if(!start){
+        return;
+    }
 
-    const end =
-        new Date(start);
-
-    // 4 ปี 10 เดือน
-    end.setMonth(
-        end.getMonth() + 58
-    );
-
-    const remainDays =
-        Math.ceil(
-            (
-                end -
-                new Date()
-            ) /
-            86400000
-        );
+    const months = getContractMonths();
+    const end = kfpAddMonths(start, months);
+    const remainText = kfpRemainingText(end);
 
     document.getElementById(
         "contractResult"
@@ -1369,6 +1439,9 @@ function loadContract(){
             <strong>
             วันครบสัญญาจ้าง
             </strong>
+            <span style="color:#a9a69c;font-size:13px;">
+            (${contractDurationLabel(months)})
+            </span>
         </div>
 
         <br>
@@ -1393,10 +1466,9 @@ function loadContract(){
         <br>
 
         <div>
-            เหลืออีก
+            ${remainText === "ครบสัญญาแล้ว" ? "" : "เหลืออีก"}
             <strong>
-            ${remainDays.toLocaleString()}
-            วัน
+            ${remainText}
             </strong>
         </div>
     </div>
@@ -1496,6 +1568,49 @@ loadSalaryRecords();
 updateGoalTracker();
     
     document.getElementById("salaryRecord").value = "";
+}
+
+// ปุ่ม "บันทึกเงินเดือนเดือนนี้" (ข้างปุ่มคำนวณ): บันทึกยอดในช่องเงินเดือนสุทธิเป็นรายการของเดือนปัจจุบัน
+function saveThisMonthSalary(){
+    const status = document.getElementById("saveMonthStatus");
+    const setStatus = (text, cls) => {
+        if(!status) return;
+        status.textContent = text;
+        status.className = "save-month-status " + (cls || "");
+    };
+
+    const salary = Number(document.getElementById("salary").value);
+    const rate = Number(document.getElementById("rate").value) || 0.0240;
+
+    if(!salary || salary <= 0){
+        alert("กรุณากรอกเงินเดือนสุทธิ (KRW) ก่อนบันทึก");
+        return;
+    }
+
+    const now = new Date();
+    const month = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+    const monthLabel = now.toLocaleDateString("th-TH", { month:"long", year:"numeric" });
+
+    const records = getSalaryRecords();
+    if(records.some(item => item.month === month)){
+        const msg = "มีเดือนนี้ (" + monthLabel + ") อยู่แล้ว ถ้าต้องการบันทึกใหม่ให้ลบรายการเดือนนี้ในประวัติก่อน";
+        setStatus("⚠️ " + msg, "warn");
+        alert(msg);
+        return;
+    }
+
+    records.push({ month, salary, rate });
+    localStorage.setItem("salaryRecords", JSON.stringify(records));
+    kfpClearDeleted("salaryRecords");
+    kfpPersistNow();
+
+    document.getElementById("filterYear").value = "latest";
+
+    updateAnalytics();
+    loadSalaryRecords();
+    updateGoalTracker();
+
+    setStatus("✅ บันทึก " + monthLabel + " " + formatNumber(salary) + " KRW แล้ว", "ok");
 }
 
 function getSalaryRecords(){
@@ -1618,3 +1733,29 @@ function kfpAutoUpdateRateIfStale(){
 window.addEventListener("load", function(){
     try{ kfpAutoUpdateRateIfStale(); }catch(_){}
 });
+
+
+/* ===== พอร์ตทอง (มูลค่าปัจจุบัน) ในการ์ดสถิติ ช่อง ออมทอง 15% ===== */
+function kfpRenderGoldPortfolio(){
+    const box = document.getElementById("goldPortfolioInfo");
+    if(!box) return;
+    let snap = null;
+    try{ snap = JSON.parse(localStorage.getItem("kfp_gold_portfolio_snapshot_v1") || "null"); }catch(_){}
+    if(!snap || !(Number(snap.value) > 0)){ box.hidden = true; return; }
+
+    const baht = n => "฿" + new Intl.NumberFormat("th-TH", {minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
+    const pl = Number(snap.pl) || 0, pct = Number(snap.pct) || 0;
+
+    document.getElementById("goldPortfolioValue").textContent = baht(Number(snap.value));
+    const plEl = document.getElementById("goldPortfolioPL");
+    plEl.textContent = "P/L " + (pl >= 0 ? "+" : "-") + baht(Math.abs(pl)) + " (" + (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%)";
+    plEl.className = "sp-pl " + (pl > 0 ? "up" : pl < 0 ? "down" : "");
+    document.getElementById("goldPortfolioTime").textContent = snap.ts
+        ? "อัปเดตจากหน้าพอร์ตทอง " + new Date(snap.ts).toLocaleString("th-TH", {dateStyle:"short", timeStyle:"short"})
+        : "";
+    box.hidden = false;
+}
+kfpRenderGoldPortfolio();
+window.addEventListener("pageshow", kfpRenderGoldPortfolio);
+window.addEventListener("storage", kfpRenderGoldPortfolio);
+document.addEventListener("visibilitychange", () => { if(!document.hidden) kfpRenderGoldPortfolio(); });

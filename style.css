@@ -611,3 +611,98 @@ input[readonly]{
 @media(prefers-reduced-motion:reduce){
     *{transition:none !important;animation:none !important;scroll-behavior:auto !important}
 }
+
+
+/* ===== ช่องเลือกวันที่/เดือน (iOS ชอบล้นการ์ดไปทางขวา) ===== */
+input[type="date"],
+input[type="month"]{
+    display:block;
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    box-sizing:border-box;
+    text-align:center;
+    text-align-last:center;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value{
+    text-align:center;
+    min-width:0;
+    margin:0 auto;
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator{
+    position:absolute;
+    right:14px;
+}
+input[type="date"],
+input[type="month"]{ position:relative; }
+
+/* ===== ปุ่มเลือกระยะเวลาสัญญา ===== */
+.contract-options{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+    margin-bottom:16px;
+}
+.contract-opt{
+    margin:0 !important;
+    padding:12px 4px;
+    font-size:14px !important;
+    line-height:1.3;
+    background:#1b1b1e;
+    color:#e6d9a8;
+    border:1px solid rgba(212,175,55,.35);
+    box-shadow:none;
+}
+.contract-opt.active{
+    background:linear-gradient(135deg,#f3d870 0%,#d4af37 55%,#b8901f 100%);
+    color:#1a1400;
+    border-color:transparent;
+    box-shadow:0 4px 12px rgba(212,175,55,.25);
+}
+
+/* ===== พอร์ตทองในการ์ดสถิติ (ออมทอง 15%) ===== */
+.stat-portfolio{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px dashed rgba(212,175,55,.35);
+    text-align:center;
+}
+.stat-portfolio .sp-label{font-size:12.5px;color:#bdb79f}
+.stat-portfolio .sp-value{margin-top:4px;font-size:17px;font-weight:700;color:#f3d870}
+.stat-portfolio .sp-pl{margin-top:2px;font-size:13px;font-weight:600}
+.stat-portfolio .sp-pl.up{color:#37d478}
+.stat-portfolio .sp-pl.down{color:#ff6b6b}
+.stat-portfolio .sp-time{margin-top:3px;font-size:11px;color:#7f7c70}
+
+
+/* ===== ปุ่มคำนวณ + บันทึกเงินเดือนเดือนนี้ (เคียงกัน) ===== */
+.btn-row{
+    margin-top:14px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    align-items:stretch;
+}
+.btn-row button{
+    margin:0 !important;
+    line-height:1.3;
+}
+.btn-save-month{
+    background:#1b1b1e;
+    color:#f3d870;
+    border:1px solid rgba(212,175,55,.6);
+    box-shadow:none;
+    font-size:15px !important;
+}
+.save-month-status{
+    margin-top:12px;
+    font-size:14px;
+    text-align:center;
+    min-height:0;
+}
+.save-month-status.ok{color:#37d478}
+.save-month-status.warn{color:#ffb74d}

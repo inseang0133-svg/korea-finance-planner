@@ -124,3 +124,18 @@ for each row execute procedure public.touch_kfp_updated_at();
 -- Optional: keep new users immediately usable with username/password.
 -- In Supabase Dashboard, Authentication > Providers > Email,
 -- turn OFF "Confirm email" if you want signup to log in immediately.
+
+-- -----------------------------
+-- Data API grants
+-- From 2026-10-30 Supabase no longer auto-grants API access on NEW tables in "public".
+-- Existing tables keep their grants; these lines are harmless to re-run and make
+-- this file work for new projects / preview branches / "supabase db reset".
+-- The app only signs in users (role: authenticated) and never reads these tables
+-- as anon, so anon gets NO access. Row Level Security above still limits each
+-- user to their own rows.
+-- -----------------------------
+grant select, insert, update, delete on public.profiles  to authenticated;
+grant select, insert, update, delete on public.user_data to authenticated;
+
+grant select, insert, update, delete on public.profiles  to service_role;
+grant select, insert, update, delete on public.user_data to service_role;

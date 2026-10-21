@@ -711,6 +711,32 @@ async function fetchGold(){
   return {ok:false,error:errors.join(" | "),gold2go:gold2goResult};
 }
 
+// ปุ่ม 🔄 อัปเดต: ดึงราคาแล้วแจ้งผลเป็นข้อความสีเขียว (เวลา + ราคาตอนกด)
+async function manualRefreshGold(){
+  const btn=$("refreshGoldBtn"), note=$("refreshNotice");
+  if(!btn || btn.disabled) return;
+  const oldText=btn.textContent;
+  btn.disabled=true; btn.textContent="⏳ กำลังอัปเดต...";
+  if(note){ note.className="refresh-notice pending"; note.textContent="กำลังดึงราคาล่าสุด…"; }
+  let res;
+  try{ res=await fetchGold(); }catch(e){ res={ok:false,error:e?.message}; }
+  btn.disabled=false; btn.textContent=oldText;
+  if(!note) return;
+  const t=new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  if(res?.ok){
+    const parts=[];
+    if(state.spotUsdOz>0) parts.push(`ทองโลก $${num(state.spotUsdOz,2)}/oz`);
+    if(state.priceThbGram>0) parts.push(`${money(state.priceThbGram)}/g`);
+    const q=getEffectiveSellPrice();
+    if(q.mode==="gold2go" && q.exact && q.pricePerBaht>0) parts.push(`GOLD2go รับซื้อ ${money(q.pricePerBaht)}/บาททอง`);
+    note.className="refresh-notice ok";
+    note.textContent=`✅ อัปเดตแล้ว เวลา ${t} น.${parts.length?" · "+parts.join(" · "):""}`;
+  }else{
+    note.className="refresh-notice fail";
+    note.textContent=`⚠️ อัปเดตไม่สำเร็จ เวลา ${t} น. · ใช้ราคาล่าสุดที่บันทึกไว้`;
+  }
+}
+
 function persistLastMarket(){
   localStorage.setItem("kfp_gold_last_market",JSON.stringify({
     spotUsdOz:state.spotUsdOz,usdThb:state.usdThb,
@@ -793,8 +819,22 @@ function loadDailyHistory(){try{return JSON.parse(localStorage.getItem(DAILY_HIS
 function saveDailyHistory(rows){localStorage.setItem(DAILY_HISTORY_KEY,JSON.stringify(rows.slice(-400)))}
 function ymd(d){return new Date(d).toISOString().slice(0,10)}
 
+const GOLD_SNAPSHOT_KEY="kfp_gold_portfolio_snapshot_v1";
+// เก็บสรุปมูลค่าพอร์ตล่าสุดไว้ให้หน้า index แสดง (อ่านอย่างเดียว ไม่ซิงก์ขึ้น Cloud)
+function saveGoldSnapshot(p){
+  try{
+    if(!p.lots.length){ localStorage.removeItem(GOLD_SNAPSHOT_KEY); return; }
+    if(!(Number.isFinite(p.currentValue) && p.currentValue>0)) return; // ยังไม่มีราคา -> เก็บค่าเดิมไว้
+    localStorage.setItem(GOLD_SNAPSHOT_KEY,JSON.stringify({
+      value:p.currentValue,cost:p.totalCost,pl:p.netPL,pct:p.netPLPct,
+      lots:p.lots.length,grams:p.totalGrams,ts:Date.now()
+    }));
+  }catch(_){}
+}
+
 function renderPortfolio(){
   const p=calculatePortfolio();
+  saveGoldSnapshot(p);
   $("totalGold").textContent=`${num(p.totalGrams,4)} g`;
   $("totalGoldOz").textContent=`${num(p.totalGrams/OZ_TO_GRAM,6)} oz`;
   $("totalCost").textContent=money(p.totalCost);
@@ -1645,6 +1685,163 @@ window.__kfpRefreshGoldFromCloud = function(){
   }
 };
 
+/* =========================================================================
+   📰 ข่าวทอง & เศรษฐกิจ
+   - แหล่งข่าว: Google News RSS (ภาษาไทย) ผ่าน rss2json (CORS เปิด, ไม่ต้องใช้ key)
+     ถ้าล้มเหลวจะลองดึง RSS ผ่าน allorigins แล้วแปลงเอง
+   - ข่าวเก่ากว่า 7 วันจะถูกตัดทิ้งทุกครั้งที่แสดงผล (รวมข่าวที่แคชไว้)
+   - ถ้าไม่มีข่าวเลย การ์ดนี้จะซ่อนตัวเอง
+   ========================================================================= */
+const NEWS_CACHE_KEY="kfp_gold_news_v1";
+const NEWS_MAX_AGE_MS=7*86400000;
+const NEWS_REFRESH_MS=15*60*1000;
+const NEWS_PAGE=8;
+const NEWS_FEEDS=[
+  {topic:"gold",q:"ราคาทองคำ"},
+  {topic:"gold",q:"ทองคำ ตลาดโลก"},
+  {topic:"fx",q:"ค่าเงินบาท ดอลลาร์"},
+  {topic:"fx",q:"ค่าเงินวอน"},
+  {topic:"eco",q:"เศรษฐกิจ เฟด ดอกเบี้ย เงินเฟ้อ"}
+];
+const NEWS_TOPICS={all:"ทั้งหมด",gold:"🥇 ทอง",fx:"💱 ค่าเงิน",eco:"📊 เศรษฐกิจ"};
+let newsItems=[], newsTopic="all", newsShown=NEWS_PAGE, newsFetchedAt=0, newsLoading=false, newsTimer=null;
+
+function newsKey(t){return String(t||"").toLowerCase().replace(/\s+/g,"").replace(/[^\p{L}\p{N}]/gu,"").slice(0,60);}
+function newsParseDate(v){
+  if(!v) return NaN;
+  let str=String(v).trim();
+  if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(str)) str=str.replace(" ","T")+"Z"; // rss2json = UTC
+  return Date.parse(str);
+}
+function newsNormalize(raw,topic){
+  const link=String(raw.link||"").trim();
+  if(!/^https?:\/\//i.test(link)) return null;
+  let title=String(raw.title||"").replace(/\s+/g," ").trim();
+  let source=String(raw.source||raw.author||"").trim();
+  const i=title.lastIndexOf(" - ");
+  if(i>10){ if(!source) source=title.slice(i+3).trim(); title=title.slice(0,i).trim(); }
+  const ts=newsParseDate(raw.pubDate||raw.published||raw.date);
+  if(!title || !Number.isFinite(ts)) return null;
+  return {title,source,link,ts,topic};
+}
+async function newsFetchText(url){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),9000);
+  try{
+    const r=await fetch(url,{cache:"no-store",signal:c.signal});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+async function newsFetchFeed(feed){
+  const rssUrl=`https://news.google.com/rss/search?q=${encodeURIComponent(feed.q+" when:7d")}&hl=th&gl=TH&ceid=TH:th`;
+  try{
+    const data=await fetchJSON(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+    if(data?.status!=="ok" || !Array.isArray(data.items)) throw new Error("rss2json bad response");
+    return data.items.map(x=>newsNormalize(x,feed.topic)).filter(Boolean);
+  }catch(_){
+    const xml=await newsFetchText(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`);
+    const doc=new DOMParser().parseFromString(xml,"text/xml");
+    return [...doc.querySelectorAll("item")].map(it=>newsNormalize({
+      title:it.querySelector("title")?.textContent,
+      link:it.querySelector("link")?.textContent,
+      pubDate:it.querySelector("pubDate")?.textContent,
+      source:it.querySelector("source")?.textContent
+    },feed.topic)).filter(Boolean);
+  }
+}
+function newsFresh(list){
+  const now=Date.now(), seen=new Set(), out=[];
+  for(const it of list.sort((a,b)=>b.ts-a.ts)){
+    if(now-it.ts>NEWS_MAX_AGE_MS) continue;     // เกิน 7 วัน -> ตัดทิ้ง
+    if(it.ts-now>3600_000) continue;            // เวลาอนาคตผิดปกติ
+    const k=newsKey(it.title); if(!k||seen.has(k)) continue;
+    seen.add(k); out.push(it);
+  }
+  return out.slice(0,80);
+}
+function newsLoadCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem(NEWS_CACHE_KEY)||"null");
+    if(c&&Array.isArray(c.items)){ newsFetchedAt=Number(c.fetchedAt)||0; return c.items; }
+  }catch(_){}
+  return [];
+}
+function newsSaveCache(){
+  try{ localStorage.setItem(NEWS_CACHE_KEY,JSON.stringify({fetchedAt:newsFetchedAt,items:newsItems})); }catch(_){}
+}
+function newsAgo(ts){
+  const m=Math.max(0,Math.round((Date.now()-ts)/60000));
+  if(m<1) return "เมื่อสักครู่";
+  if(m<60) return `${m} นาทีที่แล้ว`;
+  const h=Math.round(m/60);
+  if(h<24) return `${h} ชม.ที่แล้ว`;
+  return `${Math.round(h/24)} วันที่แล้ว`;
+}
+async function loadNews(force){
+  if(newsLoading) return;
+  if(!force && newsItems.length && Date.now()-newsFetchedAt<NEWS_REFRESH_MS){ renderNews(); return; }
+  newsLoading=true;
+  const btn=$("newsRefreshBtn"); if(btn){ btn.disabled=true; btn.textContent="⏳"; }
+  try{
+    const results=await Promise.allSettled(NEWS_FEEDS.map(newsFetchFeed));
+    const got=results.filter(r=>r.status==="fulfilled").flatMap(r=>r.value);
+    const okFeeds=results.filter(r=>r.status==="fulfilled").length;
+    if(okFeeds){
+      newsItems=newsFresh(got.concat(newsItems));
+      newsFetchedAt=Date.now();
+      newsSaveCache();
+    }
+  }catch(_){}
+  newsLoading=false;
+  if(btn){ btn.disabled=false; btn.textContent="🔄"; }
+  renderNews();
+}
+function renderNews(){
+  const card=$("newsCard"); if(!card) return;
+  newsItems=newsFresh(newsItems);              // ตัดข่าวที่เกิน 7 วันทุกครั้งที่แสดง
+  if(!newsItems.length){ card.hidden=true; return; } // ไม่มีข่าว -> ซ่อนการ์ด
+  card.hidden=false;
+  const tabs=$("newsTabs");
+  if(tabs){
+    tabs.innerHTML="";
+    for(const [k,label] of Object.entries(NEWS_TOPICS)){
+      const b=document.createElement("button");
+      b.type="button"; b.className="news-tab"+(k===newsTopic?" active":"");
+      b.textContent=label; b.dataset.topic=k;
+      tabs.appendChild(b);
+    }
+  }
+  const list=newsItems.filter(x=>newsTopic==="all"||x.topic===newsTopic);
+  const box=$("newsList"); box.innerHTML="";
+  list.slice(0,newsShown).forEach(it=>{
+    const a=document.createElement("a");
+    a.className="news-item"; a.href=it.link; a.target="_blank"; a.rel="noopener noreferrer";
+    const t=document.createElement("div"); t.className="news-title"; t.textContent=it.title;
+    const m=document.createElement("div"); m.className="news-meta";
+    const tag=document.createElement("span"); tag.className="news-tag "+it.topic; tag.textContent=NEWS_TOPICS[it.topic]||"";
+    const src=document.createElement("span"); src.textContent=[it.source,newsAgo(it.ts)].filter(Boolean).join(" · ");
+    m.append(tag,src); a.append(t,m); box.appendChild(a);
+  });
+  if(!list.length){ const e=document.createElement("div"); e.className="empty-state"; e.textContent="ยังไม่มีข่าวในหมวดนี้"; box.appendChild(e); }
+  const more=$("newsMoreBtn"); if(more) more.hidden=list.length<=newsShown;
+  const meta=$("newsMeta");
+  if(meta) meta.textContent=`ข่าวย้อนหลังไม่เกิน 7 วัน · อัปเดต ${newsFetchedAt?new Date(newsFetchedAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",hour12:false}):"-"} น. · Google News`;
+}
+function initNews(){
+  const card=$("newsCard"); if(!card) return;
+  newsItems=newsFresh(newsLoadCache());
+  renderNews();                                // แสดงข่าวที่แคชไว้ทันที (ถ้ามี)
+  $("newsTabs").addEventListener("click",e=>{
+    const b=e.target.closest(".news-tab"); if(!b) return;
+    newsTopic=b.dataset.topic; newsShown=NEWS_PAGE; renderNews();
+  });
+  $("newsMoreBtn").addEventListener("click",()=>{ newsShown+=NEWS_PAGE; renderNews(); });
+  $("newsRefreshBtn").addEventListener("click",()=>loadNews(true));
+  loadNews(false);
+  newsTimer=setInterval(()=>{ if(!document.hidden) loadNews(false); },NEWS_REFRESH_MS);
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden) loadNews(false); });
+}
+
 function setup(){
   $("buyDate").value=isoDate(new Date());
   // Purchase-form defaults.
@@ -1652,7 +1849,8 @@ function setup(){
   $("unit").value="baht";
   $("lotForm").addEventListener("submit",addLot);
   ["quantity","cost","unit"].forEach(id=>$(id).addEventListener("input",updateLotPreview));
-  $("refreshGoldBtn").addEventListener("click",fetchGold);
+  $("refreshGoldBtn").addEventListener("click",manualRefreshGold);
+  initNews();
   $("exportGoldBtn").addEventListener("click",exportData);
   $("clearGoldBtn").addEventListener("click",clearAll);
 

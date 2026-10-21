@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="gold.css?v=20261018-chartfix2">
+<link rel="stylesheet" href="gold.css?v=20261019-news1">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -53,6 +53,7 @@
       </div>
       <button class="small-gold-btn" id="refreshGoldBtn">🔄 อัปเดต</button>
     </div>
+    <div id="refreshNotice" class="refresh-notice" role="status" aria-live="polite"></div>
 
     <div class="market-grid">
       <div class="market-box">
@@ -396,9 +397,22 @@
     </div>
   </section>
 
+  <section class="gold-card" id="newsCard" hidden>
+    <div class="section-head">
+      <div>
+        <h2>📰 ข่าวทอง &amp; เศรษฐกิจ</h2>
+        <p id="newsMeta">ข่าวย้อนหลังไม่เกิน 7 วัน</p>
+      </div>
+      <button class="small-gold-btn" id="newsRefreshBtn" type="button" aria-label="รีเฟรชข่าว">🔄</button>
+    </div>
+    <div class="news-tabs" id="newsTabs"></div>
+    <div class="news-list" id="newsList"></div>
+    <button class="small-gold-btn news-more" id="newsMoreBtn" type="button" hidden>แสดงข่าวเพิ่ม</button>
+  </section>
+
 </div>
 
-<script src="gold.js?v=20261018-chartfix2"></script>
+<script src="gold.js?v=20261019-news1"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

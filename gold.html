@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="gold.css?v=20261029-calc1">
+<link rel="stylesheet" href="gold.css?v=20261029-calc2">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -46,11 +46,9 @@
     <div class="buy-calc" id="buyCalc">
       <div class="buy-calc-title">🧮 ตั้งราคาซื้อ · แปลงราคา troy oz → ทองแท่ง 96.5%</div>
       <div class="buy-calc-row">
-        <div class="buy-calc-field">
-          <label for="buyCalcOz">ราคาทองที่ต้องการ (USD / troy oz)</label>
-          <input id="buyCalcOz" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 4050.00">
-        </div>
-        <button type="button" id="buyCalcBtn" class="primary-gold-btn buy-calc-btn">คำนวณ</button>
+        <label for="buyCalcOz">ราคาทองที่ต้องการ (USD / troy oz)</label>
+        <input id="buyCalcOz" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 4050.00">
+        <button type="button" id="buyCalcBtn" class="buy-calc-btn">คำนวณ</button>
       </div>
       <div id="buyCalcResult" class="buy-calc-result" role="status" aria-live="polite">กรอกราคาต่อ troy oz แล้วกดคำนวณ เพื่อดูราคาทองแท่ง 96.5% ของไทย (บาททองคำ)</div>
     </div>
@@ -224,26 +222,9 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <div>
-          <label for="buyPrice">ราคาซื้ออ้างอิง (THB / gram)</label>
-          <input id="buyPrice" type="number" min="0" step="0.0001" placeholder="ใส่ได้ถ้ามี">
-        </div>
-        <div>
-          <label for="buyFx">USD/THB ตอนซื้อ (ถ้ามี)</label>
-          <input id="buyFx" type="number" min="0" step="0.0001" placeholder="เช่น 32.50">
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div>
-          <label for="entryOz">ราคาทองตอนเข้าซื้อ (USD / troy oz)</label>
-          <input id="entryOz" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 4050.00">
-        </div>
-        <div>
-          <label for="entryBaht">ราคาต่อบาททอง ตอนเข้าซื้อ (THB)</label>
-          <input id="entryBaht" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 64500">
-        </div>
+      <div>
+        <label for="entryBaht">ราคาต่อบาททอง ตอนเข้าซื้อ (THB)</label>
+        <input id="entryBaht" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ดูจากแอป GOLD2go เช่น 64500">
       </div>
 
       <div>
@@ -419,8 +400,8 @@
 
 </div>
 
-<script src="gold.js?v=20261029-calc1"></script>
-<script src="floating-nav.js?v=20261029-fab1" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
+<script src="gold.js?v=20261029-calc2"></script>
+<script src="floating-nav.js?v=20261029-fab2" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

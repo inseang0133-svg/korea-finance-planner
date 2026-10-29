@@ -901,20 +901,41 @@ function renderLotNavigator(total){
 }
 
 function lotEntryHTML(l){
-  // Entry prices recorded when the round was bought.
-  const oz=Number(l.entryUsdOz);
-  const baht=Number(l.entryBahtPrice);
+  // Entry / break-even prices, all derived from the "per baht-weight" price shown in the GOLD2go app.
   const bahtWeight=l.unit === "baht" ? (Number(l.quantity) || 0) : (Number(l.grams) || 0) / BAHT_GOLD_GRAM;
-  const derived=bahtWeight > 0 && Number(l.cost) > 0 ? Number(l.cost) / bahtWeight : 0;
-  const ozLine=oz > 0
-    ? `<b>${formatUsdPrice(oz)}</b><em>/ troy oz</em>`
-    : `<b class="lot-entry-na">-</b><em>/ troy oz · ไม่ได้บันทึก</em>`;
-  const bahtLine=baht > 0
-    ? `<b>${money(baht)}</b><em>/ บาททอง</em>`
-    : (derived > 0
-        ? `<b>≈ ${money(derived)}</b><em>/ บาททอง · คำนวณจากเงินที่จ่าย</em>`
-        : `<b class="lot-entry-na">-</b><em>/ บาททอง</em>`);
-  return `<div class="lot-entry"><div class="lot-entry-line">${ozLine}</div><div class="lot-entry-line">${bahtLine}</div></div>`;
+  const cost=Number(l.cost) || 0;
+  const purity=(Number(l.goldType) || 96.5) / 100;
+  const fx=Number(state.usdThb);
+  // break-even: value = bahtWeight x price = cost  ->  P/L = 0.00
+  const breakEven=bahtWeight > 0 && cost > 0 ? cost / bahtWeight : 0;
+  const enteredBaht=Number(l.entryBahtPrice) > 0 ? Number(l.entryBahtPrice) : 0;
+  const entryBaht=enteredBaht || breakEven;
+  const toOz=baht => (baht > 0 && fx > 0) ? baht / (BAHT_GOLD_GRAM * purity / OZ_TO_GRAM) / fx : 0;
+  const col=(label,baht,approx)=>{
+    const oz=toOz(baht);
+    return `<div class="lot-entry-col">
+      <em class="lot-entry-label">${label}</em>
+      <b>${baht > 0 ? (approx ? "≈ " : "") + money(baht) : "-"}</b><em>/ บาททอง</em>
+      <span class="lot-entry-oz">${oz > 0 ? "≈ " + formatUsdPrice(oz) + " / troy oz" : "troy oz: รอราคา USD/THB"}</span>
+    </div>`;
+  };
+  let gap="";
+  const q=getEffectiveSellPrice();
+  if(q.mode === "gold2go" && q.exact && breakEven > 0 && purity === 0.965){
+    const diff=q.pricePerBaht - breakEven;
+    gap=`<div class="lot-entry-gap ${diff >= 0 ? "up" : "down"}">GOLD2go รับซื้อตอนนี้ ${money(q.pricePerBaht)} · ${
+      Math.abs(diff) < 0.005 ? "ตรงจุดคุ้มทุนพอดี" : diff > 0 ? "สูงกว่าจุดคุ้มทุน " + money(diff) : "ต่ำกว่าจุดคุ้มทุน " + money(-diff)
+    }</div>`;
+  }
+  return `<div class="lot-entry">
+    <div class="lot-entry-cols${Math.abs(entryBaht - breakEven) < 1 ? " single" : ""}">${
+      Math.abs(entryBaht - breakEven) < 1
+        ? col("เข้าซื้อที่ = จุดคุ้มทุน (P/L 0.00)", breakEven, !enteredBaht)
+        : col("เข้าซื้อที่", entryBaht, !enteredBaht) + col("จุดคุ้มทุน · P/L 0.00", breakEven, false)
+    }</div>
+    ${gap}
+    <div class="lot-entry-note">troy oz แปลงย้อนกลับจากราคาต่อบาททอง ด้วย USD/THB ปัจจุบัน (ประมาณการ)</div>
+  </div>`;
 }
 
 function renderLots(){
@@ -954,7 +975,7 @@ function renderLots(){
           <div class="lot-cell"><span>ต้นทุน</span><b>${money(l.cost)}</b></div>
           <div class="lot-cell"><span>มูลค่าปัจจุบัน</span><b>${money(l.value)}</b></div>
           <div class="lot-cell"><span>ต้นทุนเฉลี่ย</span><b>${money(l.avgCost)}/g</b></div>
-          <div class="lot-cell lot-entry-cell"><span>เข้าซื้อที่</span>${lotEntryHTML(l)}</div>
+          <div class="lot-cell lot-entry-cell">${lotEntryHTML(l)}</div>
         </div>
         ${l.note ? `<div class="lot-note">📝 ${escapeHTML(l.note)}</div>` : ""}
         <div class="lot-actions"><button class="delete-lot" data-id="${l.id}">ลบรอบนี้</button></div>
@@ -1601,9 +1622,8 @@ function addLot(e){
     unit:$("unit").value,
     grams,
     costThb:cost,
-    buyPriceThbGram:Number($("buyPrice").value)||null,
-    buyFx:Number($("buyFx").value)||null,
-    entryUsdOz:Number($("entryOz")?.value)||null,
+    buyPriceThbGram:Number($("buyPrice")?.value)||null,
+    buyFx:Number($("buyFx")?.value)||null,
     entryBahtPrice:Number($("entryBaht")?.value)||null,
     note:$("note").value.trim(),
     createdAt:new Date().toISOString()

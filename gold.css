@@ -727,3 +727,25 @@ html.chart-fs-lock,html.chart-fs-lock body{overflow:hidden}
 .lot-entry-cell .lot-entry-line b{display:block;margin-top:0;font-size:14px;overflow-wrap:anywhere}
 .lot-entry-cell .lot-entry-line em{display:block;font-style:normal;font-size:11px;color:#8a8a8a;margin-top:1px}
 .lot-entry-cell .lot-entry-na{color:#666}
+
+/* ===== v2: calculator layout (stacked, never squeezed) + lot entry / break-even ===== */
+.buy-calc-row{display:grid !important;grid-template-columns:1fr;gap:8px;align-items:stretch}
+.buy-calc-row label{margin:0}
+.buy-calc-row input{width:100%;box-sizing:border-box;margin:0}
+.buy-calc-btn{width:100%;margin:2px 0 0;padding:14px;border:0;border-radius:12px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;
+  color:#1a1405;background:linear-gradient(135deg,#f3d870,#c49a2a);box-shadow:0 6px 18px rgba(212,175,55,.25)}
+.buy-calc-btn:active{transform:scale(.98)}
+
+.lot-entry-cell{grid-column:1 / -1}
+.lot-entry-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lot-entry-col b{display:block;margin-top:2px;font-size:15px;overflow-wrap:anywhere}
+.lot-entry-col em{display:block;font-style:normal;font-size:11px;color:#8a8a8a;margin-top:1px}
+.lot-entry-col .lot-entry-label{font-size:12px;color:#9a9a9a;margin:0 0 2px}
+.lot-entry-oz{display:block;margin-top:5px;font-size:12.5px;font-weight:600;color:#f3d870}
+.lot-entry-gap{margin-top:10px;padding:7px 10px;border-radius:9px;font-size:12px;background:#121214;border:1px solid rgba(212,175,55,.16);color:#bdbdbd}
+.lot-entry-gap.up{color:#7be3a0;border-color:rgba(98,226,138,.3)}
+.lot-entry-gap.down{color:#ff9a9a;border-color:rgba(255,107,107,.3)}
+.lot-entry-note{margin-top:8px;font-size:10.5px;color:#6f6f6f}
+@media(max-width:340px){.lot-entry-cols{grid-template-columns:1fr}}
+.lot-entry-cols.single{grid-template-columns:1fr}
+.lot-entry-col .lot-entry-oz{color:#f3d870}

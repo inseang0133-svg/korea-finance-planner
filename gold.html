@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="gold.css?v=20261019-news1">
+<link rel="stylesheet" href="gold.css?v=20261029-calc1">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -34,7 +34,6 @@
         <h1>🪙 พอร์ตทองคำ</h1>
         <p class="gold-subtitle">ติดตามการซื้อแต่ละรอบ · ต้นทุน · กำไร/ขาดทุน</p>
       </div>
-      <button class="gold-back-btn" onclick="location.href='index.html'">⬅️ หน้าหลัก</button>
     </div>
 
     <div class="market-status">
@@ -43,9 +42,65 @@
       <span class="status-sep">•</span>
       <span id="marketUpdated">-</span>
     </div>
+
+    <div class="buy-calc" id="buyCalc">
+      <div class="buy-calc-title">🧮 ตั้งราคาซื้อ · แปลงราคา troy oz → ทองแท่ง 96.5%</div>
+      <div class="buy-calc-row">
+        <div class="buy-calc-field">
+          <label for="buyCalcOz">ราคาทองที่ต้องการ (USD / troy oz)</label>
+          <input id="buyCalcOz" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 4050.00">
+        </div>
+        <button type="button" id="buyCalcBtn" class="primary-gold-btn buy-calc-btn">คำนวณ</button>
+      </div>
+      <div id="buyCalcResult" class="buy-calc-result" role="status" aria-live="polite">กรอกราคาต่อ troy oz แล้วกดคำนวณ เพื่อดูราคาทองแท่ง 96.5% ของไทย (บาททองคำ)</div>
+    </div>
   </section>
 
   <section class="gold-card">
+    <div class="chart-wrap">
+      <div class="chart-toolbar chart-toolbar-main">
+        <div class="chart-tabs">
+          <button class="chart-tab active" data-range="1D">1D</button>
+          <button class="chart-tab" data-range="7D">7D</button>
+          <button class="chart-tab" data-range="30D">30D</button>
+        </div>
+        <span id="chartHint">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</span>
+      </div>
+
+      <div class="chart-toolbar chart-interval-toolbar">
+        <div class="chart-tabs chart-intervals">
+          <span class="chart-group-label">ช่วงแท่ง</span>
+          <button class="chart-tab chart-interval active" data-interval="5m">5m</button>
+          <button class="chart-tab chart-interval" data-interval="15m">15m</button>
+          <button class="chart-tab chart-interval" data-interval="30m">30m</button>
+          <button class="chart-tab chart-interval" data-interval="1H">1H</button>
+          <button class="chart-tab chart-interval" data-interval="1D">1D</button>
+        </div>
+        <span class="chart-interval-note">ช่วงเวลา = ขอบเขตที่มองเห็น · ช่วงแท่ง = ขนาดแท่งแต่ละแท่ง</span>
+      </div>
+
+      <div class="chart-actions">
+        <button type="button" id="chartFitBtn" class="chart-action-btn">↔ Fit</button>
+        <button type="button" id="chartCandleBtn" class="chart-tool-btn">🕯️ แท่งเทียน</button>
+        <button type="button" id="chartResetBtn" class="chart-action-btn">⟳ Reset</button>
+        <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
+      </div>
+
+      <div class="chart-panel chart-panel-oz chart-panel-main">
+        <div class="chart-panel-title">🪙 Gold Spot · <b>USD / troy oz</b></div>
+        <div class="chart-stage" id="chartStageOz">
+          <div id="goldChartOz"></div>
+          <svg id="chartOverlayOz" class="chart-overlay" aria-hidden="true"></svg>
+        </div>
+        <div class="chart-info-row">
+          <span id="chartCurrentOz">ปัจจุบัน: -</span>
+          <span id="chartHighOz">สูงสุด: -</span>
+          <span id="chartLowOz">ต่ำสุด: -</span>
+          <span id="chartChangeOz">เปลี่ยนแปลง: -</span>
+        </div>
+        <div id="chartTooltipOz" class="chart-tooltip" aria-live="polite"></div>
+      </div>
+    </div>
     <div class="section-head">
       <div>
         <h2>📈 ราคาทอง & ราคา GOLD2go</h2>
@@ -118,93 +173,6 @@
         <small>บาททองคำ</small>
       </div>
     </div>
-    <div class="chart-wrap">
-      <div class="chart-toolbar chart-toolbar-main">
-        <div class="chart-tabs">
-          <button class="chart-tab active" data-range="1D">1D</button>
-          <button class="chart-tab" data-range="7D">7D</button>
-          <button class="chart-tab" data-range="30D">30D</button>
-        </div>
-        <span id="chartHint">กำลังเตรียมข้อมูลราคาทองย้อนหลัง…</span>
-      </div>
-
-      <div class="chart-toolbar chart-interval-toolbar">
-        <div class="chart-tabs chart-intervals">
-          <span class="chart-group-label">ช่วงแท่ง</span>
-          <button class="chart-tab chart-interval active" data-interval="5m">5m</button>
-          <button class="chart-tab chart-interval" data-interval="15m">15m</button>
-          <button class="chart-tab chart-interval" data-interval="30m">30m</button>
-          <button class="chart-tab chart-interval" data-interval="1H">1H</button>
-          <button class="chart-tab chart-interval" data-interval="1D">1D</button>
-        </div>
-        <span class="chart-interval-note">ช่วงเวลา = ขอบเขตที่มองเห็น · ช่วงแท่ง = ขนาดแท่งแต่ละแท่ง</span>
-      </div>
-
-      <div class="chart-actions">
-        <button type="button" id="chartFitBtn" class="chart-action-btn">↔ Fit</button>
-        <button type="button" id="chartCandleBtn" class="chart-tool-btn">🕯️ แท่งเทียน</button>
-        <button type="button" id="chartResetBtn" class="chart-action-btn">⟳ Reset</button>
-        <button type="button" id="chartFullscreenBtn" class="chart-action-btn">⛶ เต็มจอ</button>
-      </div>
-
-      <div class="chart-panel chart-panel-oz chart-panel-main">
-        <div class="chart-panel-title">🪙 Gold Spot · <b>USD / troy oz</b></div>
-        <div class="chart-stage" id="chartStageOz">
-          <div id="goldChartOz"></div>
-          <svg id="chartOverlayOz" class="chart-overlay" aria-hidden="true"></svg>
-        </div>
-        <div class="chart-info-row">
-          <span id="chartCurrentOz">ปัจจุบัน: -</span>
-          <span id="chartHighOz">สูงสุด: -</span>
-          <span id="chartLowOz">ต่ำสุด: -</span>
-          <span id="chartChangeOz">เปลี่ยนแปลง: -</span>
-        </div>
-        <div id="chartTooltipOz" class="chart-tooltip" aria-live="polite"></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="gold-stats-grid">
-    <div class="gold-stat">
-      <span>ทองทั้งหมด</span>
-      <strong id="totalGold">0.0000 g</strong>
-      <small id="totalGoldOz">0.000000 oz</small>
-    </div>
-    <div class="gold-stat">
-      <span>ต้นทุนสะสม</span>
-      <strong id="totalCost">฿0</strong>
-      <small id="lotCount">0 รอบ</small>
-    </div>
-    <div class="gold-stat">
-      <span>มูลค่าปัจจุบัน</span>
-      <strong id="currentValue">฿0</strong>
-      <small id="portfolioValueHint">ประเมินด้วยราคาตลาด -</small>
-    </div>
-    <div class="gold-stat" id="netPLCard">
-      <span>P/L สุทธิ</span>
-      <strong id="netPL">฿0</strong>
-      <small id="netPLPct">0.00%</small>
-    </div>
-  </section>
-
-  <section class="gold-stats-grid compact">
-    <div class="gold-stat">
-      <span>🟢 กำไรรวมของรอบที่บวก</span>
-      <strong id="positivePL">฿0</strong>
-    </div>
-    <div class="gold-stat">
-      <span>🔴 ขาดทุนรวมของรอบที่ลบ</span>
-      <strong id="negativePL">฿0</strong>
-    </div>
-    <div class="gold-stat">
-      <span>🎯 ต้นทุนเฉลี่ย</span>
-      <strong id="avgCost">฿0/g</strong>
-    </div>
-    <div class="gold-stat">
-      <span>🏆 รอบที่กำไร</span>
-      <strong id="winRate">0 / 0</strong>
-      <small id="winRatePct">0.00%</small>
-    </div>
   </section>
 
   <section class="gold-card">
@@ -267,6 +235,17 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <div>
+          <label for="entryOz">ราคาทองตอนเข้าซื้อ (USD / troy oz)</label>
+          <input id="entryOz" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 4050.00">
+        </div>
+        <div>
+          <label for="entryBaht">ราคาต่อบาททอง ตอนเข้าซื้อ (THB)</label>
+          <input id="entryBaht" type="number" inputmode="decimal" min="0" step="0.01" placeholder="เช่น 64500">
+        </div>
+      </div>
+
       <div>
         <label for="note">หมายเหตุ</label>
         <input id="note" type="text" maxlength="160" placeholder="เช่น ซื้อรอบเงินเดือน / ซื้อหลังราคาลง">
@@ -276,6 +255,72 @@
 
       <button class="primary-gold-btn" type="submit">💾 บันทึกรอบนี้</button>
     </form>
+  </section>
+
+  <section class="gold-stats-grid">
+    <div class="gold-stat">
+      <span>ทองทั้งหมด</span>
+      <strong id="totalGold">0.0000 g</strong>
+      <small id="totalGoldOz">0.000000 oz</small>
+    </div>
+    <div class="gold-stat">
+      <span>ต้นทุนสะสม</span>
+      <strong id="totalCost">฿0</strong>
+      <small id="lotCount">0 รอบ</small>
+    </div>
+    <div class="gold-stat">
+      <span>มูลค่าปัจจุบัน</span>
+      <strong id="currentValue">฿0</strong>
+      <small id="portfolioValueHint">ประเมินด้วยราคาตลาด -</small>
+    </div>
+    <div class="gold-stat" id="netPLCard">
+      <span>P/L สุทธิ</span>
+      <strong id="netPL">฿0</strong>
+      <small id="netPLPct">0.00%</small>
+    </div>
+  </section>
+
+  <section class="gold-stats-grid compact">
+    <div class="gold-stat">
+      <span>🟢 กำไรรวมของรอบที่บวก</span>
+      <strong id="positivePL">฿0</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🔴 ขาดทุนรวมของรอบที่ลบ</span>
+      <strong id="negativePL">฿0</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🎯 ต้นทุนเฉลี่ย</span>
+      <strong id="avgCost">฿0/g</strong>
+    </div>
+    <div class="gold-stat">
+      <span>🏆 รอบที่กำไร</span>
+      <strong id="winRate">0 / 0</strong>
+      <small id="winRatePct">0.00%</small>
+    </div>
+  </section>
+
+  <section class="gold-card">
+    <div class="section-head">
+      <div>
+        <h2>📋 รายการซื้อแต่ละรอบ</h2>
+        <p>แต่ละรอบจะคำนวณ P/L แยกกัน ไม่เอารอบเก่ามาปนกับรอบใหม่</p>
+      </div>
+      <div class="table-actions">
+        <button class="small-gold-btn" id="exportGoldBtn">⬇️ Export</button>
+        <button class="small-danger-btn" id="clearGoldBtn">ล้างทั้งหมด</button>
+      </div>
+    </div>
+
+    <div id="lotSummary" class="lot-summary"></div>
+
+    <div id="lotNavigator" class="lot-navigator" hidden>
+      <div class="lot-nav-label">🔎 ดูรอบย้อนหลัง</div>
+      <select id="lotPageSelect" aria-label="เลือกรอบที่ต้องการดู"></select>
+      <div id="lotPageHint" class="lot-page-hint">แสดง 3 รอบล่าสุด</div>
+    </div>
+
+    <div id="lotsList" class="lots-list"></div>
   </section>
 
   <section class="gold-card">
@@ -359,44 +404,6 @@
     </div>
   </section>
 
-  <section class="gold-card">
-    <div class="section-head">
-      <div>
-        <h2>📋 รายการซื้อแต่ละรอบ</h2>
-        <p>แต่ละรอบจะคำนวณ P/L แยกกัน ไม่เอารอบเก่ามาปนกับรอบใหม่</p>
-      </div>
-      <div class="table-actions">
-        <button class="small-gold-btn" id="exportGoldBtn">⬇️ Export</button>
-        <button class="small-danger-btn" id="clearGoldBtn">ล้างทั้งหมด</button>
-      </div>
-    </div>
-
-    <div id="lotSummary" class="lot-summary"></div>
-
-    <div id="lotNavigator" class="lot-navigator" hidden>
-      <div class="lot-nav-label">🔎 ดูรอบย้อนหลัง</div>
-      <select id="lotPageSelect" aria-label="เลือกรอบที่ต้องการดู"></select>
-      <div id="lotPageHint" class="lot-page-hint">แสดง 3 รอบล่าสุด</div>
-    </div>
-
-    <div id="lotsList" class="lots-list"></div>
-  </section>
-
-  <section class="gold-card">
-    <div class="section-head">
-      <div>
-        <h2>📌 วิธีอ่านพอร์ต</h2>
-        <p>ระบบแยก “กำไรรวมของรอบที่บวก” และ “ขาดทุนรวมของรอบที่ลบ” เพื่อให้เห็นพฤติกรรมการทยอยซื้อชัดเจน</p>
-      </div>
-    </div>
-    <div class="info-grid">
-      <div><b>🟢 กำไรรอบ</b><span>มูลค่าที่คาดว่าจะขายคืนได้มากกว่าต้นทุน Lot</span></div>
-      <div><b>🔴 ขาดทุนรอบ</b><span>มูลค่าที่คาดว่าจะขายคืนได้ต่ำกว่าต้นทุน Lot</span></div>
-      <div><b>⚪ จุดคุ้มทุน</b><span>ราคาที่ใช้ประเมินเท่ากับต้นทุนเฉลี่ยของ Lot</span></div>
-      <div><b>🎯 P/L สุทธิ</b><span>กำไรรวมลบขาดทุนรวม โดย GOLD2go เป็นราคาหลัก</span></div>
-    </div>
-  </section>
-
   <section class="gold-card" id="newsCard" hidden>
     <div class="section-head">
       <div>
@@ -412,7 +419,8 @@
 
 </div>
 
-<script src="gold.js?v=20261019-news1"></script>
+<script src="gold.js?v=20261029-calc1"></script>
+<script src="floating-nav.js?v=20261029-fab1" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

@@ -900,6 +900,23 @@ function renderLotNavigator(total){
   hint.textContent=total<=3 ? `แสดง ${total} รอบทั้งหมด` : `กำลังดูรอบ #${String(selectedLotNumber).padStart(3,"0")} · แสดง #${String(w.start).padStart(3,"0")}–#${String(w.end).padStart(3,"0")}`;
 }
 
+function lotEntryHTML(l){
+  // Entry prices recorded when the round was bought.
+  const oz=Number(l.entryUsdOz);
+  const baht=Number(l.entryBahtPrice);
+  const bahtWeight=l.unit === "baht" ? (Number(l.quantity) || 0) : (Number(l.grams) || 0) / BAHT_GOLD_GRAM;
+  const derived=bahtWeight > 0 && Number(l.cost) > 0 ? Number(l.cost) / bahtWeight : 0;
+  const ozLine=oz > 0
+    ? `<b>${formatUsdPrice(oz)}</b><em>/ troy oz</em>`
+    : `<b class="lot-entry-na">-</b><em>/ troy oz · ไม่ได้บันทึก</em>`;
+  const bahtLine=baht > 0
+    ? `<b>${money(baht)}</b><em>/ บาททอง</em>`
+    : (derived > 0
+        ? `<b>≈ ${money(derived)}</b><em>/ บาททอง · คำนวณจากเงินที่จ่าย</em>`
+        : `<b class="lot-entry-na">-</b><em>/ บาททอง</em>`);
+  return `<div class="lot-entry"><div class="lot-entry-line">${ozLine}</div><div class="lot-entry-line">${bahtLine}</div></div>`;
+}
+
 function renderLots(){
   const p=calculatePortfolio();
   $("lotSummary").textContent=p.lots.length
@@ -937,11 +954,7 @@ function renderLots(){
           <div class="lot-cell"><span>ต้นทุน</span><b>${money(l.cost)}</b></div>
           <div class="lot-cell"><span>มูลค่าปัจจุบัน</span><b>${money(l.value)}</b></div>
           <div class="lot-cell"><span>ต้นทุนเฉลี่ย</span><b>${money(l.avgCost)}/g</b></div>
-          <div class="lot-cell"><span>${l.valuationSource === "gold2go" ? "GOLD2go รับซื้อ" : "ราคาประเมินตลาด"}</span><b>${
-            l.valuationSource === "gold2go"
-              ? `${money(getEffectiveSellPrice().pricePerBaht)}/บาททอง`
-              : `${money(getEffectiveSellPrice().pricePerGram * (Number(l.goldType || 99.99) / 99.99))}/g`
-          }</b></div>
+          <div class="lot-cell lot-entry-cell"><span>เข้าซื้อที่</span>${lotEntryHTML(l)}</div>
         </div>
         ${l.note ? `<div class="lot-note">📝 ${escapeHTML(l.note)}</div>` : ""}
         <div class="lot-actions"><button class="delete-lot" data-id="${l.id}">ลบรอบนี้</button></div>
@@ -1590,6 +1603,8 @@ function addLot(e){
     costThb:cost,
     buyPriceThbGram:Number($("buyPrice").value)||null,
     buyFx:Number($("buyFx").value)||null,
+    entryUsdOz:Number($("entryOz")?.value)||null,
+    entryBahtPrice:Number($("entryBaht")?.value)||null,
     note:$("note").value.trim(),
     createdAt:new Date().toISOString()
   });
@@ -1842,12 +1857,39 @@ function initNews(){
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) loadNews(false); });
 }
 
+/* ---------- 🧮 เครื่องคำนวณตั้งราคาซื้อ: USD/troy oz -> ทองแท่ง 96.5% (บาท/บาททอง) ---------- */
+function calcThaiBarFromOz(){
+  const out=$("buyCalcResult"), input=$("buyCalcOz");
+  if(!out || !input) return;
+  const oz=Number(input.value);
+  if(!(oz>0)){
+    out.className="buy-calc-result warn";
+    out.textContent="กรุณากรอกราคาทองต่อ troy oz (USD) ให้ถูกต้อง";
+    return;
+  }
+  const fx=Number(state.usdThb);
+  if(!(fx>0)){
+    out.className="buy-calc-result warn";
+    out.textContent="ยังไม่มีอัตรา USD/THB · รอระบบโหลดราคาสักครู่แล้วกดคำนวณอีกครั้ง";
+    return;
+  }
+  // 96.5% bar: USD/oz × USDTHB ÷ grams per troy oz × grams per baht-weight × 0.965
+  const price=oz*fx/OZ_TO_GRAM*BAHT_GOLD_GRAM*0.965;
+  out.className="buy-calc-result ok";
+  out.innerHTML=`
+    <div class="buy-calc-label">ทองแท่ง 96.5% ≈</div>
+    <div class="buy-calc-price">${money(price)}<small> / บาททอง</small></div>
+    <div class="buy-calc-note">จาก ${formatUsdPrice(oz)}/oz × USD/THB ${num(fx,4)} · ค่าตามสูตรทฤษฎี ยังไม่รวมส่วนต่าง/พรีเมียมของร้านหรือสมาคมฯ</div>`;
+}
+
 function setup(){
   $("buyDate").value=isoDate(new Date());
   // Purchase-form defaults.
   $("goldType").value="96.5";
   $("unit").value="baht";
   $("lotForm").addEventListener("submit",addLot);
+  if($("buyCalcBtn")) $("buyCalcBtn").addEventListener("click",calcThaiBarFromOz);
+  if($("buyCalcOz")) $("buyCalcOz").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); calcThaiBarFromOz(); } });
   ["quantity","cost","unit"].forEach(id=>$(id).addEventListener("input",updateLotPreview));
   $("refreshGoldBtn").addEventListener("click",manualRefreshGold);
   initNews();

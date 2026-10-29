@@ -1,10 +1,10 @@
-const CACHE_NAME = 'korea-finance-pwa-20261018-uifix1';
-const API_CACHE_NAME = 'korea-finance-api-20261018-uifix1';
+const CACHE_NAME = 'korea-finance-pwa-20261029-fab1';
+const API_CACHE_NAME = 'korea-finance-api-20261029-fab1';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
   'gold.html', 'gold.css', 'gold.js', 'pwa-persistence.js',
-  'auth.js', 'supabase-config.js'
+  'auth.js', 'supabase-config.js', 'floating-nav.js'
 ];
 
 const API_HOSTS = new Set([

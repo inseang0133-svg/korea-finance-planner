@@ -233,15 +233,102 @@
     }
   }
 
+  /* Liquid-glass spring: กดแล้วยุบ, ลากนิ้วแล้วยืดตามนิ้วแบบหนืดๆ (rubber band), ปล่อยแล้วเด้งกลับพร้อมสั่น */
+  function attachLiquidSpring(btn, onTap) {
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let ox = 0, oy = 0, vx = 0, vy = 0;          // offset + velocity (px)
+    let sc = 1, sv = 0, st = 1;                  // scale spring
+    let q = 0, qv = 0;                           // jelly squash oscillator
+    let tx = 0, ty = 0, startX = 0, startY = 0, pid = null, pressed = false, moved = false;
+    let raf = 0, last = 0;
+
+    function render() {
+      const sp = Math.hypot(vx, vy), d = Math.hypot(ox, oy);
+      const ang = d > 0.5 ? Math.atan2(oy, ox) : (sp > 20 ? Math.atan2(vy, vx) : 0);
+      const stretch = Math.min(d / 90, 0.35) + Math.min(sp / 4200, 0.18);
+      const sx = 1 + stretch + q * 0.5, sy = 1 - stretch * 0.55 - q * 0.3;
+      btn.style.setProperty("--hx", Math.max(-5, Math.min(5, -ox * 0.12 - vx * 0.002)).toFixed(2) + "px");
+      btn.style.setProperty("--hy", Math.max(-4, Math.min(4, -oy * 0.12 - vy * 0.002)).toFixed(2) + "px");
+      btn.style.transform =
+        "translate3d(" + ox.toFixed(2) + "px," + oy.toFixed(2) + "px,0) rotate(" + ang.toFixed(4) + "rad) scale(" +
+        (sx * sc).toFixed(4) + "," + (sy * sc).toFixed(4) + ") rotate(" + (-ang).toFixed(4) + "rad)";
+    }
+    function step(dt) {
+      // ตามนิ้วด้วยสปริงหนืด (ระยะถูกบีบให้ไม่หลุดไปไกล) / ปล่อยแล้วกลับ 0 แบบเด้ง
+      const k = pressed ? 260 : 210, c = 2 * (pressed ? 0.62 : 0.30) * Math.sqrt(k);
+      const gx = pressed ? tx : 0, gy = pressed ? ty : 0;
+      vx += (k * (gx - ox) - c * vx) * dt; vy += (k * (gy - oy) - c * vy) * dt;
+      ox += vx * dt; oy += vy * dt;
+      const sk = 380, sc2 = 2 * 0.50 * Math.sqrt(sk);
+      sv += (sk * (st - sc) - sc2 * sv) * dt; sc += sv * dt;
+      const qk = 420, qc = 2 * 0.24 * Math.sqrt(qk);
+      qv += (-qk * q - qc * qv) * dt; q += qv * dt;
+    }
+    function rest() {
+      return !pressed && Math.abs(ox) + Math.abs(oy) < 0.15 && Math.abs(vx) + Math.abs(vy) < 3 &&
+        Math.abs(sc - st) < 0.002 && Math.abs(sv) < 0.05 && Math.abs(q) < 0.002 && Math.abs(qv) < 0.05;
+    }
+    function frame(t) {
+      const dt = Math.min(0.033, (t - last) / 1000 || 0.016); last = t;
+      const n = Math.max(1, Math.ceil(dt / (1 / 120)));
+      for (let i = 0; i < n; i++) step(dt / n);
+      render();
+      if (rest()) { ox = oy = vx = vy = q = qv = sv = 0; sc = st; render(); raf = 0; return; }
+      raf = requestAnimationFrame(frame);
+    }
+    function wake() { if (raf || reduce) return; last = performance.now(); raf = requestAnimationFrame(frame); }
+
+    btn.addEventListener("pointerdown", e => {
+      if (e.button !== undefined && e.button !== 0) return;
+      pressed = true; moved = false; pid = e.pointerId; startX = e.clientX; startY = e.clientY; tx = ty = 0;
+      try { btn.setPointerCapture(pid); } catch (_) {}
+      btn.classList.add("kfp-pressed");
+      st = 0.9; qv += 2.2;                         // ยุบลง + jelly
+      if (reduce) { sc = 0.96; render(); } else wake();
+    });
+    btn.addEventListener("pointermove", e => {
+      if (!pressed || e.pointerId !== pid) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY, d = Math.hypot(dx, dy);
+      if (d > 6) moved = true;
+      // rubber band: ยิ่งดึงไกลยิ่งหนืด (สูงสุด ~26px)
+      const m = 26 * (1 - Math.exp(-d / 46)), f = d > 0 ? m / d : 0;
+      tx = dx * f; ty = dy * f;
+      if (!reduce) wake();
+    });
+    function release(e, cancelled) {
+      if (!pressed || (e && e.pointerId !== undefined && e.pointerId !== pid)) return;
+      pressed = false; st = 1; btn.classList.remove("kfp-pressed");
+      try { btn.releasePointerCapture(pid); } catch (_) {}
+      qv += moved ? 3.2 : 1.6;                    // เด้งกลับแบบเยลลี่
+      if (reduce) { ox = oy = 0; sc = 1; render(); } else wake();
+      if (!cancelled && !moved) setTimeout(onTap, reduce ? 0 : 120);
+    }
+    btn.addEventListener("pointerup", e => release(e, false));
+    btn.addEventListener("pointercancel", e => release(e, true));
+    btn.addEventListener("lostpointercapture", () => { if (pressed) release(null, true); });
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    btn.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); qv += 2; wake(); onTap(); } });
+  }
+
   function injectUI() {
     if ($("kfpAuthRoot")) return;
 
     const style = document.createElement("style");
     style.textContent = `
       #kfpAuthRoot{position:fixed;top:14px;right:14px;z-index:99999;font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif}
-      #kfpAuthButton{width:auto!important;margin:0!important;padding:10px 16px!important;border:1px solid rgba(212,175,55,.7)!important;border-radius:999px!important;background:rgba(18,18,20,.82)!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#f3d870!important;box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:14px!important;font-weight:600;cursor:pointer;transition:transform .12s ease,filter .18s ease}
-      #kfpAuthButton:active{transform:scale(.97)}
-      #kfpAuthButton.logged-in{background:linear-gradient(135deg,#f3d870,#d4af37 55%,#b8901f)!important;color:#1a1400!important;border-color:transparent!important;box-shadow:0 6px 20px rgba(212,175,55,.3)}
+      #kfpAuthButton{position:relative;width:auto!important;margin:0!important;padding:11px 18px!important;border-radius:999px!important;cursor:pointer;font-family:inherit;font-size:14px!important;font-weight:600;color:#fff6d6!important;white-space:nowrap;overflow:visible;
+        touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;outline:none;
+        background:radial-gradient(90% 90% at 50% 120%,rgba(255,214,102,.34),rgba(255,214,102,0) 62%),radial-gradient(120% 140% at 25% 0%,rgba(255,255,255,.26),rgba(255,255,255,.05) 45%,rgba(255,255,255,0) 66%),linear-gradient(150deg,rgba(255,236,170,.20),rgba(212,175,55,.07) 55%,rgba(255,255,255,.04))!important;
+        -webkit-backdrop-filter:blur(14px) saturate(210%) brightness(1.12) contrast(1.05);backdrop-filter:blur(14px) saturate(210%) brightness(1.12) contrast(1.05);
+        border:1px solid rgba(255,240,190,.38)!important;
+        box-shadow:inset 0 1.5px 1px rgba(255,255,255,.70),inset 0 -2px 3px rgba(255,214,102,.45),inset 4px 0 8px rgba(255,255,255,.07),inset -4px 0 8px rgba(255,214,102,.10),0 10px 22px rgba(0,0,0,.50),0 3px 8px rgba(0,0,0,.35),0 0 22px rgba(212,175,55,.20);
+        text-shadow:0 1px 3px rgba(0,0,0,.5);transform-origin:50% 50%;will-change:transform;transition:box-shadow .3s ease}
+      #kfpAuthButton::before{content:'';position:absolute;left:14px;right:14px;top:3px;height:42%;border-radius:50% 50% 55% 55%/80% 80% 40% 40%;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,.03));pointer-events:none;opacity:.8;transform:translate(var(--hx,0px),var(--hy,0px));filter:blur(.4px)}
+      #kfpAuthButton::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;mix-blend-mode:screen;background:conic-gradient(from 200deg,rgba(255,255,255,0) 0deg,rgba(255,255,255,.24) 40deg,rgba(255,255,255,0) 90deg,rgba(255,255,255,0) 196deg,rgba(255,224,130,.26) 246deg,rgba(255,255,255,0) 300deg);-webkit-mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);padding:1.5px}
+      #kfpAuthButton.kfp-pressed{box-shadow:inset 0 1.5px 1px rgba(255,255,255,.8),inset 0 -2px 3px rgba(255,214,102,.55),0 16px 30px rgba(0,0,0,.55),0 5px 10px rgba(0,0,0,.35),0 0 32px rgba(243,216,112,.36)}
+      #kfpAuthButton:focus-visible{box-shadow:0 0 0 3px rgba(243,216,112,.8),0 10px 22px rgba(0,0,0,.5)}
+      #kfpAuthButton.logged-in{color:#fff!important;background:radial-gradient(90% 90% at 50% 120%,rgba(255,200,70,.55),rgba(255,200,70,0) 62%),radial-gradient(120% 140% at 25% 0%,rgba(255,255,255,.34),rgba(255,255,255,.06) 45%,rgba(255,255,255,0) 66%),linear-gradient(150deg,rgba(255,226,130,.38),rgba(212,175,55,.20) 55%,rgba(255,255,255,.06))!important;border-color:rgba(255,236,170,.55)!important}
+      @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){#kfpAuthButton{background:linear-gradient(150deg,rgba(80,66,24,.94),rgba(34,28,12,.94))!important}}
       #kfpAuthPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:18px}
       #kfpAuthPanel.open{display:flex}
       .kfp-auth-modal{width:min(460px,100%);max-height:90vh;overflow:auto;background:linear-gradient(160deg,#1b1b1e,#111113);border:1px solid rgba(212,175,55,.55);border-radius:22px;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 44px rgba(212,175,55,.14);color:#f4f1e8}
@@ -303,10 +390,11 @@
       </div>`;
     document.body.appendChild(root);
 
-    $("kfpAuthButton").onclick = () => {
+    const openAuth = () => {
       showAuthPanel();
       if (!VALID_CONFIG) setAuthStatus("ยังไม่ได้ตั้งค่า Supabase ใน supabase-config.js", "error");
     };
+    attachLiquidSpring($("kfpAuthButton"), openAuth);
     $("kfpCloseBtn").onclick = hideAuthPanel;
     $("kfpOpenAddBtn").onclick = () => { $("kfpLoginArea").hidden=true; $("kfpAddUserArea").hidden=false; setAuthStatus(""); };
     $("kfpBackLoginBtn").onclick = () => { $("kfpLoginArea").hidden=false; $("kfpAddUserArea").hidden=true; setAuthStatus(""); };

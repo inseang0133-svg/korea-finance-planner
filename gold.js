@@ -40,6 +40,9 @@ const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo
 // GitHub Pages may be blocked by the API's CORS policy, so direct is attempted first,
 // then this optional browser CORS proxy, then the legacy public-feed/cache fallback.
 const GOLD2GO_CORS_PROXY = "https://corsproxy.io/?url=";
+// (ไม่บังคับ) URL ของ Cloudflare Worker ส่วนตัวที่ forward ไป priceInfo — ดู gold2go-worker.js
+// ถ้าใส่ค่า ระบบจะลองตัวนี้ก่อนเป็นอันดับแรก ซึ่งเสถียรที่สุดเพราะ API ต้นทางไม่เปิด CORS
+const GOLD2GO_WORKER_URL = "";
 const GOLD2GO_DIRECT_URL = "https://www.intergold.co.th/";
 const GOLD2GO_PROXY_URL = "https://r.jina.ai/http://www.intergold.co.th/";
 const GOLD2GO_AUTO_TIMEOUT_MS = 9000;
@@ -216,6 +219,33 @@ function cleanGold2goPrice(v){
   return Number.isFinite(n)&&n>5000&&n<500000 ? Math.round(n) : null;
 }
 
+// ขายออกต้องสูงกว่ารับซื้อเล็กน้อย (spread จริง ~150-200 บาท). ถ้าห่างเกิน 3% หรือต่ำกว่ารับซื้อ
+// แปลว่าเป็นค่าค้างเก่า -> ไม่แสดง/ไม่ใช้ แทนที่จะโชว์ราคาที่ผิด
+function sanitizeGold2goSell(receive, sell){
+  const r=Number(receive), v=Number(sell);
+  if(!(r>0) || !(v>0)) return null;
+  if(v<=r || v>r*1.03) return null;
+  return v;
+}
+
+// อ่านทั้งรับซื้อ+ขายออกจากหน้า public ของ InterGold (ใช้เมื่อ API หลักถูกบล็อก)
+function parseGold2goPublicQuote(text){
+  const receive=parseGold2goPublicPrice(text);
+  if(!receive) return null;
+  const raw=String(text||"");
+  let sell=null;
+  const askPatterns=[
+    /(?:ask|offer|sell)Price96["'\]\s:=]+(\d[\d,]*(?:\.\d+)?)/i,
+    /InterGold\s*96\.5%\s*\(Baht\)[^\d]{0,140}[\d,]+(?:\.\d+)?\s*[|｜]\s*([\d,]+(?:\.\d+)?)/i
+  ];
+  for(const re of askPatterns){
+    const m=raw.match(re);
+    const n=sanitizeGold2goSell(receive, cleanGold2goPrice(m?.[1]));
+    if(n){ sell=n; break; }
+  }
+  return {receivePrice:receive, sellPrice:sell};
+}
+
 function parseGold2goPublicPrice(text){
   if(!text) return null;
   const raw=String(text);
@@ -276,7 +306,7 @@ function updateGold2goQuoteUI(){
   }
 }
 
-function saveGold2goAutoPrice(value, source){
+function saveGold2goAutoPrice(value, source, sellValue){
   const s=loadSettings();
   s.valuationSource="gold2go";
   s.gold2goBuyBaht=value;
@@ -284,11 +314,13 @@ function saveGold2goAutoPrice(value, source){
   s.gold2goUpdatedAt=new Date().toISOString();
   s.gold2goPriceMode="auto";
   s.gold2goPriceSource=source;
-  // Legacy/public-feed fallback only has the receive ("รับซื้อ") quote.
+  // ห้ามเก็บค่า "ขายออก" เก่าค้างไว้ข้ามรอบ: ถ้ารอบนี้ไม่ได้ค่าใหม่ ให้ล้างทิ้ง
+  const freshSell=sanitizeGold2goSell(value, sellValue);
+  if(freshSell) s.gold2goSellBaht=freshSell; else delete s.gold2goSellBaht;
   saveSettings(s);
   state.gold2go={
     receivePrice:value,
-    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    sellPrice:freshSell,
     updatedAt:s.gold2goUpdatedAt || null,
     source
   };
@@ -304,6 +336,7 @@ function saveGold2goAutoPrice(value, source){
 
   const mode=$("gold2goPriceMode");
   if(mode) mode.textContent="🟢 Auto · ราคาจาก InterGold public feed";
+  renderGold2goMarketUI();
 }
 
 function setGold2goFallbackStatus(message){
@@ -370,6 +403,19 @@ async function fetchGold2goApiDirect(){
   }finally{
     clearTimeout(timer);
   }
+}
+
+async function fetchGold2goApiViaWorker(){
+  if(!GOLD2GO_WORKER_URL) throw new Error("ไม่ได้ตั้งค่า Worker");
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),GOLD2GO_AUTO_TIMEOUT_MS);
+  try{
+    const response=await fetch(GOLD2GO_WORKER_URL,{cache:"no-store",signal:controller.signal});
+    if(!response.ok) throw new Error(`Worker HTTP ${response.status}`);
+    const quote=normalizeGold2goApiResult(await response.json());
+    if(!quote) throw new Error("Worker ตอบกลับแต่ไม่พบราคา 96.5%");
+    return {...quote,source:"GOLD2go API · Worker"};
+  }finally{ clearTimeout(timer); }
 }
 
 async function fetchGold2goApiViaProxy(){
@@ -458,6 +504,19 @@ async function fetchGold2goAutoPrice(force=false){
   lastGold2goAttemptAt=now;
   const errors=[];
 
+  // LEVEL 0: Worker ส่วนตัว (ถ้าตั้งค่าไว้)
+  if(GOLD2GO_WORKER_URL){
+    try{
+      const quote=await fetchGold2goApiViaWorker();
+      saveGold2goApiQuote(quote);
+      renderPortfolio();
+      renderLots();
+      return {ok:true,price:quote.receivePrice,receivePrice:quote.receivePrice,sellPrice:quote.sellPrice,source:quote.source};
+    }catch(e){
+      errors.push(`GOLD2go Worker: ${e?.name==="AbortError"?"timeout":(e?.message||"unavailable")}`);
+    }
+  }
+
   // LEVEL 1: GOLD2go's own priceInfo API.
   try{
     const quote=await fetchGold2goApiDirect();
@@ -512,12 +571,14 @@ async function fetchGold2goAutoPrice(force=false){
       if(!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const text=await response.text();
-      const price=parseGold2goPublicPrice(text);
+      const pub=parseGold2goPublicQuote(text);
+      const price=pub?.receivePrice;
       if(!(price>0)) throw new Error("ไม่พบราคา InterGold 96.5% รับซื้อ");
 
       saveGold2goAutoPrice(
         price,
-        i===0 ? "InterGold public feed · direct" : "InterGold public feed · proxy"
+        i===0 ? "InterGold public feed · direct" : "InterGold public feed · proxy",
+        pub.sellPrice
       );
       renderPortfolio();
       renderLots();
@@ -575,7 +636,7 @@ function useManualGold2goPrice(){
   if(mode) mode.textContent="✏️ Manual · ใช้ราคาที่คุณกรอก";
   state.gold2go={
     receivePrice:value,
-    sellPrice:Number(s.gold2goSellBaht)>0 ? Number(s.gold2goSellBaht) : null,
+    sellPrice:sanitizeGold2goSell(value, s.gold2goSellBaht),
     updatedAt:s.gold2goUpdatedAt,
     source:"Manual"
   };
@@ -1704,7 +1765,7 @@ window.__kfpRefreshGoldFromCloud = function(){
     state.gold2go={
       receivePrice:Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht)>0
         ? Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht) : null,
-      sellPrice:Number(settings.gold2goSellBaht)>0 ? Number(settings.gold2goSellBaht) : null,
+      sellPrice:sanitizeGold2goSell(settings.gold2goReceiveBaht||settings.gold2goBuyBaht, settings.gold2goSellBaht),
       updatedAt:settings.gold2goUpdatedAt || null,
       source:settings.gold2goPriceSource || null
     };
@@ -1774,7 +1835,9 @@ async function newsFetchFeed(feed){
     if(data?.status!=="ok" || !Array.isArray(data.items)) throw new Error("rss2json bad response");
     return data.items.map(x=>newsNormalize(x,feed.topic)).filter(Boolean);
   }catch(_){
-    const xml=await newsFetchText(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`);
+    let xml;
+    try{ xml=await newsFetchText(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`); }
+    catch(__){ xml=await newsFetchText(`https://corsproxy.io/?url=${encodeURIComponent(rssUrl)}`); }
     const doc=new DOMParser().parseFromString(xml,"text/xml");
     return [...doc.querySelectorAll("item")].map(it=>newsNormalize({
       title:it.querySelector("title")?.textContent,
@@ -1834,7 +1897,17 @@ async function loadNews(force){
 function renderNews(){
   const card=$("newsCard"); if(!card) return;
   newsItems=newsFresh(newsItems);              // ตัดข่าวที่เกิน 7 วันทุกครั้งที่แสดง
-  if(!newsItems.length){ card.hidden=true; return; } // ไม่มีข่าว -> ซ่อนการ์ด
+  if(!newsItems.length){
+    // ไม่ซ่อนการ์ดเงียบๆ อีกต่อไป: ถ้ายังโหลดอยู่ให้บอกสถานะ ถ้าล้มเหลวให้มีปุ่มลองใหม่
+    card.hidden=false;
+    const meta0=$("newsMeta");
+    if(meta0) meta0.textContent=newsLoading?"กำลังโหลดข่าว…":"ดึงข่าวไม่สำเร็จ · กด 🔄 เพื่อลองใหม่";
+    const t0=$("newsTabs"); if(t0) t0.innerHTML="";
+    const l0=$("newsList"); if(l0) l0.innerHTML="";
+    const m0=$("newsMoreBtn"); if(m0) m0.hidden=true;
+    return;
+  }
+  card.hidden=false;
   card.hidden=false;
   const tabs=$("newsTabs");
   if(tabs){
@@ -1944,7 +2017,7 @@ function setup(){
   state.gold2go={
     receivePrice:Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht)>0
       ? Number(settings.gold2goReceiveBaht || settings.gold2goBuyBaht) : null,
-    sellPrice:Number(settings.gold2goSellBaht)>0 ? Number(settings.gold2goSellBaht) : null,
+    sellPrice:sanitizeGold2goSell(settings.gold2goReceiveBaht||settings.gold2goBuyBaht, settings.gold2goSellBaht),
     updatedAt:settings.gold2goUpdatedAt || null,
     source:settings.gold2goPriceSource || null
   };

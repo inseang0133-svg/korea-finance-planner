@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-pwa-20261030-glass1';
-const API_CACHE_NAME = 'korea-finance-api-20261030-glass1';
+const CACHE_NAME = 'korea-finance-pwa-20261031-tz1';
+const API_CACHE_NAME = 'korea-finance-api-20261031-tz1';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
@@ -78,16 +78,24 @@ self.addEventListener('fetch',event=>{
     return;
   }
 
-  // APIs remain stale-while-revalidate for fast/offline behavior.
+  // APIs: NETWORK FIRST (6s timeout) -> cache only when the network fails.
+  // (เดิมเป็น stale-while-revalidate ทำให้เครือข่ายที่บล็อกได้ราคาเก่าค้างโดยไม่รู้ตัว)
   if(isApiRequest(request)){
     event.respondWith((async()=>{
       const key=normalizedRequest(request);
       const cache=await caches.open(API_CACHE_NAME);
-      const cached=await cache.match(key);
-      if(cached){event.waitUntil(updateApiCache(request,key));return cached;}
-      const response=await fetch(request,{cache:'no-store'});
-      if(response&&response.ok)await cache.put(key,response.clone());
-      return response;
+      try{
+        const ctl=new AbortController();
+        const t=setTimeout(()=>ctl.abort(),6000);
+        const response=await fetch(request,{cache:'no-store',signal:ctl.signal});
+        clearTimeout(t);
+        if(response&&response.ok)await cache.put(key,response.clone());
+        return response;
+      }catch(err){
+        const cached=await cache.match(key);
+        if(cached)return cached;
+        throw err;
+      }
     })());
     return;
   }

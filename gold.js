@@ -18,7 +18,19 @@ const DAILY_HISTORY_KEY = "kfp_gold_daily_history_v2";
 const INTRADAY_HISTORY_KEY = "kfp_gold_intraday_history_v2";
 
 const OZ_TO_GRAM = 31.1034768;
-const PURCHASE_TIMEZONE = "Asia/Seoul";
+const PURCHASE_TIMEZONE = "Asia/Seoul"; // ใช้กับเวลาที่กรอกในฟอร์มซื้อทองเท่านั้น (เวลาเกาหลี)
+// เวลาที่แสดงในกราฟ/สถานะ = โซนเวลาของเครื่องที่เปิดเว็บ (ไทย=Asia/Bangkok, เกาหลี=Asia/Seoul, ฯลฯ)
+const DISPLAY_TIMEZONE = (()=>{
+  try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Seoul"; }
+  catch(_){ return "Asia/Seoul"; }
+})();
+function tzLabel(){
+  try{
+    const part=new Intl.DateTimeFormat("en-US",{timeZone:DISPLAY_TIMEZONE,timeZoneName:"shortOffset"})
+      .formatToParts(new Date()).find(x=>x.type==="timeZoneName");
+    return `${DISPLAY_TIMEZONE} (${(part?.value||"").replace("GMT","UTC")})`;
+  }catch(_){ return DISPLAY_TIMEZONE; }
+}
 const BAHT_GOLD_GRAM = 15.244; // standard Thai gold-weight reference
 // Smart polling:
 // - visible page: every 5 seconds
@@ -42,7 +54,11 @@ const GOLD2GO_API_URL = "https://gold2go-api.intergold.co.th/api/trade/priceInfo
 const GOLD2GO_CORS_PROXY = "https://corsproxy.io/?url=";
 // (ไม่บังคับ) URL ของ Cloudflare Worker ส่วนตัวที่ forward ไป priceInfo — ดู gold2go-worker.js
 // ถ้าใส่ค่า ระบบจะลองตัวนี้ก่อนเป็นอันดับแรก ซึ่งเสถียรที่สุดเพราะ API ต้นทางไม่เปิด CORS
-const GOLD2GO_WORKER_URL = "";
+const GOLD2GO_WORKER_URL = "https://gold-recorder.inseang0133.workers.dev";
+// (ไม่บังคับ) Worker กลางสำหรับดึง XAUS/Gold API/FX แทนการเรียกตรง — ดู gold2go-worker.js (เส้นทาง ?url=)
+const MARKET_PROXY_URL = "https://gold-recorder.inseang0133.workers.dev";
+// (ไม่บังคับ) URL ของ gold-worker (ดู gold-worker/README.md) ให้ Worker บันทึกราคารายนาทีเบื้องหลัง กราฟจะต่อเนื่องแม้ปิดแอป
+const TICKS_URL = "https://gold-recorder.inseang0133.workers.dev";
 const GOLD2GO_DIRECT_URL = "https://www.intergold.co.th/";
 const GOLD2GO_PROXY_URL = "https://r.jina.ai/http://www.intergold.co.th/";
 const GOLD2GO_AUTO_TIMEOUT_MS = 9000;
@@ -120,7 +136,7 @@ function formatDateTime(date, time){
 
 function formatChartTime(timestamp){
   return new Intl.DateTimeFormat("th-TH",{
-    timeZone:PURCHASE_TIMEZONE,
+    timeZone:DISPLAY_TIMEZONE,
     month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false
   }).format(new Date(Number(timestamp)*1000));
 }
@@ -203,14 +219,32 @@ function calculatePortfolio(){
   };
 }
 
-async function fetchJSON(url){
+async function fetchJSONOnce(url,timeoutMs=9000){
   const controller = new AbortController();
-  const timeout = setTimeout(()=>controller.abort(), 9000);
+  const timeout = setTimeout(()=>controller.abort(), timeoutMs);
   try{
     const r = await fetch(url,{cache:"no-store",signal:controller.signal});
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     return await r.json();
   } finally { clearTimeout(timeout); }
+}
+function errText(e){ return e?.name==="AbortError" ? "timeout" : (e?.message||"blocked"); }
+
+// ดึง JSON แบบมีทางสำรอง: ตรง -> Worker ส่วนตัว (ถ้าตั้งค่า) -> CORS proxy สาธารณะ
+// ช่วยกรณีบางเครือข่าย/ประเทศ (เช่นไทย) เข้าโดเมนต้นทางตรงๆ ไม่ได้
+async function fetchJSON(url){
+  const tries=[["direct",()=>fetchJSONOnce(url)]];
+  if(MARKET_PROXY_URL) tries.push(["worker",()=>fetchJSONOnce(`${MARKET_PROXY_URL}?url=${encodeURIComponent(url)}`)]);
+  tries.push(
+    ["proxy1",()=>fetchJSONOnce(`https://corsproxy.io/?url=${encodeURIComponent(url)}`)],
+    ["proxy2",()=>fetchJSONOnce(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`)]
+  );
+  const errs=[];
+  for(const [name,fn] of tries){
+    try{ return await fn(); }
+    catch(e){ errs.push(`${name}:${errText(e)}`); }
+  }
+  throw new Error(errs.join(", "));
 }
 
 
@@ -717,7 +751,8 @@ async function fetchThaiGoldPrices(){
 async function fetchGold(){
   // GOLD2go is fetched as part of the smart polling cycle.
   // If it fails, its last valid quote remains active.
-  const gold2goResult=await fetchGold2goAutoPrice();
+  // รัน GOLD2go คู่ขนาน ไม่ให้ราคาโลกต้องรอ (บนเครือข่ายที่ช้า/บล็อก อาจรอหลายสิบวินาที)
+  const gold2goPromise=fetchGold2goAutoPrice().catch(e=>({ok:false,error:`GOLD2go: ${errText(e)}`}));
 
   /*
     Browser-safe primary source: XAUS.
@@ -748,7 +783,7 @@ async function fetchGold(){
     await fetchIntradayGold();
     renderMarket();renderPortfolio();renderLots();renderChart();
     fetchThaiGoldPrices();
-    return {ok:true,gold2go:gold2goResult};
+    return {ok:true,gold2go:await gold2goPromise};
   }catch(e){
     errors.push(`XAUS: ${e.message}`);
   }
@@ -757,19 +792,22 @@ async function fetchGold(){
     const data=await fetchJSON(`https://api.gold-api.com/price/XAU?fresh=${Date.now()}`);
     const spot=Number(data?.price);
     if(!Number.isFinite(spot)||spot<=0) throw new Error("invalid Gold API price");
-    const fxData=await fetchJSON("https://api.frankfurter.app/latest?from=USD&to=THB");
-    const fx=Number(fxData?.rates?.THB);
+    let fx=NaN;
+    for(const u of ["https://api.frankfurter.app/latest?from=USD&to=THB","https://open.er-api.com/v6/latest/USD"]){
+      try{ const d=await fetchJSON(u); fx=Number(d?.rates?.THB); if(fx>0) break; }catch(_){}
+    }
+    if(!(fx>0)) fx=Number(state.usdThb); // ใช้ค่าล่าสุดที่รู้ถ้า FX ดึงไม่ได้
     if(!Number.isFinite(fx)||fx<=0) throw new Error("invalid USD/THB");
     applyMarket(spot,fx,"Gold API + Frankfurter");
     await fetchIntradayGold();
     fetchThaiGoldPrices();
-    return {ok:true,gold2go:gold2goResult};
+    return {ok:true,gold2go:await gold2goPromise};
   }catch(e){
     errors.push(`Gold API: ${e.message}`);
   }
 
   setMarketOffline(errors.join(" | ")||"API unavailable");
-  return {ok:false,error:errors.join(" | "),gold2go:gold2goResult};
+  return {ok:false,error:errors.join(" | "),gold2go:await gold2goPromise};
 }
 
 // ปุ่ม 🔄 อัปเดต: ดึงราคาแล้วแจ้งผลเป็นข้อความสีเขียว (เวลา + ราคาตอนกด)
@@ -783,7 +821,7 @@ async function manualRefreshGold(){
   try{ res=await fetchGold(); }catch(e){ res={ok:false,error:e?.message}; }
   btn.disabled=false; btn.textContent=oldText;
   if(!note) return;
-  const t=new Date().toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  const t=new Date().toLocaleTimeString("th-TH",{timeZone:DISPLAY_TIMEZONE,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
   if(res?.ok){
     const parts=[];
     if(state.spotUsdOz>0) parts.push(`ทองโลก $${num(state.spotUsdOz,2)}/oz`);
@@ -791,10 +829,16 @@ async function manualRefreshGold(){
     const q=getEffectiveSellPrice();
     if(q.mode==="gold2go" && q.exact && q.pricePerBaht>0) parts.push(`GOLD2go รับซื้อ ${money(q.pricePerBaht)}/บาททอง`);
     note.className="refresh-notice ok";
-    note.textContent=`✅ อัปเดตแล้ว เวลา ${t} น.${parts.length?" · "+parts.join(" · "):""}`;
+    note.textContent=`✅ อัปเดตแล้ว เวลา ${t} น. (${tzLabel()})${parts.length?" · "+parts.join(" · "):""}`;
   }else{
     note.className="refresh-notice fail";
     note.textContent=`⚠️ อัปเดตไม่สำเร็จ เวลา ${t} น. · ใช้ราคาล่าสุดที่บันทึกไว้`;
+    if(res?.error){
+      const d=document.createElement("small");
+      d.style.display="block"; d.style.opacity=".75"; d.style.marginTop="4px"; d.style.wordBreak="break-word";
+      d.textContent=`สาเหตุ: ${res.error}`;
+      note.appendChild(d);
+    }
   }
 }
 
@@ -1083,14 +1127,19 @@ let overlayRaf = 0;
 let chartInfo = { firstIntradaySec: null };
 
 /* ---------- tick store ---------- */
+// แต่ละนาทีเก็บ [bucketMs, close, high, low] — เก็บ high/low ภายในนาทีไว้ด้วย
+// เพื่อให้แท่งเทียนมีไส้จริง (เดิมเก็บแค่ราคาเดียวต่อนาที ทำให้แท่งเป็นจุดเล็กๆ)
 function loadTickStore(){
   if(tickMap) return;
   tickMap = new Map(); tickArr = [];
+  const put = (b, c, h, l) => {
+    if(!(b > 0 && c > 0)) return;
+    h = h > 0 ? Math.max(h, c) : c; l = l > 0 ? Math.min(l, c) : c;
+    tickMap.set(b, [b, c, h, l]);
+  };
   try{
     const raw = JSON.parse(localStorage.getItem(USD_TICKS_KEY) || "[]");
-    for(const r of raw){
-      if(Array.isArray(r) && r[0] > 0 && r[1] > 0) tickMap.set(r[0], r[1]);
-    }
+    for(const r of raw){ if(Array.isArray(r)) put(Number(r[0]), Number(r[1]), Number(r[2]), Number(r[3])); }
   }catch(_){ }
   if(!tickMap.size){
     // one-time migration from the previous chart versions (they stored USD too)
@@ -1100,30 +1149,33 @@ function loadTickStore(){
         .concat(loadHistory());
       for(const x of old){
         const ts = Number(x.ts), usd = Number(x.usd);
-        if(ts > 0 && usd > 0) tickMap.set(Math.floor(ts / TICK_RES_MS) * TICK_RES_MS, usd);
+        if(ts > 0 && usd > 0) put(Math.floor(ts / TICK_RES_MS) * TICK_RES_MS, usd);
       }
     }catch(_){ }
   }
-  tickArr = [...tickMap.entries()].sort((a, b) => a[0] - b[0]);
+  tickArr = [...tickMap.values()].sort((a, b) => a[0] - b[0]);
 }
 function addTick(ts, usd, overwrite = true){
   loadTickStore();
   ts = Number(ts); usd = Number(usd);
   if(!(ts > 0) || !(usd > 0) || ts > Date.now() + 120000) return false;
   const b = Math.floor(ts / TICK_RES_MS) * TICK_RES_MS;
-  if(tickMap.has(b)){
-    if(!overwrite || tickMap.get(b) === usd) return false;
-    tickMap.set(b, usd);
-    let lo = 0, hi = tickArr.length - 1;
-    while(lo <= hi){ const m = (lo + hi) >> 1; if(tickArr[m][0] === b){ tickArr[m][1] = usd; break; } tickArr[m][0] < b ? lo = m + 1 : hi = m - 1; }
+  const e = tickMap.get(b);
+  if(e){
+    let changed = false;
+    if(usd > e[2]){ e[2] = usd; changed = true; }
+    if(usd < e[3]){ e[3] = usd; changed = true; }
+    if(overwrite && e[1] !== usd){ e[1] = usd; changed = true; }
+    if(!changed) return false;
   }else{
-    tickMap.set(b, usd);
+    const ne = [b, usd, usd, usd];
+    tickMap.set(b, ne);
     const n = tickArr.length;
-    if(!n || b > tickArr[n - 1][0]) tickArr.push([b, usd]);
+    if(!n || b > tickArr[n - 1][0]) tickArr.push(ne);
     else{
       let lo = 0, hi = n;
       while(lo < hi){ const m = (lo + hi) >> 1; tickArr[m][0] < b ? lo = m + 1 : hi = m; }
-      tickArr.splice(lo, 0, [b, usd]);
+      tickArr.splice(lo, 0, ne);
     }
   }
   tickDirty = true;
@@ -1140,7 +1192,7 @@ function saveTickStore(force){
     // quota: keep newer half and retry once
     try{
       const keep = tickArr.slice(Math.floor(tickArr.length / 2));
-      tickMap = new Map(keep); tickArr = keep.slice();
+      tickMap = new Map(keep.map(x => [x[0], x])); tickArr = keep.slice();
       localStorage.setItem(USD_TICKS_KEY, JSON.stringify(tickArr));
     }catch(__){ }
   }
@@ -1193,9 +1245,44 @@ function mergeDaily(newRows){
   saveDailyStore(loadDailyStore().concat(newRows));
 }
 
+/* ---------- server-side recorder (Cloudflare Worker + D1) ---------- */
+const REC_CURSOR_KEY = "kfp_gold_rec_cursor_v1";
+let lastRecorderFetch = 0;
+async function fetchRecorderTicks(){
+  if(!TICKS_URL) return false;
+  if(Date.now() - lastRecorderFetch < 20000) return false;
+  lastRecorderFetch = Date.now();
+  loadTickStore();
+  try{
+    let cursor = 0;
+    try{ cursor = Number(localStorage.getItem(REC_CURSOR_KEY)) || 0; }catch(_){ }
+    const since = Math.max(cursor - 10 * 60000, Date.now() - TICK_KEEP_MS);
+    const base = TICKS_URL.replace(/\/+$/, "");
+    const data = await fetchJSONOnce(`${base}/ticks?since=${since}`, 20000);
+    const rows = Array.isArray(data?.rows) ? data.rows : [];
+    let changed = false, last = cursor;
+    for(const r of rows){
+      const b = Number(r[0]), c = Number(r[1]), h = Number(r[2]), l = Number(r[3]);
+      if(!(b > 0 && c > 0)) continue;
+      // addTick ทำงานที่ความละเอียด 1 นาทีอยู่แล้ว: ตั้ง close ก่อน แล้วขยาย high/low
+      if(addTick(b, c, true)) changed = true;
+      if(h > 0 && addTick(b, h, false)) changed = true;
+      if(l > 0 && addTick(b, l, false)) changed = true;
+      if(b > last) last = b;
+    }
+    if(rows.length){
+      saveTickStore(true);
+      try{ localStorage.setItem(REC_CURSOR_KEY, String(last)); }catch(_){ }
+      if(changed) renderChart("data");
+    }
+    return true;
+  }catch(_){ lastRecorderFetch = Date.now() - 10000; return false; }
+}
+
 /* ---------- remote data (XAU/USD) ---------- */
 async function fetchIntradayGold(){
   loadTickStore();
+  fetchRecorderTicks();
   if(tickMap.size && Date.now() - lastIntradayFetch < 180000) return true; // throttle: 3 min
   lastIntradayFetch = Date.now();
   try{
@@ -1262,18 +1349,26 @@ function chartFx(){
 /* ---------- bars ---------- */
 function aggregateTicks(arr, intervalMs){
   const out = []; let cur = null;
-  for(const [ms, v] of arr){
+  for(const r of arr){
+    const ms = r[0], c = r[1], h = r[2] > 0 ? r[2] : c, l = r[3] > 0 ? r[3] : c;
     const t = Math.floor(Math.floor(ms / intervalMs) * intervalMs / 1000);
     if(!cur || cur.time !== t){
       if(cur) out.push(cur);
-      cur = { time: t, open: v, high: v, low: v, close: v };
+      cur = { time: t, open: c, high: h, low: l, close: c };
     }else{
-      if(v > cur.high) cur.high = v;
-      if(v < cur.low) cur.low = v;
-      cur.close = v;
+      if(h > cur.high) cur.high = h;
+      if(l < cur.low) cur.low = l;
+      cur.close = c;
     }
   }
   if(cur) out.push(cur);
+  // ต่อแท่ง: open = close แท่งก่อนหน้า (แบบ TradingView) ไม่งั้นข้อมูลห่างๆ จะเป็นแค่จุด "+"
+  for(let i = 1; i < out.length; i++){
+    const b = out[i], prev = out[i - 1].close;
+    b.open = prev;
+    if(prev > b.high) b.high = prev;
+    if(prev < b.low) b.low = prev;
+  }
   return out;
 }
 function buildDailyBars(){
@@ -1281,11 +1376,12 @@ function buildDailyBars(){
   const byTime = new Map(daily.map(b => [b.time, b]));
   // today's/recent days from ticks (UTC date, 12:00 UTC label like the daily store)
   const days = new Map();
-  for(const [ms, v] of tickArr){
+  for(const r of tickArr){
+    const ms = r[0], v = r[1], h = r[2] > 0 ? r[2] : v, l = r[3] > 0 ? r[3] : v;
     const t = Math.floor(ms / 86400000) * 86400 + 43200;
     const d = days.get(t);
-    if(!d) days.set(t, { time: t, open: v, high: v, low: v, close: v });
-    else{ if(v > d.high) d.high = v; if(v < d.low) d.low = v; d.close = v; }
+    if(!d) days.set(t, { time: t, open: v, high: h, low: l, close: v });
+    else{ if(h > d.high) d.high = h; if(l < d.low) d.low = l; d.close = v; }
   }
   const merged = [...byTime.values()];
   for(const d of days.values()){
@@ -1332,7 +1428,7 @@ function formatUsdPrice(v, dec = 2){ return `$${Number(v).toLocaleString("en-US"
 function chartTime(ts){ return Math.floor(Number(ts) / 1000); }
 function tickMarkFormatter(time, type){
   const d = new Date(Number(time) * 1000);
-  const f = o => new Intl.DateTimeFormat("th-TH", Object.assign({ timeZone: PURCHASE_TIMEZONE }, o)).format(d);
+  const f = o => new Intl.DateTimeFormat("th-TH", Object.assign({ timeZone: DISPLAY_TIMEZONE }, o)).format(d);
   switch(type){
     case 0: return f({ year: "numeric" });
     case 1: return f({ month: "short" });
@@ -1400,7 +1496,7 @@ function ensureChart(){
     });
     const pf = { type: "price", precision: 2, minMove: .01 };
     areaSeries = chart.addAreaSeries({ topColor: "rgba(212,175,55,.30)", bottomColor: "rgba(212,175,55,.02)", lineColor: "#e6c34a", lineWidth: 2, priceLineVisible: true, lastValueVisible: true, crosshairMarkerVisible: true, crosshairMarkerRadius: 4, priceFormat: pf });
-    candleSeries = chart.addCandlestickSeries({ upColor: "#62db8a", downColor: "#ff5d68", borderUpColor: "#62db8a", borderDownColor: "#ff5d68", wickUpColor: "#62db8a", wickDownColor: "#ff5d68", priceFormat: pf });
+    candleSeries = chart.addCandlestickSeries({ upColor: "#62db8a", downColor: "#ff5d68", borderUpColor: "#62db8a", borderDownColor: "#ff5d68", wickUpColor: "#62db8a", wickDownColor: "#ff5d68", borderVisible: true, wickVisible: true, priceFormat: pf });
 
     // keep purchase prices inside the visible price range
     const autoscale = original => {
@@ -1424,7 +1520,7 @@ function ensureChart(){
       const row = param?.seriesData?.get(activeSeries());
       const value = row?.value ?? row?.close;
       if(!param?.time || !Number.isFinite(Number(value))){ tip.textContent = lastBarText(); return; }
-      const dt = new Intl.DateTimeFormat("th-TH", { timeZone: PURCHASE_TIMEZONE, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(Number(param.time) * 1000));
+      const dt = new Intl.DateTimeFormat("th-TH", { timeZone: DISPLAY_TIMEZONE, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(Number(param.time) * 1000));
       const extra = row?.close != null && row?.open != null ? ` · O ${row.open.toFixed(2)} H ${row.high.toFixed(2)} L ${row.low.toFixed(2)} C ${row.close.toFixed(2)}` : "";
       tip.textContent = `${dt} · ${formatUsdPrice(Number(value))}/troy oz${extra}`;
     });

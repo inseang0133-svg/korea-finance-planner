@@ -1,0 +1,11 @@
+name = "gold-recorder"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gold-ticks"
+database_id = "ใส่-database_id-ที่ได้จากคำสั่ง-d1-create"

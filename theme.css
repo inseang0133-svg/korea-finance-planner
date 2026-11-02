@@ -1,0 +1,244 @@
+/* =========================================================
+   Gilded Night — UI redesign layer (presentation only)
+   โหลดต่อจาก style.css / gold.css  ไม่แตะ id / logic ใดๆ
+   ========================================================= */
+@property --sp{syntax:'<number>';inherits:false;initial-value:0}
+
+:root{
+  --bg:#06070a;
+  --gold:#e8be46;
+  --gold-light:#ffe08a;
+  --gold-deep:#b8862a;
+  --text:#f5f2ea;
+  --muted:#a6a296;
+  --green:#3ddc97;
+  --red:#ff6b7a;
+  --stroke:rgba(255,255,255,.08);
+  --stroke-gold:rgba(232,190,70,.38);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --font:"Prompt","Noto Sans Thai",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  --fill:linear-gradient(155deg,rgba(30,32,42,.78),rgba(13,14,20,.82));
+  --edge:linear-gradient(140deg,rgba(255,224,138,.55),rgba(255,255,255,.07) 38%,rgba(232,190,70,.22) 100%);
+}
+
+html{scroll-padding-top:16px}
+body{
+  background:var(--bg) !important;
+  color:var(--text);
+  font-family:var(--font) !important;
+  position:relative;
+  min-height:100vh;
+}
+button,input,select{font-family:var(--font) !important}
+
+/* ---------- Aurora background ---------- */
+.fx-aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:
+  radial-gradient(1200px 600px at 50% -10%,rgba(232,190,70,.10),transparent 60%),var(--bg)}
+.fx-aurora i{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55;will-change:transform}
+.fx-aurora i:nth-child(1){width:46vmax;height:46vmax;left:-14vmax;top:-12vmax;
+  background:radial-gradient(circle,rgba(232,190,70,.55),transparent 65%);animation:fx-drift-a 26s ease-in-out infinite alternate}
+.fx-aurora i:nth-child(2){width:40vmax;height:40vmax;right:-14vmax;top:22vh;
+  background:radial-gradient(circle,rgba(61,220,151,.28),transparent 65%);animation:fx-drift-b 32s ease-in-out infinite alternate}
+.fx-aurora i:nth-child(3){width:38vmax;height:38vmax;left:10vw;bottom:-16vmax;
+  background:radial-gradient(circle,rgba(124,92,255,.26),transparent 65%);animation:fx-drift-c 29s ease-in-out infinite alternate}
+.fx-aurora::after{content:"";position:absolute;inset:0;opacity:.5;
+  background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.2px);background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000,transparent 75%);mask-image:radial-gradient(ellipse at 50% 30%,#000,transparent 75%)}
+@keyframes fx-drift-a{to{transform:translate3d(14vw,10vh,0) scale(1.15)}}
+@keyframes fx-drift-b{to{transform:translate3d(-12vw,-8vh,0) scale(1.1)}}
+@keyframes fx-drift-c{to{transform:translate3d(10vw,-12vh,0) scale(1.2)}}
+
+/* scroll progress */
+.fx-progress{position:fixed;top:0;left:0;right:0;height:3px;z-index:9500;transform-origin:0 50%;transform:scaleX(0);
+  background:linear-gradient(90deg,var(--gold-deep),var(--gold-light),var(--green));box-shadow:0 0 14px rgba(232,190,70,.7)}
+
+/* ---------- Typography ---------- */
+.gold-hero h1{color:var(--gold-light) !important;text-shadow:0 0 28px rgba(232,190,70,.35)}
+.container>h1{
+  background:linear-gradient(100deg,#fff2b8 0%,#e8be46 35%,#fff2b8 55%,#c9962b 100%) !important;
+  background-size:220% 100% !important;
+  -webkit-background-clip:text !important;background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;color:transparent !important;
+  letter-spacing:.2px;animation:fx-shine 7s linear infinite;
+}
+@keyframes fx-shine{to{background-position:-220% 0}}
+.subtitle{color:var(--muted)}
+.subtitle::after{width:80px;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:fx-breathe 3.2s ease-in-out infinite}
+@keyframes fx-breathe{50%{width:140px;opacity:.7}}
+
+/* ---------- Glass surfaces (gradient border + pointer spotlight) ---------- */
+.card,.gold-card,.result-card,.stat-box,.gold-stat,.market-box,.lot-item,.news-item,.salary-item,.prediction-card,.quick-card{
+  border:1px solid transparent !important;
+  background:
+    radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(255,214,120,calc(var(--sp) * .13)),transparent 46%) padding-box,
+    var(--fill) padding-box,
+    var(--edge) border-box !important;
+  box-shadow:0 24px 50px -24px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.015),inset 0 1px 0 rgba(255,255,255,.06) !important;
+  transition:--sp .45s ease,transform .5s var(--ease),box-shadow .5s var(--ease);
+}
+.card:hover,.gold-card:hover,.result-card:hover,.stat-box:hover,.gold-stat:hover,.market-box:hover,.lot-item:hover,.news-item:hover{--sp:1}
+.card,.gold-card{border-radius:26px !important}
+.card{-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.result-card:hover,.stat-box:hover,.gold-stat:hover,.market-box:hover,.lot-item:hover,.news-item:hover{
+  transform:translateY(-4px);
+  box-shadow:0 30px 56px -22px rgba(0,0,0,.9),0 0 36px -8px rgba(232,190,70,.28),inset 0 1px 0 rgba(255,255,255,.09) !important}
+.card h2,.section-head h2{
+  color:var(--gold-light) !important;letter-spacing:.2px;
+  border-bottom:1px solid rgba(255,255,255,.07) !important;
+}
+.section-head h2{border-bottom:0 !important}
+
+/* ---------- Result cards (bento + per-type accent) ---------- */
+.results{grid-template-columns:repeat(6,minmax(0,1fr)) !important;gap:14px !important}
+.result-card{grid-column:span 2;padding:20px 18px !important;border-radius:20px !important}
+.result-card:nth-child(1){grid-column:span 6}
+.result-card:nth-child(2),.result-card:nth-child(3){grid-column:span 3}
+.result-card:nth-child(1){--ac:61,220,151}
+.result-card:nth-child(2){--ac:255,196,64}
+.result-card:nth-child(3){--ac:80,176,255}
+.result-card:nth-child(4){--ac:170,120,255}
+.result-card:nth-child(5){--ac:255,110,150}
+.result-card{--ac:232,190,70}
+.result-card::before{left:0 !important;right:0 !important;top:0 !important;height:3px !important;
+  background:linear-gradient(90deg,transparent,rgb(var(--ac)),transparent) !important;opacity:.9}
+.result-card::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(var(--ac),.28),transparent 70%);pointer-events:none;transition:transform .6s var(--ease)}
+.result-card:hover::after{transform:scale(1.5)}
+.result-card h3{color:rgb(var(--ac)) !important;font-size:15px !important;letter-spacing:.2px}
+.result-card p{font-size:17px !important;font-weight:600;color:#fff !important;font-variant-numeric:tabular-nums}
+.result-card:nth-child(1) p{font-size:20px !important}
+@media(max-width:600px){
+  .results{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .result-card,.result-card:nth-child(2),.result-card:nth-child(3){grid-column:span 1}
+  .result-card:nth-child(1){grid-column:span 2}
+  .result-card:nth-child(5){grid-column:span 2}
+  .result-card p{font-size:15px !important}
+}
+
+/* ---------- Stats ---------- */
+.stat-box{border-radius:20px !important;min-height:132px}
+.stat-box:nth-child(1){--ac:232,190,70}.stat-box:nth-child(2){--ac:61,220,151}.stat-box:nth-child(3){--ac:80,176,255}
+.stat-box:nth-child(4){--ac:255,196,64}.stat-box:nth-child(5){--ac:170,120,255}.stat-box:nth-child(6){--ac:255,110,150}
+.stat-box{--ac:232,190,70}
+.stat-box::before{content:"";position:absolute;left:16px;top:0;width:34px;height:3px;border-radius:0 0 4px 4px;background:rgb(var(--ac));box-shadow:0 0 12px rgb(var(--ac))}
+.stat-box span{color:#cfcabb !important}
+.stat-box h3{color:#fff !important;font-variant-numeric:tabular-nums}
+.stat-box p{color:rgb(var(--ac)) !important}
+.gold-portfolio-card{background:radial-gradient(circle at 100% 0%,rgba(232,190,70,.22),transparent 55%) padding-box,var(--fill) padding-box,var(--edge) border-box !important}
+
+/* ---------- Forms ---------- */
+label{color:#e9cd7a !important;font-weight:500;letter-spacing:.2px}
+input,select{
+  background-color:rgba(255,255,255,.045) !important;
+  border:1px solid rgba(255,255,255,.1) !important;
+  border-radius:14px !important;color:#fff !important;min-height:48px;
+  transition:border-color .25s ease,box-shadow .3s ease,background-color .25s ease,transform .25s var(--ease) !important;
+}
+input:hover,select:hover{border-color:rgba(232,190,70,.4) !important}
+input:focus,select:focus{
+  border-color:var(--gold) !important;background-color:rgba(232,190,70,.06) !important;
+  box-shadow:0 0 0 4px rgba(232,190,70,.16),0 8px 24px -10px rgba(232,190,70,.5) !important;
+}
+input[readonly]{opacity:.8;border-style:dashed !important}
+.year-filter,.lot-navigator select{border-color:rgba(232,190,70,.5) !important}
+.salary-preview{transition:color .3s ease}
+
+/* ---------- Buttons ---------- */
+button{
+  position:relative;
+  background:linear-gradient(110deg,#ffe08a 0%,#e8be46 40%,#c9962b 70%,#ffe08a 100%);
+  background-size:220% 100%;background-position:0 0;
+  color:#1a1300;border-radius:14px;min-height:46px;font-weight:600;
+  box-shadow:0 10px 24px -10px rgba(232,190,70,.65),inset 0 1px 0 rgba(255,255,255,.5);
+  transition:background-position .6s var(--ease),filter .25s ease,box-shadow .3s ease;
+}
+button:hover{background-position:100% 0;filter:none}
+.card button:hover,.gold-card button:hover{box-shadow:0 14px 30px -10px rgba(232,190,70,.75),inset 0 1px 0 rgba(255,255,255,.55)}
+.card button:active,.gold-card button:active{transform:scale(.97)}
+.btn-secondary,.btn-save-month,.chart-tab,.chart-action-btn,.chart-tool-btn,.news-tab,.contract-opt:not(.active){
+  background:rgba(255,255,255,.04) !important;color:var(--gold-light) !important;
+  border:1px solid rgba(232,190,70,.4) !important;box-shadow:none !important;
+}
+.btn-secondary:hover,.btn-save-month:hover,.chart-tab:hover,.chart-action-btn:hover,.chart-tool-btn:hover,.news-tab:hover,.contract-opt:hover{
+  background:rgba(232,190,70,.12) !important;border-color:var(--gold) !important}
+.chart-tab.active,.chart-tool-btn.active,.news-tab.active,.contract-opt.active{
+  background:linear-gradient(110deg,#ffe08a,#e8be46 60%,#c9962b) !important;color:#1a1300 !important;
+  border-color:transparent !important;box-shadow:0 8px 20px -8px rgba(232,190,70,.8) !important}
+.btn-danger,.small-danger-btn,.delete-lot{
+  background:rgba(255,107,122,.08) !important;color:#ff9aa5 !important;
+  border:1px solid rgba(255,107,122,.45) !important;box-shadow:none !important}
+.btn-danger:hover,.small-danger-btn:hover,.delete-lot:hover{background:rgba(255,107,122,.18) !important}
+.contract-opt{transition:background .3s ease,transform .35s var(--spring),box-shadow .3s ease !important}
+.contract-opt.active{transform:translateY(-2px)}
+.simulate-btn{border-radius:14px !important}
+.simulate-btn:hover{transform:translateY(-2px)}
+
+/* ripple (JS adds .fx-ripple-host + span) */
+.fx-ripple-host{overflow:hidden}
+.fx-ripple{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.45);transform:scale(0);
+  animation:fx-ripple .65s ease-out forwards}
+.btn-secondary .fx-ripple,.btn-save-month .fx-ripple,.chart-tab .fx-ripple{background:rgba(232,190,70,.4)}
+@keyframes fx-ripple{to{transform:scale(1);opacity:0}}
+
+/* ---------- Progress ---------- */
+.progress-container{height:16px !important;background:rgba(255,255,255,.07) !important;box-shadow:inset 0 2px 6px rgba(0,0,0,.6) !important}
+.progress-bar{
+  position:relative;overflow:hidden;transition:width 1.1s var(--ease) !important;
+  background:linear-gradient(90deg,#b8862a,#e8be46,#ffe08a) !important;
+  box-shadow:0 0 18px rgba(232,190,70,.7) !important;
+}
+.progress-bar::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);
+  transform:translateX(-100%);animation:fx-sweep 2.4s ease-in-out infinite}
+@keyframes fx-sweep{to{transform:translateX(100%)}}
+#progressText{background:linear-gradient(100deg,#fff2b8,#e8be46);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ---------- Results of tools ---------- */
+#convertResult,#remitResult,.simulate-result,.lot-preview,.buy-calc-result{
+  background:rgba(232,190,70,.07) !important;border:1px dashed rgba(232,190,70,.45) !important;border-radius:16px !important}
+.chart-box,.chart-panel,.chart-wrap{border-radius:18px !important;border-color:rgba(255,255,255,.08) !important}
+.history-item{background:var(--fill) !important;border:1px solid rgba(255,255,255,.08) !important;border-left:3px solid var(--gold) !important;border-radius:16px !important}
+.history-item button{background:rgba(255,107,122,.1) !important;color:#ff9aa5 !important;border:1px solid rgba(255,107,122,.45) !important;min-height:36px}
+#contractResult>div{background:rgba(232,190,70,.06) !important;border:1px solid rgba(232,190,70,.4) !important;border-radius:16px !important}
+
+/* ---------- Gold page ---------- */
+.gold-container{max-width:1080px}
+.gold-hero{background:
+  radial-gradient(560px circle at 100% 0%,rgba(232,190,70,.22),transparent 60%) padding-box,
+  var(--fill) padding-box,var(--edge) border-box !important}
+.eyebrow{color:var(--gold) !important;font-weight:600}
+.market-status{background:rgba(255,255,255,.04) !important;border:1px solid rgba(255,255,255,.07)}
+.status-dot.online{animation:fx-pulse 1.8s ease-out infinite}
+@keyframes fx-pulse{0%{box-shadow:0 0 0 0 rgba(61,220,151,.7)}100%{box-shadow:0 0 0 12px rgba(61,220,151,0)}}
+.gold-stat strong,.market-box strong{font-variant-numeric:tabular-nums}
+#netPLCard.positive strong,.positive-text{color:var(--green) !important}
+#netPLCard.negative strong,.negative-text{color:var(--red) !important}
+.lot-item{border-radius:18px !important}
+.lot-item.positive{border-left:3px solid var(--green) !important}
+.lot-item.negative{border-left:3px solid var(--red) !important}
+.chart-tabs{gap:6px}
+.chart-tab,.chart-action-btn,.chart-tool-btn{border-radius:999px !important;min-height:38px}
+.refresh-notice.ok{color:var(--green)}.refresh-notice.fail{color:var(--red)}
+
+/* ---------- Motion: reveal / value flash / list pop ---------- */
+.fx-on .fx-reveal:not(.in){opacity:0;transform:translateY(28px) scale(.98)}
+.fx-on .fx-reveal.in{animation:fx-rise .85s var(--ease) backwards;animation-delay:calc(var(--i,0) * 70ms)}
+@keyframes fx-rise{from{opacity:0;transform:translateY(28px) scale(.98)}}
+
+.fx-flash{animation:fx-flash .9s var(--ease)}
+@keyframes fx-flash{0%{opacity:.2;transform:translateY(8px);filter:blur(3px);text-shadow:0 0 18px rgba(255,224,138,.9)}
+  60%{text-shadow:0 0 14px rgba(255,224,138,.6)}100%{opacity:1;transform:none;filter:none}}
+
+.lots-list>.lot-item,.news-list>.news-item,#salaryHistory>.history-item{animation:fx-pop .6s var(--ease) backwards}
+.lots-list>:nth-child(2),.news-list>:nth-child(2),#salaryHistory>:nth-child(2){animation-delay:.06s}
+.lots-list>:nth-child(3),.news-list>:nth-child(3),#salaryHistory>:nth-child(3){animation-delay:.12s}
+.lots-list>:nth-child(n+4),.news-list>:nth-child(n+4){animation-delay:.18s}
+@keyframes fx-pop{from{opacity:0;transform:translateY(16px) scale(.96)}}
+
+@media(prefers-reduced-motion:reduce){
+  .fx-aurora i,h1,.subtitle::after,.progress-bar::after,.status-dot.online,.fx-flash,.fx-ripple{animation:none !important}
+  .fx-on .fx-reveal:not(.in){opacity:1;transform:none}
+  .fx-on .fx-reveal.in{animation:none}
+  .fx-progress{display:none}
+}

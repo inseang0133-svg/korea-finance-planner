@@ -350,9 +350,6 @@ function loadSalaryRecords() {
     
     // 3. แสดงผลรายการประวัติเงินเดือนออกหน้าจอ
     historyDiv.innerHTML = displayRecords.map((item) => {
-        // หาตำแหน่ง index ที่แท้จริงของข้อมูลชิ้นนี้ในอาเรย์หลักเพื่อใช้สั่งลบ
-        const originalIndex = records.findIndex(r => r.month === item.month && r.salary === item.salary);
-        
         const date = new Date(item.month + "-01");
         const monthName = date.toLocaleDateString("th-TH", { month: "long", year: "numeric" });
         
@@ -374,17 +371,24 @@ function loadSalaryRecords() {
                         </span>
                     </span>
                 </div>
-                <button onclick="deleteSalaryRecord(${originalIndex})" style="width: auto; padding: 6px 12px; background: #dd4b39; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">❌ ลบ</button>
+                <button onclick="deleteSalaryRecord('${item.month}')" style="width: auto; padding: 6px 12px; background: #dd4b39; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">❌ ลบ</button>
             </div>
         `;
     }).join("");
 }
 
-function deleteSalaryRecord(index){
+function deleteSalaryRecord(month){
     
     const records =
     getSalaryRecords();
-        
+
+    // ลบตามเดือน (ไม่ใช้ index) เพราะอาเรย์ใน localStorage ไม่ได้เรียงเหมือนที่แสดงบนหน้าจอ
+    const index = records.findIndex(r => r.month === month);
+
+    if(index === -1){
+        loadSalaryRecords();
+        return;
+    }
 
     if(
         !confirm("ต้องการลบรายการนี้ใช่หรือไม่?")

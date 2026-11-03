@@ -93,13 +93,7 @@
     "totalFamilyKRW", "totalFamilyTHB", "totalGoldKRW", "totalGoldTHB",
     "totalPersonalKRW", "totalPersonalTHB", "totalTravelKRW", "totalTravelTHB",
     "goldPortfolioValue", "goldPortfolioPL", "convertResult", "remitResult",
-    "progressText", "goalInfo", "contractResult",
-    // gold.html
-    "spotUsd", "usdThb", "goldThbGram", "goldThbOz", "thaiBarBuy", "thaiBarSell",
-    "gold2goReceivePrice", "gold2goSellPrice", "thaiJewelryBuy", "thaiJewelrySell",
-    "totalGold", "totalGoldOz", "totalCost", "currentValue", "netPL", "netPLPct",
-    "positivePL", "negativePL", "avgCost", "winRate", "winRatePct",
-    "chartCurrentOz", "buyCalcResult", "simulateResult"
+    "progressText", "goalInfo", "contractResult"
   ];
   if (!reduce && "MutationObserver" in window) {
     var mo = new MutationObserver(function (list) {

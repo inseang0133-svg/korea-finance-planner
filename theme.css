@@ -238,10 +238,10 @@ button:hover{background-position:100% 0;filter:none}
 @keyframes fx-flash{0%{opacity:.2;transform:translateY(8px);filter:blur(3px);text-shadow:0 0 18px rgba(255,224,138,.9)}
   60%{text-shadow:0 0 14px rgba(255,224,138,.6)}100%{opacity:1;transform:none;filter:none}}
 
-.lots-list>.lot-item,.news-list>.news-item,#salaryHistory>.history-item{animation:fx-pop .6s var(--ease) backwards}
-.lots-list>:nth-child(2),.news-list>:nth-child(2),#salaryHistory>:nth-child(2){animation-delay:.06s}
-.lots-list>:nth-child(3),.news-list>:nth-child(3),#salaryHistory>:nth-child(3){animation-delay:.12s}
-.lots-list>:nth-child(n+4),.news-list>:nth-child(n+4){animation-delay:.18s}
+.news-list>.news-item,#salaryHistory>.history-item{animation:fx-pop .6s var(--ease) backwards}
+.news-list>:nth-child(2),#salaryHistory>:nth-child(2){animation-delay:.06s}
+.news-list>:nth-child(3),#salaryHistory>:nth-child(3){animation-delay:.12s}
+.news-list>:nth-child(n+4){animation-delay:.18s}
 @keyframes fx-pop{from{opacity:0;transform:translateY(16px) scale(.96)}}
 
 @media(prefers-reduced-motion:reduce){
@@ -463,3 +463,35 @@ button:hover{background-position:100% 0;filter:none}
 @media(min-width:801px){.gold-stats-grid:not(.compact){grid-template-columns:repeat(4,minmax(0,1fr)) !important}.gold-stats-grid.compact{grid-template-columns:repeat(4,minmax(0,1fr)) !important}}
 .stat-box h3{font-size:clamp(14px,4.3vw,19px) !important;white-space:nowrap}
 .stat-box:nth-child(1) h3{font-size:clamp(17px,5vw,22px) !important}
+
+
+/* =========================================================
+   v3 — กันหน้าเลื่อนซ้าย-ขวา · อนิเมชันตัวเลขขึ้น/ลง
+   ========================================================= */
+html,body{max-width:100%;overscroll-behavior-x:none}
+body{overflow-x:hidden}
+@supports (overflow:clip){html,body{overflow-x:clip}}
+/* แสงวงกลมมุมการ์ดเคลื่อนไหวและยื่นออกนอกการ์ด -> ตัดที่ขอบการ์ด ไม่ให้ดันความกว้างหน้า */
+.result-card,.stat-box,.market-grid .market-box,.gold-stat,.chip,.pie-row{overflow:hidden}
+.stat-box h3{white-space:normal !important;overflow-wrap:anywhere}
+
+/* ตัวเลขเปลี่ยนค่า: เขียว+▲ เมื่อเพิ่ม · แดง+▼ เมื่อลด */
+.nf-host{transition:color .9s ease,text-shadow .9s ease}
+.nf-up{--nf:61,220,151}
+.nf-down{--nf:255,107,122}
+.nf-lit{color:rgb(var(--nf)) !important;text-shadow:0 0 10px rgba(var(--nf),.95),0 0 26px rgba(var(--nf),.5)}
+.nf-up::after,.nf-down::after{
+  position:absolute;display:inline-block;margin-left:.3em;font-size:.48em;line-height:1;vertical-align:.5em;font-weight:700;letter-spacing:0;
+  color:rgb(var(--nf));text-shadow:0 0 8px rgba(var(--nf),.9);opacity:1;transition:opacity .9s ease;
+  animation:nf-bob 1.3s ease-in-out infinite}
+.nf-up::after{content:"▲"}
+.nf-down::after{content:"▼";animation-name:nf-bob-down}
+.nf-up:not(.nf-lit)::after,.nf-down:not(.nf-lit)::after{opacity:0}
+@keyframes nf-bob{50%{transform:translateY(-2px)}}
+@keyframes nf-bob-down{50%{transform:translateY(2px)}}
+.lot-pl .nf-val{display:inline-block}
+@media(prefers-reduced-motion:reduce){.nf-up::after,.nf-down::after{animation:none}}
+
+/* ลูกศรเป็น absolute จึงไม่ดันความกว้างตัวเลข · ไม่ให้ตัวเลขราคาถูกตัดเป็น … */
+.market-grid .market-box .trade-half strong,.market-grid .market-box strong,.gold-stat strong{text-overflow:clip !important;overflow:visible !important;white-space:nowrap}
+.market-grid .market-box:nth-child(n) .trade-half strong{font-size:clamp(15px,4.6vw,22px) !important}

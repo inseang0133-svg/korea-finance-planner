@@ -79,7 +79,7 @@ let state = {
   timer: null
 };
 
-let chartMode = "line";
+let chartMode = "candle";
 let chartInterval = "5m";
 let selectedLotNumber = null;
 const CHART_INTERVALS = {"5m":5*60*1000,"15m":15*60*1000,"30m":30*60*1000,"1H":60*60*1000,"1D":24*60*60*1000};

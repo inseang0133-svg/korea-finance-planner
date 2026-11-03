@@ -699,17 +699,20 @@ function kfpBaseScales(){
     return {
         x: {
             grid: { display:false },
-            border: { color:"rgba(212,175,55,.25)" },
-            ticks: { color:"#9b978c", font:{ size:11, family:"Prompt, system-ui, sans-serif" } }
+            border: { color:"rgba(255,255,255,.10)" },
+            ticks: { color:"#b9b5a8", padding:8, font:{ size:11, family:"Prompt, system-ui, sans-serif" } }
         },
         y: {
             beginAtZero: true,
             grace: "12%",
             border: { display:false },
-            grid: { color:"rgba(212,175,55,.10)" },
+            grid: { color:"rgba(255,255,255,.07)", drawTicks:false },
             ticks: {
-                color:"#9b978c",
-                font:{ size:11, family:"Prompt, system-ui, sans-serif" },
+                color:"rgba(255,255,255,.42)",
+                mirror:true,          // ป้ายแกน Y อยู่ในพื้นที่กราฟ ไม่โดนตัดขอบบนมือถือ
+                labelOffset:-9,
+                padding:6,
+                font:{ size:10, family:"Prompt, system-ui, sans-serif" },
                 maxTicksLimit: 5,
                 callback: v => "฿" + kfpCompact(v)
             }
@@ -719,13 +722,14 @@ function kfpBaseScales(){
 
 function kfpTooltipStyle(){
     return {
-        backgroundColor:"rgba(20,20,22,.96)",
-        borderColor:"rgba(212,175,55,.55)",
+        backgroundColor:"rgba(14,15,20,.94)",
+        borderColor:"rgba(232,190,70,.55)",
         borderWidth:1,
+        caretSize:6,
         titleColor:KFP_GOLD_LIGHT,
         bodyColor:"#f4f1e8",
-        padding:10,
-        cornerRadius:10,
+        padding:12,
+        cornerRadius:14,
         displayColors:false,
         titleFont:{ family:"Prompt, system-ui, sans-serif", weight:"600" },
         bodyFont:{ family:"Prompt, system-ui, sans-serif" }
@@ -780,18 +784,19 @@ function renderChart(){
             datasets: [{
                 label: "รายได้ (THB)",
                 data: rows.map(r => Math.round(r.thb)),
-                borderRadius: 10,
+                borderRadius: 14,
                 borderSkipped: false,
-                maxBarThickness: 46,
-                borderWidth: 1,
-                borderColor: "rgba(243,216,112,.9)",
+                maxBarThickness: 44,
+                borderWidth: 0,
+                hoverBackgroundColor: "#ffe08a",
                 backgroundColor: function(c){
-                    const { chart } = c;
+                    const { chart, dataIndex } = c;
                     const area = chart.chartArea;
                     if(!area) return KFP_GOLD;
+                    const last = dataIndex === chart.data.labels.length - 1;   // เดือนล่าสุดเด่นสุด
                     const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-                    g.addColorStop(0, "rgba(243,216,112,.95)");
-                    g.addColorStop(1, "rgba(168,132,31,.55)");
+                    g.addColorStop(0, last ? "rgba(255,224,138,1)" : "rgba(255,224,138,.62)");
+                    g.addColorStop(1, last ? "rgba(184,134,42,.55)" : "rgba(184,134,42,.16)");
                     return g;
                 }
             }]
@@ -799,8 +804,13 @@ function renderChart(){
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false,
-            layout: { padding: { top: 18, right: 6 } },
+            animation: {
+                duration: 1000,
+                easing: "easeOutQuart",
+                delay: ctx => (ctx.type === "data" && ctx.mode === "default") ? ctx.dataIndex * 110 : 0
+            },
+            interaction: { mode: "index", intersect: false },
+            layout: { padding: { top: 22, right: 6 } },
             scales: kfpBaseScales(),
             plugins: {
                 legend: { display:false },
@@ -855,22 +865,32 @@ function renderSavingChart(){
             datasets: [{
                 label: "เงินเก็บสะสม 45% (THB)",
                 data: rows.map(r => Math.round(r.cumSavingThb)),
-                tension: 0.35,
+                tension: 0.42,
                 fill: true,
-                borderColor: KFP_GOLD_LIGHT,
-                borderWidth: 3,
+                borderColor: function(c){
+                    const { chart } = c;
+                    const area = chart.chartArea;
+                    if(!area) return KFP_GOLD_LIGHT;
+                    const g = chart.ctx.createLinearGradient(area.left, 0, area.right, 0);
+                    g.addColorStop(0, "#ffe08a");
+                    g.addColorStop(1, "#3ddc97");
+                    return g;
+                },
+                borderWidth: 3.5,
+                borderCapStyle: "round",
                 pointRadius: 5,
-                pointHoverRadius: 7,
-                pointBackgroundColor: KFP_GOLD,
+                pointHoverRadius: 9,
+                pointBackgroundColor: "#ffe08a",
                 pointBorderColor: "#0a0a0b",
-                pointBorderWidth: 2,
+                pointBorderWidth: 3,
                 backgroundColor: function(c){
                     const { chart } = c;
                     const area = chart.chartArea;
                     if(!area) return "rgba(212,175,55,.2)";
                     const g = chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
-                    g.addColorStop(0, "rgba(243,216,112,.38)");
-                    g.addColorStop(1, "rgba(212,175,55,0)");
+                    g.addColorStop(0, "rgba(61,220,151,.30)");
+                    g.addColorStop(.55, "rgba(232,190,70,.10)");
+                    g.addColorStop(1, "rgba(232,190,70,0)");
                     return g;
                 }
             }]
@@ -878,8 +898,9 @@ function renderSavingChart(){
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false,
-            layout: { padding: { top: 18, right: 14, left: 2 } },
+            animation: { duration: 1300, easing: "easeOutCubic" },
+            interaction: { mode: "index", intersect: false },
+            layout: { padding: { top: 22, right: 16, left: 6 } },
             scales: (function(){
                 const sc = kfpBaseScales();
                 sc.x.offset = true;   // จุดเดียวก็อยู่กลางกราฟ ไม่ติดขอบ
@@ -1279,33 +1300,26 @@ function renderPieChart(){
     };
 
     pieChart = new Chart(canvas.getContext("2d"), {
-        type: "pie",
-        plugins: [pieLabels],
+        type: "doughnut",
         data: {
             labels: dataValues.map(item => item.name),
             datasets: [{
                 data: dataValues.map(item => item.krw),
-                backgroundColor: ["#36a2eb", "#ff6384", "#ff9f40", "#ffcd56", "#4bc0c0"],
-                borderColor: "#141416",
-                borderWidth: 3,
-                hoverOffset: 8
+                backgroundColor: ["#3ddc97", "#ffc440", "#50b0ff", "#aa78ff", "#ff6e96"],
+                borderWidth: 0,
+                spacing: 5,
+                borderRadius: 12,
+                hoverOffset: 10
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false,
-            layout: { padding: 6 },
+            cutout: "70%",
+            animation: { animateRotate: true, animateScale: true, duration: 1300, easing: "easeOutQuart" },
+            layout: { padding: 14 },
             plugins: {
-                legend: {
-                    position: "bottom",
-                    labels: {
-                        color: "#f4f1e8",
-                        boxWidth: 12,
-                        padding: 12,
-                        font: { family: "Prompt, system-ui, sans-serif", size: 12 }
-                    }
-                },
+                legend: { display: false },   // legend + ยอดกลางวงใช้ชุดใหม่ใน ui-charts.js
                 tooltip: Object.assign(kfpTooltipStyle(), {
                     callbacks: {
                         title: items => dataValues[items[0].dataIndex].label,

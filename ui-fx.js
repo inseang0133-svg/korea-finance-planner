@@ -12,30 +12,12 @@
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var finePointer = window.matchMedia && matchMedia("(hover:hover) and (pointer:fine)").matches;
 
-  /* ---------- background + scroll progress ---------- */
+  /* ---------- background ---------- */
   var aurora = d.createElement("div");
   aurora.className = "fx-aurora";
   aurora.setAttribute("aria-hidden", "true");
   aurora.innerHTML = "<i></i><i></i><i></i>";
   body.insertBefore(aurora, body.firstChild);
-
-  var bar = d.createElement("div");
-  bar.className = "fx-progress";
-  bar.setAttribute("aria-hidden", "true");
-  body.appendChild(bar);
-
-  var ticking = false;
-  function onScroll() {
-    if (ticking) return;
-    ticking = true;
-    requestAnimationFrame(function () {
-      var max = root.scrollHeight - window.innerHeight;
-      bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, window.scrollY / max) : 0) + ")";
-      ticking = false;
-    });
-  }
-  window.addEventListener("scroll", onScroll, { passive: true });
-  onScroll();
 
   /* ---------- reveal on scroll (staggered) ---------- */
   var REVEAL = ".card,.gold-card,.result-card,.stat-box,.gold-stat,.news-item";
@@ -128,6 +110,11 @@
         if (el && seen.indexOf(el) < 0) seen.push(el);
       });
       seen.forEach(function (el) {
+        // วาบเฉพาะเมื่อค่าเปลี่ยนจริง (JS เขียนค่าเดิมซ้ำตอนรีเฟรชราคา ไม่ต้องวาบ)
+        var now = el.textContent;
+        if (el.__fxLast === undefined) { el.__fxLast = now; if (now.trim() === "" || now.trim() === "-") return; }
+        else if (el.__fxLast === now) return;
+        el.__fxLast = now;
         el.classList.remove("fx-flash");
         void el.offsetWidth; // restart animation
         el.classList.add("fx-flash");

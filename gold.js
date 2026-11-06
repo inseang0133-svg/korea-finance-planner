@@ -1015,31 +1015,64 @@ function lotEntryHTML(l){
   const breakEven=bahtWeight > 0 && cost > 0 ? cost / bahtWeight : 0;
   const enteredBaht=Number(l.entryBahtPrice) > 0 ? Number(l.entryBahtPrice) : 0;
   const entryBaht=enteredBaht || breakEven;
-  const toOz=baht => (baht > 0 && fx > 0) ? baht / (BAHT_GOLD_GRAM * purity / OZ_TO_GRAM) / fx : 0;
-  const col=(label,baht,approx)=>{
-    const oz=toOz(baht);
+
+  // แปลงราคาต่อบาททอง -> USD/troy oz แบบ "เทียบเท่า spot ตรงๆ" (ไม่มี spread)
+  // ใช้ฐานเดียวกับการตีมูลค่าแบบตลาด (goldType / 99.99)
+  const fineness=(Number(l.goldType) || 96.5) / 99.99;
+  const toOz=baht => (baht > 0 && fx > 0) ? baht / (BAHT_GOLD_GRAM * fineness / OZ_TO_GRAM) / fx : 0;
+
+  const q=getEffectiveSellPrice();
+  const spot=Number(state.spotUsdOz) > 0
+    ? Number(state.spotUsdOz)
+    : ((Number(state.priceThbGram) > 0 && fx > 0) ? Number(state.priceThbGram) * OZ_TO_GRAM / fx : 0);
+
+  // GOLD2go รับซื้อต่ำกว่าราคา spot แปลงตรงๆ อยู่เสมอ (spread) ถ้าแปลงจุดคุ้มทุนเป็น oz ตรงๆ ตัวเลขจะ "ต่ำเกินจริง"
+  // -> ปรับตามอัตราส่วนปัจจุบันระหว่าง "ราคารับซื้อ GOLD2go" กับ spot:
+  //    spot ที่ต้องถึง = spot ตอนนี้ x (จุดคุ้มทุน / ราคารับซื้อ GOLD2go ตอนนี้)
+  const calibrated = q.mode === "gold2go" && q.exact && q.pricePerBaht > 0 && spot > 0
+    && Math.abs(purity - 0.965) < 1e-9;
+  const breakEvenSpot = calibrated && breakEven > 0 ? spot * breakEven / q.pricePerBaht : 0;
+
+  const col=(label,baht,approx,spotNeeded)=>{
+    const oz=spotNeeded || toOz(baht);
+    let ozLine;
+    if(!(oz > 0)){
+      ozLine="troy oz: รอราคา USD/THB";
+    }else if(spotNeeded){
+      const d=spotNeeded - spot;
+      ozLine=`Spot คุ้มทุน ≈ ${formatUsdPrice(oz)} / troy oz`
+        + `<small class="lot-entry-oz-gap ${d > 0 ? "down" : "up"}">${
+            Math.abs(d) < 0.005 ? "ตรง spot ตอนนี้พอดี"
+            : d > 0 ? `spot ต้องขึ้นอีก ${formatUsdPrice(d)} (+${(d / spot * 100).toFixed(2)}%)`
+                    : `spot สูงกว่าจุดคุ้มทุนแล้ว ${formatUsdPrice(-d)}`
+          }</small>`;
+    }else{
+      ozLine=`เทียบเท่า spot ≈ ${formatUsdPrice(oz)} / troy oz`;
+    }
     return `<div class="lot-entry-col">
       <em class="lot-entry-label">${label}</em>
       <b>${baht > 0 ? (approx ? "≈ " : "") + money(baht) : "-"}</b><em>/ บาททอง</em>
-      <span class="lot-entry-oz">${oz > 0 ? "≈ " + formatUsdPrice(oz) + " / troy oz" : "troy oz: รอราคา USD/THB"}</span>
+      <span class="lot-entry-oz">${ozLine}</span>
     </div>`;
   };
   let gap="";
-  const q=getEffectiveSellPrice();
   if(q.mode === "gold2go" && q.exact && breakEven > 0 && purity === 0.965){
     const diff=q.pricePerBaht - breakEven;
     gap=`<div class="lot-entry-gap ${diff >= 0 ? "up" : "down"}">GOLD2go รับซื้อตอนนี้ ${money(q.pricePerBaht)} · ${
       Math.abs(diff) < 0.005 ? "ตรงจุดคุ้มทุนพอดี" : diff > 0 ? "สูงกว่าจุดคุ้มทุน " + money(diff) : "ต่ำกว่าจุดคุ้มทุน " + money(-diff)
     }</div>`;
   }
+  const note=calibrated
+    ? "Spot คุ้มทุนคำนวณจากส่วนต่างระหว่างราคารับซื้อ GOLD2go กับ spot ณ ตอนนี้ (ปรับตาม spread อัตโนมัติ) — GOLD2go รับซื้อต่ำกว่าราคา spot จึงต้องรอ spot สูงกว่าราคาเทียบเท่าตรงๆ (ประมาณการ)"
+    : "troy oz แปลงย้อนกลับจากราคาต่อบาททอง ด้วย USD/THB ปัจจุบัน (ประมาณการ)";
   return `<div class="lot-entry">
     <div class="lot-entry-cols${Math.abs(entryBaht - breakEven) < 1 ? " single" : ""}">${
       Math.abs(entryBaht - breakEven) < 1
-        ? col("เข้าซื้อที่ = จุดคุ้มทุน (P/L 0.00)", breakEven, !enteredBaht)
-        : col("เข้าซื้อที่", entryBaht, !enteredBaht) + col("จุดคุ้มทุน · P/L 0.00", breakEven, false)
+        ? col("เข้าซื้อที่ = จุดคุ้มทุน (P/L 0.00)", breakEven, !enteredBaht, breakEvenSpot)
+        : col("เข้าซื้อที่", entryBaht, !enteredBaht, 0) + col("จุดคุ้มทุน · P/L 0.00", breakEven, false, breakEvenSpot)
     }</div>
     ${gap}
-    <div class="lot-entry-note">troy oz แปลงย้อนกลับจากราคาต่อบาททอง ด้วย USD/THB ปัจจุบัน (ประมาณการ)</div>
+    <div class="lot-entry-note">${note}</div>
   </div>`;
 }
 
@@ -1456,7 +1489,9 @@ function lotBuyUsdOz(lot){
   const buyGram = Number(lot.buyPriceThbGram) > 0 ? Number(lot.buyPriceThbGram) : (Number(lot.costThb) > 0 ? Number(lot.costThb) / grams : 0);
   if(!(buyGram > 0)) return null;
   const fx = chartFx();
-  const usd = fx && fx > 0 ? buyGram * OZ_TO_GRAM / fx : 0;
+  // buyGram = ราคาต่อกรัมของ "ทองจริงที่ถือ" (เช่น 96.5%) -> หารด้วยความบริสุทธิ์เพื่อเทียบกับ spot (99.99%)
+  const fineness = (Number(lot.goldType) || 99.99) / 99.99;
+  const usd = fx && fx > 0 && fineness > 0 ? buyGram / fineness * OZ_TO_GRAM / fx : 0;
   return usd > 0 ? { grams, buyGram, usd } : null;
 }
 

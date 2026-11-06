@@ -495,3 +495,8 @@ body{overflow-x:hidden}
 /* ลูกศรเป็น absolute จึงไม่ดันความกว้างตัวเลข · ไม่ให้ตัวเลขราคาถูกตัดเป็น … */
 .market-grid .market-box .trade-half strong,.market-grid .market-box strong,.gold-stat strong{text-overflow:clip !important;overflow:visible !important;white-space:nowrap}
 .market-grid .market-box:nth-child(n) .trade-half strong{font-size:clamp(15px,4.6vw,22px) !important}
+
+/* จุดคุ้มทุน: บรรทัด "spot ต้องขึ้นอีก / สูงกว่าแล้ว" */
+.lot-entry-oz small.lot-entry-oz-gap{display:block;margin-top:3px;font-size:11.5px;font-weight:600}
+.lot-entry-oz small.lot-entry-oz-gap.down{color:#ff8593}
+.lot-entry-oz small.lot-entry-oz-gap.up{color:#5ff0a6}

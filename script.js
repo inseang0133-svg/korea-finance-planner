@@ -76,9 +76,16 @@ function saveData(){
         "rate",
         document.getElementById("rate").value
     );
+
+    // โหมด THB: ช่องเงินเดือนเป็นบาท
+    const thbInput = document.getElementById("salaryThb");
+    if(thbInput) localStorage.setItem("salaryThb", thbInput.value);
 }
 
 function updateSalaryPreview(){
+
+    // โหมดบาท: ไม่มีช่อง KRW/เรต ไม่ต้องแสดงตัวอย่าง
+    if(typeof kfpGetMode === "function" && kfpGetMode() === "THB") return;
 
     const salary =
         Number(
@@ -150,6 +157,12 @@ function loadData(){
         document.getElementById("rate").value =
             rate;
     }
+
+    const salaryThb = localStorage.getItem("salaryThb");
+    const thbInput = document.getElementById("salaryThb");
+    if(salaryThb && thbInput){
+        thbInput.value = salaryThb;
+    }
     const updatedAt =
     localStorage.getItem(
         "rateUpdatedAt"
@@ -168,42 +181,24 @@ if(updatedAt){
 
 function calculate(){
 
-    const salary =
-        Number(document.getElementById("salary").value);
+    const mode = kfpGetMode();
 
-    const rate =
-        Number(document.getElementById("rate").value);
+    // KRW: เงินเดือนเป็นวอน แล้วแปลงเป็นบาทด้วยเรต  ·  THB: กรอกเป็นบาทตรงๆ (rate = 1)
+    const amount = mode === "THB"
+        ? Number(document.getElementById("salaryThb").value)
+        : Number(document.getElementById("salary").value);
+
+    const rate = mode === "THB"
+        ? 1
+        : Number(document.getElementById("rate").value);
 
     saveData();
 
-    const saving = salary * 0.45;
-    const gold = salary * 0.15;
-    const family = salary * 0.25;
-    const personal = salary * 0.10;
-    const travel = salary * 0.05;
+    // การ์ด/ชื่อ/% มาจากหน้า “จัดการ” (ค่าเริ่มต้น 45/15/25/10/5)
+    kfpFillResults(amount, rate, mode);
 
-    document.getElementById("saving").innerHTML =
-        `${formatNumber(saving)} KRW<br>
-        ≈ ${formatNumber((saving*rate).toFixed(0))} THB`;
-
-    document.getElementById("gold").innerHTML =
-        `${formatNumber(gold)} KRW<br>
-        ≈ ${formatNumber((gold*rate).toFixed(0))} THB`;
-
-    document.getElementById("family").innerHTML =
-        `${formatNumber(family)} KRW<br>
-        ≈ ${formatNumber((family*rate).toFixed(0))} THB`;
-
-    document.getElementById("personal").innerHTML =
-        `${formatNumber(personal)} KRW<br>
-        ≈ ${formatNumber((personal*rate).toFixed(0))} THB`;
-
-    document.getElementById("travel").innerHTML =
-        `${formatNumber(travel)} KRW<br>
-        ≈ ${formatNumber((travel*rate).toFixed(0))} THB`;
- 
- renderPieChart();  
- loadSalaryRecords();     
+    renderPieChart();
+    loadSalaryRecords();
 }
 
 function saveGoalData(){
@@ -355,20 +350,24 @@ function loadSalaryRecords() {
         
         // อัปเกรดแบบถูกต้อง: ดึงค่าเรตที่เคยถูกล็อกไว้ในอดีตของเดือนนั้นๆ มาคำนวณ
         // (และใส่ระบบป้องกันไว้ว่าถ้าเป็นรายการเก่ามากๆ ที่ไม่มีค่า rate ให้ใช้เรตหน้าจอไปก่อน)
+        const isThb = item.currency === "THB";
         const savedRate = item.rate || Number(document.getElementById("rate").value) || 0.0240;
         
-        // คำนวณเงินบาทโดยใช้เรต ณ วันที่กดบันทึกจริงในอดีต
-        const thbSalary = item.salary * savedRate;
+        // คำนวณเงินบาทโดยใช้เรต ณ วันที่กดบันทึกจริงในอดีต (รายการโหมดบาทมียอดบาทอยู่แล้ว)
+        const thbSalary = isThb ? kfpRecThb(item) : item.salary * savedRate;
+        const amountHtml = isThb
+            ? `<span style="color: #2ecc71; font-weight: bold;">${formatNumber(Math.round(thbSalary))} THB</span>`
+            : `${formatNumber(item.salary)} KRW 
+                        <span style="color: #2ecc71; font-weight: bold; margin-left: 6px;">
+                            (≈ ${formatNumber(thbSalary.toFixed(0))} THB)
+                        </span>`;
         
         return `
             <div class="history-item" style="display: flex; justify-content: space-between; align-items: center; background: #222; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #d4af37;">
                 <div>
                     <span style="font-weight: bold; display: block; font-size: 15px;">${monthName}</span>
                     <span style="color: #aaa; font-size: 13px;">
-                        ${formatNumber(item.salary)} KRW 
-                        <span style="color: #2ecc71; font-weight: bold; margin-left: 6px;">
-                            (≈ ${formatNumber(thbSalary.toFixed(0))} THB)
-                        </span>
+                        ${amountHtml}
                     </span>
                 </div>
                 <button onclick="deleteSalaryRecord('${item.month}')" style="width: auto; padding: 6px 12px; background: #dd4b39; color: white; border: none; border-radius: 5px; font-size: 12px; cursor: pointer;">❌ ลบ</button>
@@ -416,186 +415,47 @@ function deleteSalaryRecord(month){
 
 
 function updateAnalytics(){
-    const records =
-        getSalaryRecords();
-    
+    const records = getSalaryRecords();
+    const cats = kfpLoadAlloc();
 
-    if(records.length === 0){
+    // รวมรายได้: KRW (เฉพาะรายการโหมดวอน) และ THB (ทุกรายการ ใช้เรตที่ล็อกไว้ของแต่ละเดือน)
+    const totalKrw = records.reduce((sum, item) => sum + kfpRecKrw(item), 0);
+    const totalThb = records.reduce((sum, item) => sum + kfpRecThb(item), 0);
+    // แสดงบรรทัด KRW เฉพาะเมื่อ "ทุกรายการ" เป็นโหมดวอน (กัน “KRW ≈ THB” ที่ตัวเลขคนละฐานเมื่อมีรายการโหมดบาทปนอยู่)
+    // ยังไม่มีรายการ -> ตามโหมดที่เลือกอยู่
+    const hasKrw = records.length
+        ? records.every(item => item.currency !== "THB")
+        : kfpGetMode() !== "THB";
 
-        // element เหล่านี้ไม่มีใน index.html: ต้องเช็ก null ก่อน
-        // ไม่เช่นนั้น window.onload จะหยุดกลางทาง (ทำให้ไม่ได้อัปเดตเรตอัตโนมัติ)
-        const emptyTargets = [
-            ["avgSalary", "0 KRW"],
-            ["avgSaving", "0 KRW"],
-            ["monthsToGoal", "-"]
-        ];
+    const set = (el, text) => { if(el) el.innerText = text; };
+    const show = (el, on) => { if(el) el.hidden = !on; };
+    const krwText = v => formatNumber(Math.round(v)) + " KRW";
+    const thbText = v => formatNumber(Math.round(v)) + " THB";
 
-        emptyTargets.forEach(([id, text]) => {
-            const el = document.getElementById(id);
-            if(el) el.innerText = text;
-        });
+    const tK = document.getElementById("totalSalaryKRW");
+    const tT = document.getElementById("totalSalaryTHB");
+    set(tK, hasKrw ? krwText(totalKrw) : thbText(totalThb));
+    set(tT, "≈ " + thbText(totalThb));
+    show(tT, hasKrw);
 
-        kfpSyncGoalFromSaving(0);
-        renderChart();
-        renderSavingChart();
-        return;
-    }
+    cats.forEach(c => {
+        const kEl = document.querySelector('[data-cat-krw="' + c.id + '"]');
+        const tEl = document.querySelector('[data-cat-thb="' + c.id + '"]');
+        const k = totalKrw * c.pct / 100;
+        const t = totalThb * c.pct / 100;
+        set(kEl, hasKrw ? krwText(k) : thbText(t));
+        set(tEl, "≈ " + thbText(t));
+        show(tEl, hasKrw);
+    });
 
-
-    const totalSalary =
-    records.reduce(
-        (sum,item)=>
-        sum + item.salary,
-        0
-    );
-
-const totalSaving =
-    totalSalary * 0.45;
-
-const totalFamily =
-    totalSalary * 0.25;
-
-const totalGold =
-    totalSalary * 0.15;
-
-const totalPersonal =
-    totalSalary * 0.10;
-
-const totalTravel =
-    totalSalary * 0.05;
-
-const totalSalaryTHB =
-    records.reduce(
-        (sum,item)=>
-        sum +
-        (
-            item.salary *
-            (item.rate || 0)
-        ),
-        0
-    );
-
-const totalSavingTHB =
-    totalSalaryTHB * 0.45;
-
-const totalFamilyTHB =
-    totalSalaryTHB * 0.25;
-
-const totalGoldTHB =
-    totalSalaryTHB * 0.15;
-
-const totalPersonalTHB =
-    totalSalaryTHB * 0.10;
-
-const totalTravelTHB =
-    totalSalaryTHB * 0.05;
-document.getElementById(
-    "totalSalaryKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalSalary)
-    ) + " KRW";
-
-document.getElementById(
-    "totalSalaryTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalSalaryTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalSavingKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalSaving)
-    ) + " KRW";
-
-document.getElementById(
-    "totalSavingTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalSavingTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalFamilyKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalFamily)
-    ) + " KRW";
-
-document.getElementById(
-    "totalFamilyTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalFamilyTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalGoldKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalGold)
-    ) + " KRW";
-
-document.getElementById(
-    "totalGoldTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalGoldTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalPersonalKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalPersonal)
-    ) + " KRW";
-
-document.getElementById(
-    "totalPersonalTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalPersonalTHB)
-    ) +
-    " THB";
-
-
-document.getElementById(
-    "totalTravelKRW"
-).innerText =
-    formatNumber(
-        Math.round(totalTravel)
-    ) + " KRW";
-
-document.getElementById(
-    "totalTravelTHB"
-).innerText =
-    "≈ " +
-    formatNumber(
-        Math.round(totalTravelTHB)
-    ) +
-    " THB";
-    kfpSyncGoalFromSaving(totalSavingTHB);
+    // เป้าหมายเงินเก็บ = ยอดสะสมของการ์ดที่ตั้งบทบาท “เงินเก็บ” (บาท)
+    const savingCat = kfpSavingCat();
+    kfpSyncGoalFromSaving(savingCat ? totalThb * savingCat.pct / 100 : 0);
     renderChart();
     renderSavingChart();
-
 }
 
-// เงินสะสมปัจจุบัน (เป้าหมายเงินเก็บ) = "เงินเก็บ 45%" ในสถิติการเงิน (หน่วยบาท) อัตโนมัติ
+// เงินสะสมปัจจุบัน (เป้าหมายเงินเก็บ) = การ์ดบทบาท "เงินเก็บ" ในสถิติการเงิน (หน่วยบาท) อัตโนมัติ
 function kfpSyncGoalFromSaving(totalSavingTHB){
     const el = document.getElementById("currentSaving");
     if(!el) return;
@@ -647,15 +507,17 @@ function kfpCompact(n){
 // (เหมือนกับที่การ์ด "สถิติการเงิน" ใช้: item.rate || 0)
 function kfpMonthlySeries(){
     const rows = [...getSalaryRecords()].sort((a,b)=> a.month.localeCompare(b.month));
+    const savingCat = kfpSavingCat();
+    const sp = savingCat ? savingCat.pct / 100 : 0;
     let cumSaving = 0;
     return rows.map(r => {
-        const thb = (Number(r.salary)||0) * (Number(r.rate)||0);
-        const savingThb = thb * 0.45;
+        const thb = kfpRecThb(r);
+        const savingThb = thb * sp;
         cumSaving += savingThb;
         return {
             month: r.month,
             label: kfpMonthLabel(r.month),
-            krw: Number(r.salary)||0,
+            krw: kfpRecKrw(r),
             rate: Number(r.rate)||0,
             thb,
             savingThb,
@@ -663,7 +525,7 @@ function kfpMonthlySeries(){
             cumSavingKrw: 0
         };
     }).map((x,i,arr)=>{
-        x.cumSavingKrw = arr.slice(0,i+1).reduce((s,y)=> s + y.krw*0.45, 0);
+        x.cumSavingKrw = arr.slice(0,i+1).reduce((s,y)=> s + y.krw*sp, 0);
         return x;
     });
 }
@@ -849,6 +711,10 @@ function renderSavingChart(){
 
     if(savingChart){ savingChart.destroy(); savingChart = null; }
 
+    // ไม่มีการ์ดบทบาท “เงินเก็บ” -> ซ่อนกราฟนี้ (บล็อกถูกซ่อนใน kfpUpdateSavingTexts)
+    const savingCatForChart = kfpSavingCat();
+    if(!savingCatForChart) return;
+
     const rows = kfpMonthlySeries();
     if(rows.length === 0){
         kfpShowChartEmpty("savingChart", true, "ยังไม่มีข้อมูลเงินเก็บสะสม");
@@ -863,7 +729,7 @@ function renderSavingChart(){
         data: {
             labels: rows.map(r => r.label),
             datasets: [{
-                label: "เงินเก็บสะสม 45% (THB)",
+                label: savingCatForChart.name + "สะสม " + kfpPctText(savingCatForChart.pct) + "% (THB)",
                 data: rows.map(r => Math.round(r.cumSavingThb)),
                 tension: 0.42,
                 fill: true,
@@ -1013,25 +879,33 @@ function exportExcel() {
         return;
     }
 
-    // แก้ไขตรงก้อนนี้ครับ: ดึงค่า item.rate ที่บันทึกไว้ในอดีตมาคำนวณใน Excel ด้วย
+    const cats = kfpLoadAlloc();
+    const anyKrw = records.some(item => kfpRecKrw(item) > 0);
+
+    // ดึงเรตที่ล็อกไว้ในแต่ละเดือนมาใช้ ถ้าไม่มีค่อยใช้เรตหน้าจอเป็นค่าสำรอง (รายการโหมดบาทใช้ยอดบาทตรงๆ)
     const excelData = records.map(item => {
-        // ดึงเรตที่ล็อกไว้ในแต่ละเดือนมาใช้ ถ้าไม่มีค่อยใช้เรตหน้าจอเป็นค่าสำรอง
+        const isThb = item.currency === "THB";
         const savedRate = item.rate || Number(document.getElementById("rate").value) || 0.0240;
-        const thbSalary = item.salary * savedRate;
-        
-        return {
-            "เดือน": item.month,
-            "รายได้ (KRW)": item.salary,
-            "เรตแลกเปลี่ยน": savedRate, // เพิ่มคอลัมน์บอกเรตประวัติศาสตร์ให้ดูง่าย ๆ
-            "รายได้ (THB)": Math.round(thbSalary)
-        };
+        const thbSalary = isThb ? kfpRecThb(item) : item.salary * savedRate;
+
+        const row = { "เดือน": item.month };
+        if(anyKrw){
+            row["รายได้ (KRW)"] = isThb ? "" : item.salary;
+            row["เรตแลกเปลี่ยน"] = isThb ? "" : savedRate;
+        }
+        row["รายได้ (THB)"] = Math.round(thbSalary);
+        // แยกตามการ์ดที่ตั้งไว้ (ชื่อ/% ปัจจุบัน)
+        cats.forEach(c => {
+            row[c.name + " " + kfpPctText(c.pct) + "% (THB)"] = Math.round(thbSalary * c.pct / 100);
+        });
+        return row;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(excelData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "ประวัติรายได้");
 
-    XLSX.writeFile(workbook, "ประวัติเงินเดือนเกาหลี.xlsx");
+    XLSX.writeFile(workbook, anyKrw ? "ประวัติเงินเดือนเกาหลี.xlsx" : "ประวัติเงินเดือน.xlsx");
 }
 
 function convertCurrency(){
@@ -1258,22 +1132,27 @@ function renderPieChart(){
 
     if(pieChart){ pieChart.destroy(); pieChart = null; }
 
-    const salary = Number(document.getElementById("salary").value) || 0;
-    const rate = Number(document.getElementById("rate").value) || 0;
+    // โหมด KRW: เงินเดือนเป็นวอน (rate = บาทต่อวอน) · โหมด THB: เงินเดือนเป็นบาท (rate = 1)
+    const mode = kfpGetMode();
+    const salary = mode === "THB"
+        ? (Number(document.getElementById("salaryThb").value) || 0)
+        : (Number(document.getElementById("salary").value) || 0);
+    const rate = mode === "THB" ? 1 : (Number(document.getElementById("rate").value) || 0);
+    const unit = mode === "THB" ? "THB" : "KRW";
 
     if(salary <= 0){
-        kfpShowChartEmpty("pieChart", true, "กรอกเงินเดือนแล้วกด “คำนวณ”");
+        kfpShowChartEmpty("pieChart", true, mode === "THB" ? "กรอกเงินเดือน (บาท) แล้วกด “คำนวณ”" : "กรอกเงินเดือนแล้วกด “คำนวณ”");
         return;
     }
     kfpShowChartEmpty("pieChart", false);
 
-    const dataValues = [
-        { name: "เงินเก็บ",   label: "💰 เงินเก็บ 45%",   krw: salary * 0.45 },
-        { name: "ออมทอง",    label: "🥇 ออมทอง 15%",    krw: salary * 0.15 },
-        { name: "ส่งบ้าน",    label: "🏠 ส่งบ้าน 25%",    krw: salary * 0.25 },
-        { name: "ใช้ส่วนตัว", label: "🛒 ใช้ส่วนตัว 10%", krw: salary * 0.10 },
-        { name: "เที่ยว",     label: "✈️ เที่ยว 5%",      krw: salary * 0.05 }
-    ];
+    const allocCats = kfpLoadAlloc();
+    const dataValues = allocCats.map(c => ({
+        name: c.name,
+        label: kfpCatLabel(c),
+        krw: salary * c.pct / 100        // หน่วย = สกุลที่กรอก (KRW หรือ THB)
+    }));
+    const pieColors = allocCats.map((c, i) => "rgb(" + kfpCatRgb(i) + ")");
 
     // plugin เล็กๆ วางยอดเงินบาทบนชิ้นเค้ก (ไม่ต้องพึ่ง chartjs-plugin-datalabels)
     const pieLabels = {
@@ -1305,7 +1184,7 @@ function renderPieChart(){
             labels: dataValues.map(item => item.name),
             datasets: [{
                 data: dataValues.map(item => item.krw),
-                backgroundColor: ["#3ddc97", "#ffc440", "#50b0ff", "#aa78ff", "#ff6e96"],
+                backgroundColor: pieColors,
                 borderWidth: 0,
                 spacing: 5,
                 borderRadius: 12,
@@ -1316,6 +1195,8 @@ function renderPieChart(){
             responsive: true,
             maintainAspectRatio: false,
             cutout: "70%",
+            // ใช้โดย ui-charts.js (ยอดกลางวง + legend)
+            kfp: { unit, rate, colors: allocCats.map((c, i) => kfpCatRgb(i)) },
             animation: { animateRotate: true, animateScale: true, duration: 1300, easing: "easeOutQuart" },
             layout: { padding: 14 },
             plugins: {
@@ -1325,6 +1206,7 @@ function renderPieChart(){
                         title: items => dataValues[items[0].dataIndex].label,
                         label: item => {
                             const d = dataValues[item.dataIndex];
+                            if(unit === "THB") return [formatNumber(d.krw.toFixed(0)) + " THB"];
                             return [
                                 formatNumber(d.krw.toFixed(1)) + " KRW",
                                 "≈ " + formatNumber((d.krw * rate).toFixed(0)) + " THB"
@@ -1547,6 +1429,7 @@ function saveContract(){
 function addSalaryRecord() {
     const month = document.getElementById("salaryMonth").value;
     const salary = Number(document.getElementById("salaryRecord").value);
+    const isThbMode = kfpGetMode() === "THB";
     
     // ดึงค่าเรตเงินปัจจุบัน ณ วินาทีที่กดบันทึกรายการ
     const rate = Number(document.getElementById("rate").value) || 0.0240;
@@ -1569,7 +1452,10 @@ function addSalaryRecord() {
     }
     
     // อัปเกรด: บันทึกค่าเงิน (rate) ล็อกพ่วงติดไปกับเดือนและเงินวอนเลย
-    records.push({ month, salary, rate });
+    // โหมดบาท: เก็บเป็นยอดบาทตรงๆ (currency = "THB")
+    records.push(isThbMode
+        ? { month, currency: "THB", thb: salary, salary: 0, rate: 0 }
+        : { month, salary, rate });
     
     localStorage.setItem("salaryRecords", JSON.stringify(records));
     kfpClearDeleted("salaryRecords");
@@ -1597,11 +1483,12 @@ function saveThisMonthSalary(){
         status.className = "save-month-status " + (cls || "");
     };
 
-    const salary = Number(document.getElementById("salary").value);
+    const isThbMode = kfpGetMode() === "THB";
+    const salary = Number(document.getElementById(isThbMode ? "salaryThb" : "salary").value);
     const rate = Number(document.getElementById("rate").value) || 0.0240;
 
     if(!salary || salary <= 0){
-        alert("กรุณากรอกเงินเดือนสุทธิ (KRW) ก่อนบันทึก");
+        alert(isThbMode ? "กรุณากรอกเงินเดือนสุทธิ (THB) ก่อนบันทึก" : "กรุณากรอกเงินเดือนสุทธิ (KRW) ก่อนบันทึก");
         return;
     }
 
@@ -1617,7 +1504,9 @@ function saveThisMonthSalary(){
         return;
     }
 
-    records.push({ month, salary, rate });
+    records.push(isThbMode
+        ? { month, currency: "THB", thb: salary, salary: 0, rate: 0 }
+        : { month, salary, rate });
     localStorage.setItem("salaryRecords", JSON.stringify(records));
     kfpClearDeleted("salaryRecords");
     kfpPersistNow();
@@ -1628,7 +1517,7 @@ function saveThisMonthSalary(){
     loadSalaryRecords();
     updateGoalTracker();
 
-    setStatus("✅ บันทึก " + monthLabel + " " + formatNumber(salary) + " KRW แล้ว", "ok");
+    setStatus("✅ บันทึก " + monthLabel + " " + formatNumber(salary) + (isThbMode ? " THB" : " KRW") + " แล้ว", "ok");
 }
 
 function getSalaryRecords(){
@@ -1643,6 +1532,8 @@ function getSalaryRecords(){
 // Re-render the existing finance UI without changing the underlying finance logic.
 window.__kfpRefreshFromCloud = function(){
     try {
+        // Cloud อาจมีค่าตั้งค่าการ์ด/โหมดสกุลเงินของบัญชีนี้ -> วาดการ์ดใหม่ก่อน
+        kfpRenderAllCards();
         loadData();
         const goalValue = localStorage.getItem("goal");
         const currentSavingValue = localStorage.getItem("currentSaving");
@@ -1664,6 +1555,7 @@ window.__kfpRefreshFromCloud = function(){
 
 window.onload = function(){
 
+    kfpApplyMode();
     loadData();
 
 loadSalaryRecords();
@@ -1777,3 +1669,6 @@ kfpRenderGoldPortfolio();
 window.addEventListener("pageshow", kfpRenderGoldPortfolio);
 window.addEventListener("storage", kfpRenderGoldPortfolio);
 document.addEventListener("visibilitychange", () => { if(!document.hidden) kfpRenderGoldPortfolio(); });
+
+// วาดการ์ดผลคำนวณ/สถิติตามค่าที่ตั้งไว้ (ทำทันทีตอนโหลดสคริปต์ เพื่อไม่ให้หน้าว่างก่อน window.onload)
+kfpRenderAllCards();

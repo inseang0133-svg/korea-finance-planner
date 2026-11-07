@@ -15,9 +15,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=20261019-news2">
-    <link rel="stylesheet" href="theme.css?v=20261103-ui4">
+    <link rel="stylesheet" href="theme.css?v=20261108-alloc2">
     
     <link rel="manifest" href="manifest.json">
+    <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js?v=20261018-uifix1"></script>
@@ -31,8 +32,15 @@
     <h1>สู้หน่อยดิว้ะ</h1>
     <p class="subtitle">วางแผนการเงินจะได้เติบโตสักที</p>
 
-    <div class="card">
+    <div class="card" id="salaryCard">
 
+        <div class="mode-switch" id="modeSwitch" role="tablist" aria-label="สกุลเงินของเงินเดือน" data-on="KRW">
+            <button type="button" role="tab" data-mode="KRW" class="on" aria-selected="true"><b>₩</b> วอน <small>KRW</small></button>
+            <button type="button" role="tab" data-mode="THB" aria-selected="false"><b>฿</b> บาท <small>THB</small></button>
+            <i class="mode-pill" aria-hidden="true"></i>
+        </div>
+
+        <div class="only-krw">
         <label>เงินเดือนสุทธิ (KRW)</label>
         <input
             type="number"
@@ -53,6 +61,16 @@
             <button class="btn-secondary" onclick="updateExchangeRate()">
         🔄 อัปเดตค่าเงินล่าสุด
         </button>
+        </div>
+
+        <div class="only-thb">
+        <label>เงินเดือนสุทธิ (THB)</label>
+        <input
+            type="number"
+            id="salaryThb"
+            inputmode="decimal"
+            placeholder="เช่น 45000">
+        </div>
 
         <div class="btn-row">
             <button onclick="calculate()">
@@ -63,34 +81,15 @@
             </button>
         </div>
         <p id="saveMonthStatus" class="save-month-status" role="status" aria-live="polite"></p>
-        <p id="exchangeStatus"></p>
+        <p id="exchangeStatus" class="only-krw"></p>
 
-    </div> <div class="results">
+    </div>
 
-        <div class="result-card">
-            <h3>💰 เงินเก็บ 45%</h3>
-            <p id="saving">-</p>
-        </div>
-
-        <div class="result-card">
-            <h3>🥇 ออมทอง 15%</h3>
-            <p id="gold">-</p>
-        </div>
-
-        <div class="result-card">
-            <h3>🏠 ส่งบ้าน 25%</h3>
-            <p id="family">-</p>
-        </div>
-
-        <div class="result-card">
-            <h3>🛒 ใช้ส่วนตัว 10%</h3>
-            <p id="personal">-</p>
-        </div>
-
-        <div class="result-card">
-            <h3>✈️ เที่ยว 5%</h3>
-            <p id="travel">-</p>
-        </div>
+    <div class="results-head">
+        <h2 class="results-title">💸 การแบ่งเงินเดือน</h2>
+        <button type="button" class="btn-manage" id="btnManageAlloc" aria-haspopup="dialog">⚙️ จัดการ</button>
+    </div>
+    <div class="results" id="results"></div>
 
     </div> <div class="card">
         <h2>🥧 สัดส่วนการเงิน</h2>
@@ -106,7 +105,7 @@
         <label>เดือน</label>
         <input type="month" id="salaryMonth">
 
-        <label>รายได้สุทธิ (KRW)</label>
+        <label id="salaryRecordLabel">รายได้สุทธิ (KRW)</label>
         <input type="number" id="salaryRecord">
 
         <button onclick="addSalaryRecord()">➕ เพิ่มรายการ</button>
@@ -125,60 +124,18 @@
         <h2>📊 สถิติการเงิน</h2>
         <button onclick="exportExcel()" style="margin-bottom: 20px;">📁 Export Excel</button>
         
-        <div class="stats-grid" style="margin-top:20px;">
-
-    <div class="stat-box">
-        <span>🎯 รายได้ทั้งหมด</span>
-        <h3 id="totalSalaryKRW">0 KRW</h3>
-        <p id="totalSalaryTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>💰 เงินเก็บ 45%</span>
-        <h3 id="totalSavingKRW">0 KRW</h3>
-        <p id="totalSavingTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>🏠 ส่งบ้าน 25%</span>
-        <h3 id="totalFamilyKRW">0 KRW</h3>
-        <p id="totalFamilyTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>🥇 ออมทอง 15%</span>
-        <h3 id="totalGoldKRW">0 KRW</h3>
-        <p id="totalGoldTHB">0 THB</p>
-        <div id="goldPortfolioInfo" class="stat-portfolio" hidden>
-            <div class="sp-label">🪙 พอร์ตทอง · มูลค่าปัจจุบัน</div>
-            <div class="sp-value" id="goldPortfolioValue">-</div>
-            <div class="sp-pl" id="goldPortfolioPL">-</div>
-            <div class="sp-time" id="goldPortfolioTime"></div>
-        </div>
-    </div>
-
-    <div class="stat-box">
-        <span>🛒 ใช้ส่วนตัว 10%</span>
-        <h3 id="totalPersonalKRW">0 KRW</h3>
-        <p id="totalPersonalTHB">0 THB</p>
-    </div>
-
-    <div class="stat-box">
-        <span>✈️ เที่ยว 5%</span>
-        <h3 id="totalTravelKRW">0 KRW</h3>
-        <p id="totalTravelTHB">0 THB</p>
-    </div>
-
-</div>
+        <div class="stats-grid" id="statsGrid" style="margin-top:20px;"></div>
 
         <h3 class="chart-title">💵 รายได้แต่ละเดือน <small>(บาท)</small></h3>
         <div class="chart-box"><canvas id="salaryChart"></canvas></div>
 
-        <h3 class="chart-title">📈 เงินเก็บสะสม 45% <small>(บาท)</small></h3>
+        <div id="savingChartBlock">
+        <h3 class="chart-title" id="savingChartTitle">📈 เงินเก็บสะสม <small>(บาท)</small></h3>
         <div class="chart-box"><canvas id="savingChart"></canvas></div>
+        </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-krw-only>
     <h2>สัญญาทำงานเกาหลี</h2>
 
     <label>วันที่เริ่มงาน</label>
@@ -214,7 +171,7 @@
     </button>
 </div>
 
-    <div class="card">
+    <div class="card" data-krw-only>
         <h2>💱 ตัวแปลงสกุลเงิน</h2>
         <label>แปลงจาก</label>
         <select id="convertType" onchange="convertCurrency()">
@@ -233,7 +190,7 @@
         <div id="convertResult">-</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-krw-only>
         <h2>🏦 คำนวณเงินส่งกลับบ้าน</h2>
         <label>ต้องการให้ปลายทางได้รับ (บาท)</label>
         <input type="number" id="receiveTHB" oninput="calculateRemit()">
@@ -257,7 +214,7 @@
 
         <label>เงินสะสมปัจจุบัน (บาท)</label>
         <input type="number" id="currentSaving" value="0" readonly>
-        <p class="field-note">🔗 อ้างอิงอัตโนมัติจาก “สถิติการเงิน → เงินเก็บ 45%” (บาท)</p>
+        <p class="field-note" id="goalNote">🔗 อ้างอิงอัตโนมัติจาก “สถิติการเงิน → เงินเก็บ 45%” (บาท)</p>
 
         <div class="progress-container">
             <div id="progressBar" class="progress-bar"></div>
@@ -268,9 +225,11 @@
 
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="script.js?v=20261019-news2"></script>
-<script src="ui-charts.js?v=20261103-ui4"></script>
-<script src="ui-fx.js?v=20261103-ui4"></script>
+<script src="kfp-config.js?v=20261108-alloc2"></script>
+<script src="script.js?v=20261108-alloc2"></script>
+<script src="alloc-ui.js?v=20261108-alloc2"></script>
+<script src="ui-charts.js?v=20261108-alloc2"></script>
+<script src="ui-fx.js?v=20261108-alloc2"></script>
 <script src="floating-nav.js?v=20261029-fab2" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง"></script>
 <script>
 if ('serviceWorker' in navigator) {

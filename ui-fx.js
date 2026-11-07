@@ -88,10 +88,7 @@
   /* ---------- flash when a computed value changes ---------- */
   var WATCH = [
     // index.html
-    "saving", "gold", "family", "personal", "travel", "salaryTHBPreview",
-    "totalSalaryKRW", "totalSalaryTHB", "totalSavingKRW", "totalSavingTHB",
-    "totalFamilyKRW", "totalFamilyTHB", "totalGoldKRW", "totalGoldTHB",
-    "totalPersonalKRW", "totalPersonalTHB", "totalTravelKRW", "totalTravelTHB",
+    "salaryTHBPreview",
     "goldPortfolioValue", "goldPortfolioPL", "convertResult", "remitResult",
     "progressText", "goalInfo", "contractResult"
   ];
@@ -100,7 +97,8 @@
       var seen = [];
       list.forEach(function (m) {
         var el = m.target.nodeType === 3 ? m.target.parentElement : m.target;
-        while (el && !(el.id && WATCH.indexOf(el.id) > -1)) el = el.parentElement;
+        // การ์ดผลคำนวณ/สถิติถูกวาดตามการตั้งค่า (data-fx) · ที่เหลือใช้รายการ id
+        while (el && !((el.id && WATCH.indexOf(el.id) > -1) || (el.hasAttribute && el.hasAttribute("data-fx")))) el = el.parentElement;
         if (el && seen.indexOf(el) < 0) seen.push(el);
       });
       seen.forEach(function (el) {
@@ -117,6 +115,10 @@
     WATCH.forEach(function (id) {
       var el = d.getElementById(id);
       if (el) mo.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+    ["results", "statsGrid"].forEach(function (id) {
+      var box = d.getElementById(id);
+      if (box) mo.observe(box, { childList: true, characterData: true, subtree: true });
     });
     d.addEventListener("animationend", function (e) {
       if (e.animationName === "fx-flash") e.target.classList.remove("fx-flash");

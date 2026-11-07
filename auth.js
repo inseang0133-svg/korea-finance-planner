@@ -26,6 +26,7 @@
   const DATA_KEYS = [
     "salary", "goal", "currentSaving",
     "contractStartDate", "salaryRecords",
+    "salaryThb", "kfp_alloc_v1", "kfp_mode_v1",
     "__kfp_deleted_keys_v1",
     "kfp_gold_lots_v1", "kfp_gold_settings_v1"
   ];

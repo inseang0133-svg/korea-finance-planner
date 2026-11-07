@@ -89,24 +89,21 @@ button,input,select{font-family:var(--font) !important}
 .section-head h2{border-bottom:0 !important}
 
 /* ---------- Result cards (hero + 2x2, เรียงเท่ากันทุกจอ) ---------- */
-.results{display:grid !important;grid-template-columns:repeat(12,minmax(0,1fr)) !important;gap:14px !important;align-items:stretch}
-.result-card{grid-column:span 3;padding:20px 18px !important;border-radius:22px !important;--ac:232,190,70;display:flex;flex-direction:column;justify-content:center}
-.result-card:nth-child(1){grid-column:span 12;--ac:61,220,151;padding:24px 22px !important}
-.result-card:nth-child(2){--ac:255,196,64}
-.result-card:nth-child(3){--ac:80,176,255}
-.result-card:nth-child(4){--ac:170,120,255}
-.result-card:nth-child(5){--ac:255,110,150}
+.results{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:14px !important;align-items:stretch}
+.result-card{padding:20px 18px !important;border-radius:22px !important;--ac:232,190,70;display:flex;flex-direction:column;justify-content:center;min-width:0}
+/* จำนวนการ์ดเป็นเลขคี่: ใบแรกเต็มแถว ที่เหลือเรียง 2 ช่อง · เลขคู่: 2 ช่องทั้งหมด */
+.results.odd .result-card:first-child{grid-column:1/-1;padding:24px 22px !important}
 .result-card::before{left:18px !important;right:auto !important;top:0 !important;width:38px;height:3px !important;border-radius:0 0 4px 4px;
   background:rgb(var(--ac)) !important;box-shadow:0 0 12px rgb(var(--ac));opacity:1 !important;animation:fx-neon 3s ease-in-out infinite}
 .result-card::after{content:"";position:absolute;right:-34px;top:-34px;width:130px;height:130px;border-radius:50%;
   background:radial-gradient(circle,rgba(var(--ac),.26),transparent 70%);pointer-events:none;animation:fx-orb 6s ease-in-out infinite alternate}
-.result-card h3{color:rgb(var(--ac)) !important;font-size:15px !important;letter-spacing:.2px;margin-bottom:8px !important}
+.result-card h3{color:rgb(var(--ac)) !important;font-size:15px !important;letter-spacing:.2px;margin-bottom:8px !important;overflow-wrap:anywhere}
 .result-card p{font-size:17px !important;font-weight:600;color:#fff !important;font-variant-numeric:tabular-nums;line-height:1.6 !important}
-.result-card:nth-child(1) p{font-size:22px !important}
+.results.odd .result-card:first-child p{font-size:22px !important}
 @media(max-width:700px){
-  .result-card{grid-column:span 6;padding:17px 14px !important}
+  .result-card{padding:17px 14px !important}
   .result-card p{font-size:15px !important}
-  .result-card:nth-child(1) p{font-size:20px !important}
+  .results.odd .result-card:first-child p{font-size:20px !important}
 }
 
 /* นีออนมุมซ้ายบนของการ์ด: หายใจ + เรืองแสงเบาๆ */
@@ -117,19 +114,17 @@ button,input,select{font-family:var(--font) !important}
 @keyframes fx-orb{to{transform:translate(-10px,12px) scale(1.25);opacity:.7}}
 
 /* ---------- Stats ---------- */
-.stat-box{border-radius:22px !important;min-height:132px;--ac:232,190,70}
-.stat-box:nth-child(1){--ac:232,190,70;grid-column:1/-1;min-height:110px}
-.stat-box:nth-child(2){--ac:61,220,151}.stat-box:nth-child(3){--ac:80,176,255}
-.stat-box:nth-child(4){--ac:255,196,64;grid-column:1/-1;order:6}
-.stat-box:nth-child(5){--ac:170,120,255}.stat-box:nth-child(6){--ac:255,110,150}
+.stat-box{border-radius:22px !important;min-height:132px;--ac:232,190,70;min-width:0}
+.stat-box.wide{grid-column:1/-1}
+.stat-box:first-child{min-height:110px}
 .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;align-items:stretch}
 .stat-box::before{content:"";position:absolute;left:18px;top:0;width:34px;height:3px;border-radius:0 0 4px 4px;background:rgb(var(--ac));
   box-shadow:0 0 12px rgb(var(--ac));animation:fx-neon 3s ease-in-out infinite}
-.stat-box:nth-child(2)::before{animation-delay:-.5s}.stat-box:nth-child(3)::before{animation-delay:-1s}
-.stat-box:nth-child(4)::before{animation-delay:-1.5s}.stat-box:nth-child(5)::before{animation-delay:-2s}.stat-box:nth-child(6)::before{animation-delay:-2.5s}
+.stat-box:nth-child(2n)::before{animation-delay:-.7s}.stat-box:nth-child(3n)::before{animation-delay:-1.4s}.stat-box:nth-child(5n)::before{animation-delay:-2.1s}
 .stat-box::after{content:"";position:absolute;right:-30px;top:-30px;width:110px;height:110px;border-radius:50%;pointer-events:none;
   background:radial-gradient(circle,rgba(var(--ac),.2),transparent 70%);animation:fx-orb 7s ease-in-out infinite alternate}
-.stat-box:nth-child(4) .stat-portfolio{display:grid;grid-template-columns:1fr;max-width:360px;margin-left:auto;margin-right:auto;width:100%}
+.stat-box .stat-portfolio{display:grid;grid-template-columns:1fr;max-width:360px;margin-left:auto;margin-right:auto;width:100%}
+.stat-box p[hidden]{display:none}
 .stat-box span{color:#cfcabb !important}
 .stat-box h3{color:#fff !important;font-variant-numeric:tabular-nums}
 .stat-box p{color:rgb(var(--ac)) !important}
@@ -462,7 +457,7 @@ button:hover{background-position:100% 0;filter:none}
 .gold-stats-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
 @media(min-width:801px){.gold-stats-grid:not(.compact){grid-template-columns:repeat(4,minmax(0,1fr)) !important}.gold-stats-grid.compact{grid-template-columns:repeat(4,minmax(0,1fr)) !important}}
 .stat-box h3{font-size:clamp(14px,4.3vw,19px) !important;white-space:nowrap}
-.stat-box:nth-child(1) h3{font-size:clamp(17px,5vw,22px) !important}
+.stat-box:first-child h3{font-size:clamp(17px,5vw,22px) !important}
 
 
 /* =========================================================
@@ -500,3 +495,91 @@ body{overflow-x:hidden}
 .lot-entry-oz small.lot-entry-oz-gap{display:block;margin-top:3px;font-size:11.5px;font-weight:600}
 .lot-entry-oz small.lot-entry-oz-gap.down{color:#ff8593}
 .lot-entry-oz small.lot-entry-oz-gap.up{color:#5ff0a6}
+
+
+/* =========================================================
+   v5 — สวิตช์ KRW/THB · ปุ่มจัดการ · หน้าจัดการการ์ด
+   ========================================================= */
+html[data-mode="THB"] .only-krw{display:none !important}
+html[data-mode="KRW"] .only-thb{display:none !important}
+html[data-mode="THB"] [data-krw-only]{display:none !important}
+
+/* สวิตช์สกุลเงิน (แคปซูล + แถบเลื่อน) */
+.mode-switch{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:0;padding:5px;margin:0 0 22px;border-radius:18px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09)}
+.card .mode-switch button{position:relative;z-index:1;min-height:46px;padding:8px 10px;border-radius:14px;font-size:15px;font-weight:600;
+  background:transparent;color:var(--muted);border:0;box-shadow:none;transition:color .35s ease}
+.card .mode-switch button:hover{background:transparent;filter:none;box-shadow:none}
+.card .mode-switch button b{font-size:18px;margin-right:4px}
+.card .mode-switch button small{opacity:.65;margin-left:4px;font-weight:500;font-size:11.5px}
+.card .mode-switch button.on{color:#1a1300}
+.mode-pill{position:absolute;z-index:0;top:5px;bottom:5px;left:5px;width:calc(50% - 5px);border-radius:14px;
+  background:linear-gradient(110deg,#ffe08a,#e8be46 60%,#c9962b);box-shadow:0 8px 22px -8px rgba(232,190,70,.85),inset 0 1px 0 rgba(255,255,255,.5);
+  transition:transform .5s var(--spring)}
+.mode-switch[data-on="THB"] .mode-pill{transform:translateX(100%)}
+
+/* หัวข้อ + ปุ่มจัดการเหนือการ์ดผลคำนวณ */
+.results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 2px 12px}
+.results-title{margin:0;font-size:17px;color:var(--gold-light)}
+.btn-manage{width:auto !important;min-height:40px;padding:8px 16px;border-radius:999px;font-size:14px;
+  background:rgba(255,255,255,.05) !important;color:var(--gold-light) !important;border:1px solid rgba(232,190,70,.45) !important;box-shadow:none !important}
+.btn-manage:hover{background:rgba(232,190,70,.14) !important;border-color:var(--gold) !important}
+
+/* การ์ดที่สร้างใหม่หลังแก้ไข: เด้งเข้า */
+.kfp-new{animation:fx-pop .55s var(--ease) backwards;animation-delay:calc(var(--n,0) * 55ms)}
+
+/* ---------- หน้าจัดการการ์ด (modal) ---------- */
+html.kfp-lock,html.kfp-lock body{overflow:hidden}
+.kfp-modal{position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;
+  background:radial-gradient(700px 460px at 50% 18%,rgba(232,190,70,.14),transparent 60%),rgba(4,5,8,.82);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);opacity:0;transition:opacity .25s ease}
+.kfp-modal[hidden]{display:none}
+.kfp-modal.open{opacity:1}
+.kfp-modal-card{position:relative;width:min(560px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;
+  padding:28px 20px 22px;border-radius:30px;border:1px solid transparent;
+  background:linear-gradient(160deg,rgba(32,34,46,.95),rgba(11,12,17,.98)) padding-box,var(--edge) border-box;
+  box-shadow:0 40px 90px -20px rgba(0,0,0,.9),0 0 70px -10px rgba(232,190,70,.28),inset 0 1px 0 rgba(255,255,255,.07);
+  transform:translateY(24px) scale(.96);transition:transform .5s var(--spring);overscroll-behavior:contain}
+.kfp-modal.open .kfp-modal-card{transform:none}
+.kfp-modal-card h2{margin:0 0 6px;text-align:center;font-size:23px;color:var(--gold-light);text-shadow:0 0 30px rgba(232,190,70,.5);border:0}
+.kfp-modal-sub{margin:0 0 18px;text-align:center;color:var(--muted);font-size:13.5px}
+.kfp-modal-card button{min-height:48px}
+
+.alloc-rows{display:grid;gap:10px}
+.alloc-row{display:grid;grid-template-columns:auto 52px minmax(0,1fr) 44px;grid-template-areas:"dot emo name del" "pct pct role role";
+  align-items:center;gap:8px 8px;padding:12px;border-radius:18px;background:linear-gradient(160deg,rgba(var(--ac),.10),rgba(255,255,255,.025));
+  border:1px solid rgba(var(--ac),.30);animation:fx-pop .45s var(--ease) backwards}
+.al-dot{grid-area:dot;width:12px;height:12px;border-radius:50%;background:rgb(var(--ac));box-shadow:0 0 12px rgba(var(--ac),.9)}
+.alloc-row input,.alloc-row select{min-height:46px !important;padding:8px 12px !important;font-size:16px !important;margin:0 !important;border-radius:14px !important}
+.al-emoji{grid-area:emo;text-align:center;padding:8px 4px !important}
+.al-name{grid-area:name}
+.alloc-row .al-del{grid-area:del;width:44px;min-height:44px;padding:0;border-radius:14px;font-size:15px;
+  background:rgba(255,107,122,.10) !important;color:#ff9aa5 !important;border:1px solid rgba(255,107,122,.45) !important;box-shadow:none !important}
+.al-pct{grid-area:pct;display:flex;align-items:center;gap:6px;margin:0 !important;color:var(--muted) !important}
+.al-pct input{width:100% !important;text-align:right}
+.al-pct span{font-weight:700;color:rgb(var(--ac))}
+.al-role{grid-area:role;min-width:0;font-size:14px !important}
+
+.alloc-add{margin-top:12px;width:100%;background:rgba(255,255,255,.05) !important;color:var(--gold-light) !important;
+  border:1px dashed rgba(232,190,70,.55) !important;box-shadow:none !important}
+.alloc-add:disabled{opacity:.4}
+.alloc-total{margin-top:16px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.at-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.at-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#ff6b7a,#ffc440);transition:width .45s var(--ease),background .3s ease}
+.at-text{margin-top:8px;text-align:center;font-weight:700;font-size:15px;color:#ff9aa5}
+.alloc-total.ok{border-color:rgba(61,220,151,.45);background:rgba(61,220,151,.07)}
+.alloc-total.ok .at-bar i{background:linear-gradient(90deg,#1fb97a,#3ddc97)}
+.alloc-total.ok .at-text{color:var(--green)}
+.alloc-tools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.alloc-ghost{background:rgba(255,255,255,.05) !important;color:#f5f2ea !important;border:1px solid rgba(255,255,255,.14) !important;box-shadow:none !important;font-size:14px}
+.alloc-msg{min-height:20px;margin:10px 0 0;text-align:center;font-size:13.5px;color:var(--muted)}
+.alloc-msg.warn{color:#ffb4bd}.alloc-msg.ok{color:var(--green)}
+.alloc-actions{display:grid;grid-template-columns:1.4fr 1fr;gap:10px;margin-top:8px}
+.alloc-actions button:disabled{opacity:.4;filter:grayscale(.5);box-shadow:none}
+.kfp-modal-card .alloc-close{background:rgba(255,255,255,.05) !important;color:#f5f2ea !important;border:1px solid rgba(255,255,255,.14) !important;box-shadow:none !important}
+.alloc-note{margin:14px 4px 0;font-size:12px;line-height:1.55;color:#8d897e;text-align:center}
+@media(max-width:380px){.alloc-tools,.alloc-actions{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.kfp-modal,.kfp-modal-card,.mode-pill,.alloc-row,.kfp-new{transition:none !important;animation:none !important}}
+
+/* ตอนเปิดหน้าต่างจัดการการ์ด: ซ่อนปุ่ม Login/ปุ่มลอย ไม่ให้ทับ */
+html.kfp-lock #kfpAuthButton,html.kfp-lock .kfp-fab{opacity:0 !important;pointer-events:none !important}

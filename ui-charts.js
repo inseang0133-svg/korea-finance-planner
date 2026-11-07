@@ -11,7 +11,7 @@
   var d = document;
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var COLORS = ["61,220,151", "255,196,64", "80,176,255", "170,120,255", "255,110,150"];
-  var pie = { chart: null, pinned: -1, hover: -1, rate: 0, total: 0 };
+  var pie = { chart: null, pinned: -1, hover: -1, rate: 0, total: 0, unit: "KRW", colors: COLORS };
 
   function $(id) { return d.getElementById(id); }
   function fmt(n) { return Math.round(n).toLocaleString("en-US"); }
@@ -37,10 +37,11 @@
     var data = ch.data.datasets[0].data, names = ch.data.labels;
     var krw = i < 0 ? pie.total : data[i];
     var label = i < 0 ? "รวมต่อเดือน" : names[i] + " · " + Math.round(data[i] / pie.total * 100) + "%";
-    c.style.setProperty("--c", i < 0 ? "232,190,70" : COLORS[i % COLORS.length]);
+    c.style.setProperty("--c", i < 0 ? "232,190,70" : pie.colors[i % pie.colors.length]);
     c.querySelector(".pc-label").textContent = label;
     countTo(c.querySelector(".pc-num"), krw * pie.rate, "", 600);
-    c.querySelector(".pc-sub").textContent = fmt(krw) + " KRW";
+    // โหมดบาท: ยอดหลักเป็นบาทอยู่แล้ว ไม่ต้องมีบรรทัด KRW
+    c.querySelector(".pc-sub").textContent = pie.unit === "KRW" ? fmt(krw) + " KRW" : "";
     c.classList.remove("swap"); void c.offsetWidth; c.classList.add("swap");
     var rows = d.querySelectorAll("#pieLegend .pie-row");
     rows.forEach(function (r, k) {
@@ -60,7 +61,10 @@
     var legend = $("pieLegend"), center = $("pieCenter");
     if (!legend || !center) return;
     pie.chart = chart; pie.pinned = -1;
-    pie.rate = Number(($("rate") || {}).value) || 0;
+    var opt = (chart.options && chart.options.kfp) || {};
+    pie.unit = opt.unit || "KRW";
+    pie.rate = opt.rate != null ? Number(opt.rate) || 0 : (Number(($("rate") || {}).value) || 0);
+    pie.colors = (opt.colors && opt.colors.length) ? opt.colors : COLORS;
     var data = chart.data.datasets[0].data, names = chart.data.labels;
     pie.total = data.reduce(function (a, b) { return a + b; }, 0);
 
@@ -69,7 +73,7 @@
 
     legend.innerHTML = data.map(function (v, i) {
       var pct = pie.total ? v / pie.total * 100 : 0;
-      return '<div class="pie-row" role="listitem" tabindex="0" data-i="' + i + '" style="--c:' + COLORS[i % COLORS.length] +
+      return '<div class="pie-row" role="listitem" tabindex="0" data-i="' + i + '" style="--c:' + pie.colors[i % pie.colors.length] +
         ';--w:' + pct.toFixed(1) + '%;--d:' + (i * 110) + 'ms">' +
         '<i class="pr-dot"></i>' +
         '<span class="pr-name">' + names[i] + '<em>' + Math.round(pct) + '%</em></span>' +

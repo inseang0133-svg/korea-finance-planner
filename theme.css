@@ -583,3 +583,7 @@ html.kfp-lock,html.kfp-lock body{overflow:hidden}
 
 /* ตอนเปิดหน้าต่างจัดการการ์ด: ซ่อนปุ่ม Login/ปุ่มลอย ไม่ให้ทับ */
 html.kfp-lock #kfpAuthButton,html.kfp-lock .kfp-fab{opacity:0 !important;pointer-events:none !important}
+
+/* หน้าแรก: กรอบเนื้อหากว้างเท่าหน้าพอร์ตทอง (การ์ดทุกใบกว้างเท่ากัน ทั้งจอคอมและแท็บเล็ต) */
+.container{max-width:1080px}
+@media(min-width:601px) and (max-width:700px){.container{padding-left:10px;padding-right:10px}}

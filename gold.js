@@ -2064,7 +2064,7 @@ function renderNews(){
   });
   if(!list.length){ const e=document.createElement("div"); e.className="empty-state"; e.textContent="ยังไม่มีข่าวในหมวดนี้"; box.appendChild(e); }
   const more=$("newsMoreBtn"); if(more) more.hidden=list.length<=newsShown;
-  if(keepY>40 && Math.abs((window.scrollY||0)-keepY)>4) window.scrollTo(0,keepY);
+  if(keepY>40 && Math.abs((window.scrollY||0)-keepY)>4) window.scrollTo({top:keepY,left:0,behavior:"instant"});
   const meta=$("newsMeta");
   if(meta) meta.textContent=`ข่าวย้อนหลังไม่เกิน 7 วัน · อัปเดต ${newsFetchedAt?new Date(newsFetchedAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",hour12:false}):"-"} น. · Google News`;
 }
@@ -2079,13 +2079,18 @@ function scrollSave(){
 function scrollRestore(){
   let s=null;
   try{ s=JSON.parse(sessionStorage.getItem(SCROLL_KEY)||"null"); }catch(_){}
-  if(!s||!s.y||Date.now()-s.t>6*3600e3) return;
+  if(!s||!s.y||Date.now()-s.t>30*60e3) return;
   if(s.shown>newsShown||s.topic!==newsTopic){ newsShown=Math.max(newsShown,s.shown||0); if(s.topic) newsTopic=s.topic; try{renderNews();}catch(_){} }
   let n=0;
+  const root=document.documentElement;
+  root.classList.add("kfp-restoring");
+  const done=()=>{ root.classList.remove("kfp-restoring"); };
   const go=()=>{
     const cur=window.scrollY||0;
-    if(Math.abs(cur-s.y)>4) window.scrollTo(0,s.y);
-    if(++n<12) setTimeout(go,150);
+    if(Math.abs(cur-s.y)>4) window.scrollTo({top:s.y,left:0,behavior:"instant"});
+    const ok=Math.abs((window.scrollY||0)-s.y)<=4;
+    if(ok&&n>=2){ done(); return; }
+    if(++n<14) setTimeout(go,100); else done();
   };
   go();
 }

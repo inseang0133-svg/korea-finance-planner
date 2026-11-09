@@ -749,3 +749,8 @@ html.chart-fs-lock,html.chart-fs-lock body{overflow:hidden}
 @media(max-width:340px){.lot-entry-cols{grid-template-columns:1fr}}
 .lot-entry-cols.single{grid-template-columns:1fr}
 .lot-entry-col .lot-entry-oz{color:#f3d870}
+
+/* ตอนคืนตำแหน่งเลื่อน: ซ่อนหน้าไว้ชั่วครู่ + ห้ามเลื่อนแบบ smooth ไม่ให้เห็นภาพหน้าไหลลงมาเอง */
+html.kfp-restoring{scroll-behavior:auto !important}
+html.kfp-restoring body{opacity:0 !important}
+html.kfp-restoring-ready body{transition:opacity .15s ease}

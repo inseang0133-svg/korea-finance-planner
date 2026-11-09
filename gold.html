@@ -6,11 +6,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="theme-color" content="#0a0a0b">
 <title>พอร์ตทองคำ</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <script>
+/* ถ้าเพิ่งกดอ่านข่าวแล้วหน้าถูกโหลดใหม่ ซ่อนหน้าไว้จนกว่าจะคืนตำแหน่งเลื่อนเสร็จ (กันภาพกระพริบ/ไหลลง) */
+(function(){try{var s=JSON.parse(sessionStorage.getItem("kfp_gold_scroll_v1")||"null");
+if(s&&s.y>40&&Date.now()-s.t<30*60e3){document.documentElement.classList.add("kfp-restoring");
+setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")},3000);}}catch(e){}})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="gold.css?v=20261029-calc2">
-<link rel="stylesheet" href="theme.css?v=20261109-fix1">
+<link rel="stylesheet" href="gold.css?v=20261109-fix2">
+<link rel="stylesheet" href="theme.css?v=20261109-fix2">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -401,9 +407,9 @@
 
 </div>
 
-<script src="gold.js?v=20261109-fix1"></script>
-<script src="ui-numflow.js?v=20261109-fix1"></script>
-<script src="ui-fx.js?v=20261109-fix1"></script>
+<script src="gold.js?v=20261109-fix2"></script>
+<script src="ui-numflow.js?v=20261109-fix2"></script>
+<script src="ui-fx.js?v=20261109-fix2"></script>
 <script src="floating-nav.js?v=20261029-fab2" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
 <script>
   // PWA update: versioned registration + immediate update check.

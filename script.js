@@ -796,7 +796,55 @@ function renderSavingChart(){
         }
     });
 }
+async function kfpFetchJson(url, ms){
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms || 8000);
+    try{
+        const r = await fetch(url, {cache:"no-store", signal:c.signal});
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        return await r.json();
+    } finally { clearTimeout(t); }
+}
+
+// ดึงเรต KRW->THB จากหลายแหล่ง เลือกแหล่งที่สดที่สุด (Yahoo เรียลไทม์ก่อน, open.er-api อัปเดตวันละครั้งเป็นตัวสำรอง)
+async function kfpGetFreshKrwThb(){
+    const bust = Date.now();
+    const yUrl = "https://query1.finance.yahoo.com/v8/finance/chart/KRWTHB=X?interval=1m&range=1d&_=" + bust;
+    const yahoo = async (wrap) => {
+        const d = await kfpFetchJson(wrap(yUrl));
+        const m = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
+        const v = Number(m && m.regularMarketPrice);
+        if(!Number.isFinite(v) || v <= 0 || v > 1) throw new Error("bad yahoo");
+        return v;
+    };
+    const sources = [
+        () => yahoo(u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u)),
+        () => yahoo(u => "https://corsproxy.io/?url=" + encodeURIComponent(u)),
+        async () => {
+            const d = await kfpFetchJson("https://open.er-api.com/v6/latest/KRW?_=" + bust);
+            const v = Number(d && d.rates && d.rates.THB);
+            if(!Number.isFinite(v) || v <= 0) throw new Error("bad er-api");
+            return v;
+        },
+        async () => {
+            const d = await kfpFetchJson("https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/krw.json?_=" + bust);
+            const v = Number(d && d.krw && d.krw.thb);
+            if(!Number.isFinite(v) || v <= 0) throw new Error("bad jsdelivr");
+            return v;
+        }
+    ];
+    let lastErr;
+    for(const f of sources){
+        try{ return await f(); }catch(e){ lastErr = e; }
+    }
+    throw lastErr || new Error("no rate");
+}
+
+let __kfpRateBusy = false;
 async function updateExchangeRate(){
+
+    if(__kfpRateBusy) return;
+    __kfpRateBusy = true;
 
     const status =
         document.getElementById(
@@ -808,24 +856,7 @@ async function updateExchangeRate(){
         status.innerText =
             "กำลังดึงค่าเงิน...";
 
-        const response =
-            await fetch(
-                "https://open.er-api.com/v6/latest/KRW"
-            );
-
-        if(!response.ok){
-            throw new Error("HTTP " + response.status);
-        }
-
-        const data =
-            await response.json();
-
-        const thbRate =
-            Number(data && data.rates && data.rates.THB);
-
-        if(!Number.isFinite(thbRate) || thbRate <= 0){
-            throw new Error("Invalid THB rate");
-        }
+        const thbRate = await kfpGetFreshKrwThb();
 
         document.getElementById(
             "rate"
@@ -848,7 +879,6 @@ async function updateExchangeRate(){
             `อัปเดตล่าสุด ${now.toLocaleString("th-TH")}
             | 1 KRW = ${thbRate.toFixed(4)} THB`;
 
-        // รีเฟรชหน้าจอแยกจากการดึงเรต เพื่อไม่ให้ error ฝั่ง UI ถูกแสดงว่า "ดึงค่าเงินไม่ได้"
         try{
             updateSalaryPreview();
             convertCurrency();
@@ -869,7 +899,7 @@ async function updateExchangeRate(){
             "ไม่สามารถดึงค่าเงินได้";
 
     }
-
+    finally{ __kfpRateBusy = false; }
 }
 
 function exportExcel() {
@@ -1603,41 +1633,27 @@ updateSalaryPreview();
 
 };
 
-// อัปเดตเรตอัตโนมัติเมื่อไม่เคยอัปเดต หรือเรตเก่าเกิน 24 ชั่วโมง
-// (แยกเป็นฟังก์ชันเพื่อให้ทำงานได้แม้ส่วนอื่นของ onload เช่น กราฟ จะ error ก่อนถึงบรรทัดนี้)
+// อัปเดตเรตอัตโนมัติ: เรตเก่าเกิน 5 นาทีจะดึงใหม่ทันทีที่เปิดหน้า/กลับมาที่แอป และเช็กซ้ำทุก 5 นาทีระหว่างเปิดหน้าอยู่
+const KFP_RATE_MAX_AGE_MIN = 5;
 function kfpAutoUpdateRateIfStale(){
 
-    if(window.__kfpRateAutoChecked) return;
-    window.__kfpRateAutoChecked = true;
+    const lastUpdate = localStorage.getItem("rateUpdatedAt");
+    const ageMin = lastUpdate ? (Date.now() - new Date(lastUpdate)) / 60000 : Infinity;
 
-    const lastUpdate =
-    localStorage.getItem(
-        "rateUpdatedAt"
-    );
-
-    if(!lastUpdate){
-
+    if(!Number.isFinite(ageMin) || ageMin >= KFP_RATE_MAX_AGE_MIN){
         updateExchangeRate();
-
-    }
-    else{
-
-        const diffHours =
-            (
-                Date.now() -
-                new Date(lastUpdate)
-            ) /
-            (1000 * 60 * 60);
-
-        if(!Number.isFinite(diffHours) || diffHours >= 24){
-
-            updateExchangeRate();
-            renderQuickConvert();
-
-        }
-
     }
 }
+(function kfpRateAutoLoop(){
+    if(window.__kfpRateLoop) return;
+    window.__kfpRateLoop = true;
+    const tick = () => { if(!document.hidden){ try{ kfpAutoUpdateRateIfStale(); }catch(_){} } };
+    setInterval(tick, 60 * 1000);
+    document.addEventListener("visibilitychange", tick);
+    window.addEventListener("focus", tick);
+    window.addEventListener("pageshow", tick);
+    window.addEventListener("online", tick);
+})();
 
 // สำรอง: ถ้า window.onload หยุดกลางทางเพราะ error ก็ยังเช็กเรตให้
 window.addEventListener("load", function(){

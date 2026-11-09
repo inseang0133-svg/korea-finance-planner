@@ -2026,6 +2026,7 @@ async function loadNews(force){
   renderNews();
 }
 function renderNews(){
+  const keepY=window.scrollY||0;
   const card=$("newsCard"); if(!card) return;
   newsItems=newsFresh(newsItems);              // ตัดข่าวที่เกิน 7 วันทุกครั้งที่แสดง
   if(!newsItems.length){
@@ -2063,9 +2064,39 @@ function renderNews(){
   });
   if(!list.length){ const e=document.createElement("div"); e.className="empty-state"; e.textContent="ยังไม่มีข่าวในหมวดนี้"; box.appendChild(e); }
   const more=$("newsMoreBtn"); if(more) more.hidden=list.length<=newsShown;
+  if(keepY>40 && Math.abs((window.scrollY||0)-keepY)>4) window.scrollTo(0,keepY);
   const meta=$("newsMeta");
   if(meta) meta.textContent=`ข่าวย้อนหลังไม่เกิน 7 วัน · อัปเดต ${newsFetchedAt?new Date(newsFetchedAt).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit",hour12:false}):"-"} น. · Google News`;
 }
+/* จำตำแหน่งเลื่อน: กดอ่านข่าวแล้วกลับมา หน้าต้องอยู่จุดเดิม (ไม่เด้งขึ้นบน) */
+const SCROLL_KEY="kfp_gold_scroll_v1";
+function scrollSave(){
+  try{
+    const y=Math.round(window.scrollY||document.documentElement.scrollTop||0);
+    if(y>0) sessionStorage.setItem(SCROLL_KEY,JSON.stringify({y,shown:newsShown,topic:newsTopic,t:Date.now()}));
+  }catch(_){}
+}
+function scrollRestore(){
+  let s=null;
+  try{ s=JSON.parse(sessionStorage.getItem(SCROLL_KEY)||"null"); }catch(_){}
+  if(!s||!s.y||Date.now()-s.t>6*3600e3) return;
+  if(s.shown>newsShown||s.topic!==newsTopic){ newsShown=Math.max(newsShown,s.shown||0); if(s.topic) newsTopic=s.topic; try{renderNews();}catch(_){} }
+  let n=0;
+  const go=()=>{
+    const cur=window.scrollY||0;
+    if(Math.abs(cur-s.y)>4) window.scrollTo(0,s.y);
+    if(++n<12) setTimeout(go,150);
+  };
+  go();
+}
+let scrollTimer=null;
+window.addEventListener("scroll",()=>{ clearTimeout(scrollTimer); scrollTimer=setTimeout(scrollSave,120); },{passive:true});
+window.addEventListener("pagehide",scrollSave,{capture:true});
+document.addEventListener("visibilitychange",()=>{ document.hidden?scrollSave():scrollRestoreIfTop(); });
+window.addEventListener("pageshow",()=>scrollRestoreIfTop());
+function scrollRestoreIfTop(){ if((window.scrollY||0)<40) scrollRestore(); }
+if("scrollRestoration" in history) history.scrollRestoration="manual";
+
 function initNews(){
   const card=$("newsCard"); if(!card) return;
   newsItems=newsFresh(newsLoadCache());
@@ -2077,6 +2108,7 @@ function initNews(){
   $("newsMoreBtn").addEventListener("click",()=>{ newsShown+=NEWS_PAGE; renderNews(); });
   $("newsRefreshBtn").addEventListener("click",()=>loadNews(true));
   loadNews(false);
+  scrollRestoreIfTop(); setTimeout(scrollRestoreIfTop,600);
   newsTimer=setInterval(()=>{ if(!document.hidden) loadNews(false); },NEWS_REFRESH_MS);
   document.addEventListener("visibilitychange",()=>{ if(!document.hidden) loadNews(false); });
 }

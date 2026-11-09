@@ -535,7 +535,7 @@ html.kfp-lock,html.kfp-lock body{overflow:hidden}
   -webkit-backdrop-filter:blur(16px) saturate(140%);backdrop-filter:blur(16px) saturate(140%);opacity:0;transition:opacity .25s ease}
 .kfp-modal[hidden]{display:none}
 .kfp-modal.open{opacity:1}
-.kfp-modal-card{position:relative;width:min(560px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow:auto;
+.kfp-modal-card{position:relative;width:min(560px,100%);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;
   padding:28px 20px 22px;border-radius:30px;border:1px solid transparent;
   background:linear-gradient(160deg,rgba(32,34,46,.95),rgba(11,12,17,.98)) padding-box,var(--edge) border-box;
   box-shadow:0 40px 90px -20px rgba(0,0,0,.9),0 0 70px -10px rgba(232,190,70,.28),inset 0 1px 0 rgba(255,255,255,.07);
@@ -587,3 +587,12 @@ html.kfp-lock #kfpAuthButton,html.kfp-lock .kfp-fab{opacity:0 !important;pointer
 /* หน้าแรก: กรอบเนื้อหากว้างเท่าหน้าพอร์ตทอง (การ์ดทุกใบกว้างเท่ากัน ทั้งจอคอมและแท็บเล็ต) */
 .container{max-width:1080px}
 @media(min-width:601px) and (max-width:700px){.container{padding-left:10px;padding-right:10px}}
+
+/* modal จัดการการ์ด: เลื่อนได้เฉพาะแนวตั้ง ห้ามเลื่อนซ้าย-ขวา */
+.kfp-modal,.kfp-modal-card{overflow-x:hidden !important;overscroll-behavior-x:none;touch-action:pan-y}
+.kfp-modal-card{max-width:100%;box-sizing:border-box}
+.kfp-modal-card *{min-width:0;max-width:100%;box-sizing:border-box}
+.kfp-modal-card input,.kfp-modal-card select{max-width:100%}
+.alloc-row{width:100%}
+.al-role{text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+.kfp-modal-card h2,.kfp-modal-sub,.alloc-note{overflow-wrap:anywhere}

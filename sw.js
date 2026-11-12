@@ -1,11 +1,11 @@
-const CACHE_NAME = 'korea-finance-pwa-20261109-fix2';
-const API_CACHE_NAME = 'korea-finance-api-20261109-fix2';
+const CACHE_NAME = 'korea-finance-pwa-20261112-tools1';
+const API_CACHE_NAME = 'korea-finance-api-20261112-tools1';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
   'gold.html', 'gold.css', 'gold.js', 'pwa-persistence.js',
   'auth.js', 'supabase-config.js', 'floating-nav.js',
-  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js'
+  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js'
 ];
 
 const API_HOSTS = new Set([

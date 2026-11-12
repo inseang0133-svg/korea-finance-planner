@@ -28,10 +28,12 @@
     "contractStartDate", "salaryRecords",
     "salaryThb", "kfp_alloc_v1", "kfp_mode_v1",
     "__kfp_deleted_keys_v1",
-    "kfp_gold_lots_v1", "kfp_gold_settings_v1"
+    "kfp_gold_lots_v1", "kfp_gold_settings_v1",
+    "kfp_work_settings_v1", "kfp_work_records_v1", "kfp_work_deductions_v1",
+    "kfp_work_received_v1", "kfp_expenses_v1"
   ];
 
-  const ARRAY_KEYS = new Set(["salaryRecords", "kfp_gold_lots_v1"]);
+  const ARRAY_KEYS = new Set(["salaryRecords", "kfp_gold_lots_v1", "kfp_work_records_v1", "kfp_work_deductions_v1", "kfp_expenses_v1"]);
   const GUEST_BACKUP_KEY = "__kfp_guest_backup_v1";
   const AUTH_USER_KEY = "__kfp_auth_user_v1";
   const PROFILE_CACHE_KEY = "__kfp_profile_cache_v1";

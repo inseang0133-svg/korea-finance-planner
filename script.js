@@ -441,8 +441,10 @@ function updateAnalytics(){
     cats.forEach(c => {
         const kEl = document.querySelector('[data-cat-krw="' + c.id + '"]');
         const tEl = document.querySelector('[data-cat-thb="' + c.id + '"]');
-        const k = totalKrw * c.pct / 100;
-        const t = totalThb * c.pct / 100;
+        // หักรายจ่ายที่ผูกกับการ์ดนี้ (tools-ui.js)
+        const adj = typeof window.kfpExpenseAdjust === "function" ? window.kfpExpenseAdjust(c.id) : { krw: 0, thb: 0 };
+        const k = totalKrw * c.pct / 100 - adj.krw;
+        const t = totalThb * c.pct / 100 - adj.thb;
         set(kEl, hasKrw ? krwText(k) : thbText(t));
         set(tEl, "≈ " + thbText(t));
         show(tEl, hasKrw);
@@ -450,9 +452,11 @@ function updateAnalytics(){
 
     // เป้าหมายเงินเก็บ = ยอดสะสมของการ์ดที่ตั้งบทบาท “เงินเก็บ” (บาท)
     const savingCat = kfpSavingCat();
-    kfpSyncGoalFromSaving(savingCat ? totalThb * savingCat.pct / 100 : 0);
+    const savingAdj = savingCat && typeof window.kfpExpenseAdjust === "function" ? window.kfpExpenseAdjust(savingCat.id).thb : 0;
+    kfpSyncGoalFromSaving(savingCat ? totalThb * savingCat.pct / 100 - savingAdj : 0);
     renderChart();
     renderSavingChart();
+    if(typeof window.kfpExpenseDecorate === "function") window.kfpExpenseDecorate();
 }
 
 // เงินสะสมปัจจุบัน (เป้าหมายเงินเก็บ) = การ์ดบทบาท "เงินเก็บ" ในสถิติการเงิน (หน่วยบาท) อัตโนมัติ

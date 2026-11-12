@@ -16,6 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=20261019-news2">
     <link rel="stylesheet" href="theme.css?v=20261109-fix2">
+    <link rel="stylesheet" href="tools.css?v=20261112-tools1">
     
     <link rel="manifest" href="manifest.json">
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
@@ -78,6 +79,14 @@
             </button>
             <button type="button" class="btn-save-month" onclick="saveThisMonthSalary()">
                 📅 บันทึกเงินเดือนเดือนนี้
+            </button>
+        </div>
+        <div class="tool-row" id="toolRow">
+            <button type="button" class="tool-btn tool-work" data-open-tool="work" aria-haspopup="dialog">
+                <span class="ti" aria-hidden="true">🗂️</span> บันทึกการเข้างาน
+            </button>
+            <button type="button" class="tool-btn tool-exp" data-open-tool="expense" aria-haspopup="dialog">
+                <span class="ti" aria-hidden="true">💸</span> รายจ่าย
             </button>
         </div>
         <p id="saveMonthStatus" class="save-month-status" role="status" aria-live="polite"></p>
@@ -230,6 +239,7 @@
 <script src="alloc-ui.js?v=20261109-fix2"></script>
 <script src="ui-charts.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
+<script src="tools-ui.js?v=20261112-tools1"></script>
 <script src="floating-nav.js?v=20261029-fab2" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง"></script>
 <script>
 if ('serviceWorker' in navigator) {

@@ -5,10 +5,12 @@
 ## สถานะ production (อัปเดต 14/11/2026 18:20 KST)
 - [x] Backup ข้อมูล (profiles, user_data, รายชื่อบัญชี) ก่อนแก้
 - [x] Migration 0050, 0100, 0300–0900, 1200 · owner = `inseang0133` · ผูก Stripe Price 6 ตัว · Legacy grant (Premium ถึง 12/02/2027)
-- [ ] **SQL Editor → วาง `supabase/finish_prod_20261114.sql` ทั้งไฟล์ → Run** (= 1000 + 1100 · ต้องได้ 0 แถว)
+- [x] `supabase/finish_prod_20261114.sql` (1000 + 1100) · 1300 ถอน TRUNCATE/REFERENCES/TRIGGER ที่ default ACL ให้ anon/authenticated → `kfp_security_report()` ว่าง
 - [x] Edge Functions 6 ตัว deploy แล้ว
-- [ ] Secrets: `SITE_URL`, `ALLOWED_ORIGINS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (ดูข้อ 2)
-- [ ] merge `saas-v2` → `main` หลังสองข้อด้านบนเสร็จ
+- [x] Secrets: `SITE_URL`, `ALLOWED_ORIGINS`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- [x] merge `saas-v2` → `main` (เว็บจริง)
+- [ ] Auth: Site URL + Redirect URLs · Custom SMTP · Leaked password protection · Confirm email ON (สุดท้าย) — ข้อ 1
+- [ ] ทดลองซื้อจริง 1 ครั้ง → refund — ข้อ 4 · SRI — ข้อ 3
 
 ## 0. ดูหน้าตาก่อน (ยังไม่แตะ Supabase / Stripe)
 GitHub Pages ของ repo นี้คือ**เว็บจริงที่ผู้ใช้ใช้อยู่** และ `supabase-config.js` ชี้ฐานข้อมูลจริง — อย่า push ลง branch ที่ Pages ใช้ (ปกติ `main`) จนกว่าจะทำข้อ 1–2

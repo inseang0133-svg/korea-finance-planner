@@ -21,7 +21,7 @@ export type Rpc = (fn: string, args: Record<string, unknown>) => Promise<Any>;
 export interface Deps {
   stripe: StripeLike;
   rpc: Rpc;
-  siteUrl: string;                    // e.g. https://inseang0133-svg.github.io/korea-finance-planner
+  siteUrl: string;                    // e.g. https://planer.com.de
   requireTos?: boolean;               // Checkout "I agree to the terms" box (needs ToS URL in Stripe settings)
   portalConfiguration?: string;       // optional Stripe portal configuration id
   now?: () => number;                 // ms, injectable for tests

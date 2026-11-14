@@ -1,6 +1,6 @@
 // Shared CORS + JSON helpers for Korea Finance Planner Edge Functions.
 // ALLOWED_ORIGINS = comma-separated list, e.g.
-//   "https://inseang0133-svg.github.io,http://localhost:8765"
+//   "https://planer.com.de,http://localhost:8765"
 const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
   .split(",").map((s) => s.trim()).filter(Boolean);
 

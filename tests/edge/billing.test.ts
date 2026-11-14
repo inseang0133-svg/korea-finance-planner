@@ -110,7 +110,7 @@ function makeInvoice(sub: Any, status: string, extra: Any = {}) {
   return inv;
 }
 const evt = (type: string, object: Any, eid = id("evt")) => ({ id: eid, object: "event", type, created: now(), livemode: false, data: { object } });
-const deps: Deps & { verify: typeof verify } = { stripe, rpc, siteUrl: "https://example.github.io/korea-finance-planner/", verify, now: () => Date.now() };
+const deps: Deps & { verify: typeof verify } = { stripe, rpc, siteUrl: "https://app.example.com/", verify, now: () => Date.now() };
 async function deliver(event: Any, opt: { sig?: string | null; raw?: string } = {}) {
   const raw = opt.raw ?? JSON.stringify(event);
   return processWebhook(raw, opt.sig === undefined ? sign(raw) : opt.sig, deps);
@@ -165,7 +165,7 @@ sql(`update public.plan_prices set provider_price_id = null where active and pla
   ok(cc.length === 1 && cc[0][1].email === "buyer.p7@x.com" && cc[0][1].metadata.user_id === U.buyer && cc[0][2].idempotencyKey === `kfp-customer-${U.buyer}`, "customer with e-mail + user_id metadata, idempotent");
   const cs = S.calls.find((c) => c[0] === "checkout.sessions.create")![1];
   ok(cs.mode === "subscription" && cs.client_reference_id === U.buyer && cs.subscription_data.metadata.user_id === U.buyer && cs.line_items[0].price === storedPrice, "session: subscription mode, user ref + metadata, DB price");
-  ok(cs.success_url === "https://example.github.io/korea-finance-planner/pricing.html?checkout=success&session_id={CHECKOUT_SESSION_ID}" && cs.cancel_url.endsWith("checkout=cancel"), "success/cancel URLs from SITE_URL");
+  ok(cs.success_url === "https://app.example.com/pricing.html?checkout=success&session_id={CHECKOUT_SESSION_ID}" && cs.cancel_url.endsWith("checkout=cancel"), "success/cancel URLs from SITE_URL");
   ok(cs.locale === "th" && cs.allow_promotion_codes === true && !("consent_collection" in cs), "Thai locale, promo codes, ToS box off by default");
   S.calls.length = 0;
   r = await createCheckout({ userId: U.buyer, plan: "plus", interval: "month", currency: "THB" }, deps);
@@ -188,7 +188,7 @@ sql(`update public.plan_prices set provider_price_id = null where active and pla
   ok(r.status === 404 && r.body.error === "no_customer", "no Stripe customer → 404");
   r = await createPortal({ userId: U.buyer }, deps);
   const ps = S.calls.find((c) => c[0] === "billingPortal.sessions.create")![1];
-  ok(r.status === 200 && String(r.body.url).startsWith("https://billing.stripe.com/") && ps.customer.startsWith("cus_") && ps.return_url === "https://example.github.io/korea-finance-planner/account.html?portal=return", "portal session for the user's customer, returns to account.html");
+  ok(r.status === 200 && String(r.body.url).startsWith("https://billing.stripe.com/") && ps.customer.startsWith("cus_") && ps.return_url === "https://app.example.com/account.html?portal=return", "portal session for the user's customer, returns to account.html");
   ok(!ps.flow_data && ps.locale === "th", "default flow = portal home (Thai)");
   r = await createPortal({ userId: U.buyer, flow: "hack" }, deps);
   ok(r.status === 400, "unknown flow → 400");

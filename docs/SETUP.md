@@ -24,8 +24,8 @@
 | Sign In / Providers → Email → **Secure email change** | **OFF** | บัญชีเก่า `@kfp.example.com` รับอีเมลที่อยู่เก่าไม่ได้ ถ้าเปิดไว้จะเชื่อมอีเมลจริงไม่สำเร็จ (ต้องยืนยันเฉพาะอีเมลใหม่) |
 | Sign In / Providers → Email → Minimum password length | 8 | ตรงกับเงื่อนไขในหน้าเว็บ |
 | Attack Protection → Leaked password protection | ON (ถ้าแพ็กเกจรองรับ) | |
-| URL Configuration → **Site URL** | `https://inseang0133-svg.github.io/korea-finance-planner/` | |
-| URL Configuration → **Redirect URLs** | `https://inseang0133-svg.github.io/korea-finance-planner/auth-callback.html` (+ URL staging/localhost ที่ใช้ทดสอบ) | ลิงก์ยืนยัน/รีเซ็ตรหัส/เปลี่ยนอีเมล |
+| URL Configuration → **Site URL** | `https://planer.com.de/` | |
+| URL Configuration → **Redirect URLs** | `https://planer.com.de/auth-callback.html` (+ URL staging/localhost ที่ใช้ทดสอบ) | ลิงก์ยืนยัน/รีเซ็ตรหัส/เปลี่ยนอีเมล |
 | Emails → **SMTP Settings** | Custom SMTP (Resend / Brevo / Amazon SES …) + โดเมนผู้ส่งที่ยืนยัน SPF/DKIM แล้ว | SMTP เริ่มต้นของ Supabase ส่งได้เฉพาะอีเมลทีมโปรเจกต์ 2 ฉบับ/ชม. ลูกค้าจริงจะไม่ได้รับอีเมล |
 | Emails → Templates | แก้ข้อความเป็นภาษาไทยได้ (Confirm signup / Reset password / Change email address) | ไม่บังคับ |
 
@@ -34,7 +34,7 @@
 ### 3. Edge Function `username-login`
 ```bash
 supabase link --project-ref <staging-ref>
-supabase secrets set ALLOWED_ORIGINS="https://inseang0133-svg.github.io,http://localhost:8765"
+supabase secrets set ALLOWED_ORIGINS="https://planer.com.de,http://localhost:8765"
 supabase functions deploy username-login --no-verify-jwt
 ```
 - `--no-verify-jwt` จำเป็น เพราะผู้ใช้ยังไม่ได้ login ตอนเรียก
@@ -136,8 +136,8 @@ SQL Editor → รัน `supabase/migrations/20261113000600_stripe.sql`
 ```bash
 supabase link --project-ref <staging-ref>
 supabase secrets set STRIPE_SECRET_KEY=sk_test_xxx STRIPE_WEBHOOK_SECRET=whsec_xxx \
-  SITE_URL=https://inseang0133-svg.github.io/korea-finance-planner \
-  ALLOWED_ORIGINS="https://inseang0133-svg.github.io,http://localhost:8765"
+  SITE_URL=https://planer.com.de \
+  ALLOWED_ORIGINS="https://planer.com.de,http://localhost:8765"
 # ไม่บังคับ: CHECKOUT_REQUIRE_TOS=1  STRIPE_PORTAL_CONFIGURATION=bpc_xxx
 supabase functions deploy create-checkout
 supabase functions deploy create-portal

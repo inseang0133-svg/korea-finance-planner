@@ -12,6 +12,15 @@
 - [ ] Auth: Site URL + Redirect URLs · Custom SMTP · Leaked password protection · Confirm email ON (สุดท้าย) — ข้อ 1
 - [ ] ทดลองซื้อจริง 1 ครั้ง → refund — ข้อ 4 · SRI — ข้อ 3
 
+## ย้ายโดเมนเป็น https://planer.com.de (14/11/2026)
+หน้าเว็บใช้ path แบบสัมพัทธ์ทั้งหมด (`auth.js` สร้างลิงก์ `auth-callback.html` จาก `location.href`, `manifest.json` start_url = `index.html`) → โค้ดหน้าเว็บไม่ต้องแก้
+- [x] `CNAME` = planer.com.de (GitHub Pages)
+- [ ] GitHub → Settings → Pages → ติ๊ก **Enforce HTTPS**
+- [ ] Supabase → Authentication → URL Configuration → Site URL `https://planer.com.de/` · Redirect URLs เพิ่ม `https://planer.com.de/auth-callback.html` (เก็บของเดิมไว้ช่วงเปลี่ยนผ่าน)
+- [ ] Supabase → Edge Functions → Secrets → `SITE_URL=https://planer.com.de` · `ALLOWED_ORIGINS=https://planer.com.de,https://inseang0133-svg.github.io`
+- [ ] Stripe → Settings → Billing → Customer portal → Default redirect link `https://planer.com.de/account.html?portal=return` · Business website `https://planer.com.de`
+- ข้อมูลในเครื่อง (localStorage) แยกตามโดเมน → ผู้ใช้ต้อง login ใหม่ที่ planer.com.de แล้วข้อมูลจะดึงจาก Cloud Sync
+
 ## 0. ดูหน้าตาก่อน (ยังไม่แตะ Supabase / Stripe)
 GitHub Pages ของ repo นี้คือ**เว็บจริงที่ผู้ใช้ใช้อยู่** และ `supabase-config.js` ชี้ฐานข้อมูลจริง — อย่า push ลง branch ที่ Pages ใช้ (ปกติ `main`) จนกว่าจะทำข้อ 1–2
 ```bash
@@ -41,8 +50,8 @@ python3 -m http.server 8000       # ดูหน้าตาในเครื�
 ```bash
 supabase link --project-ref <prod-ref>
 supabase secrets set STRIPE_SECRET_KEY=sk_live_xxx STRIPE_WEBHOOK_SECRET=whsec_xxx \
-  SITE_URL=https://inseang0133-svg.github.io/korea-finance-planner \
-  ALLOWED_ORIGINS="https://inseang0133-svg.github.io"
+  SITE_URL=https://planer.com.de \
+  ALLOWED_ORIGINS="https://planer.com.de"
 supabase functions deploy username-login --no-verify-jwt
 supabase functions deploy stripe-webhook --no-verify-jwt
 for f in create-checkout create-portal billing-action admin-actions; do supabase functions deploy $f; done

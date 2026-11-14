@@ -1,11 +1,11 @@
-const CACHE_NAME = 'korea-finance-pwa-20261114-saas15';
-const API_CACHE_NAME = 'korea-finance-api-20261114-saas15';
+const CACHE_NAME = 'korea-finance-pwa-20261115-saas16';
+const API_CACHE_NAME = 'korea-finance-api-20261115-saas16';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
   'gold.html', 'gold.css', 'gold.js', 'pwa-persistence.js',
   'auth.js', 'auth-callback.html', 'supabase-config.js', 'floating-nav.js',
-  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js', 'kfp-storage.js', 'kfp-demo-data.js', 'kfp-access.js', 'kfp-access.css', 'pricing.html', 'account.html', 'kfp-gold-sync.js', 'kfp-motion.css', 'kfp-motion.js', 'kfp-bfcache.js'
+  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js', 'kfp-storage.js', 'kfp-demo-data.js', 'kfp-access.js', 'kfp-access.css', 'pricing.html', 'account.html', 'kfp-gold-sync.js', 'kfp-motion.css', 'kfp-motion.js', 'kfp-bfcache.js', 'kfp-badge.css', 'kfp-badge.js'
 ];
 
 const API_HOSTS = new Set([

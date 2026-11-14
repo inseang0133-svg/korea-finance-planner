@@ -22,7 +22,8 @@
                  void: ["", "ยกเลิก"], uncollectible: ["bad", "เรียกเก็บไม่ได้"], refunded: ["info", "คืนเงินแล้ว"], partially_refunded: ["info", "คืนบางส่วน"] };
   var ACTION_LABEL = { "plan.grant": "ให้สิทธิ์แพ็กเกจ", "plan.revoke_all": "เปลี่ยนเป็น Free", "plan.extend": "ขยายสิทธิ์", "plan.revoke": "ยกเลิกสิทธิ์ที่ให้",
     "user.suspend": "ระงับบัญชี", "user.reactivate": "เปิดบัญชีคืน", "subscription.cancel": "ยกเลิก subscription (สิ้นรอบ)",
-    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา" };
+    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา", "role.set": "เปลี่ยนบทบาท" };
+  var ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Viewer" };
 
   /* ---------------------------------------------------------- format */
   function money(minor, cur) {
@@ -69,7 +70,7 @@
     } catch (_) { return { status: 0, body: { error: "network" } }; }
   }
   var ERR = {
-    forbidden: "ไม่มีสิทธิ์ทำรายการนี้", cannot_act_on_self: "ทำรายการกับบัญชีของตัวเองไม่ได้", only_owner_can_change_admins: "เฉพาะ Owner เท่านั้นที่จัดการบัญชีผู้ดูแลได้",
+    forbidden: "ไม่มีสิทธิ์ทำรายการนี้", cannot_act_on_self: "ทำรายการกับบัญชีของตัวเองไม่ได้", only_owner_can_change_admins: "เฉพาะ Owner เท่านั้นที่จัดการบัญชีผู้ดูแลได้", cannot_change_owner: "เปลี่ยนบทบาทของ Owner ไม่ได้", invalid_role: "บทบาทไม่ถูกต้อง",
     reason_required: "กรุณาใส่เหตุผลอย่างน้อย 3 ตัวอักษร", invalid_expiry: "วันหมดอายุต้องเป็นวันในอนาคต", invalid_days: "จำนวนวันต้องอยู่ระหว่าง 1–3650",
     nothing_to_extend: "สมาชิกนี้ไม่มีสิทธิ์ที่จะขยาย (เป็น Free)", no_expiry: "สิทธิ์ปัจจุบันไม่มีวันหมดอายุ", no_subscription: "ไม่มี subscription ที่ใช้งานอยู่",
     user_not_found: "ไม่พบสมาชิก", rate_limited: "ทำรายการบ่อยเกินไป รอสักครู่", customer_mismatch: "ข้อมูล Stripe ไม่ตรงกัน ตรวจสอบใน Stripe Dashboard",
@@ -272,7 +273,7 @@
     var x = CUR, u = x.user, ef = x.effective || {}, live = (x.subscriptions || []).filter(function (s) { return ["active", "trialing", "past_due", "unpaid"].indexOf(s.status) >= 0; })[0];
     $("drTitle").textContent = u.email || "(ไม่มีอีเมล)";
     $("drIds").innerHTML = '<span class="mono">' + esc(u.user_id) + '</span><button class="copy" type="button" data-copy="' + esc(u.user_id) + '" aria-label="คัดลอก User ID">⧉</button>' +
-      planPill(ef.plan_id) + (u.suspended_at ? pill("bad", "ถูกระงับ") : "") + (u.admin_role ? pill("info", u.admin_role) : "") +
+      planPill(ef.plan_id) + (u.suspended_at ? pill("bad", "ถูกระงับ") : "") + (u.admin_role ? '<span class="pill role-' + esc(u.admin_role) + '">' + esc(ROLE_LABEL[u.admin_role] || u.admin_role) + "</span>" : "") +
       (u.verified_at ? "" : pill("warn", "ยังไม่ยืนยันอีเมล")) + (u.legacy_email ? pill("warn", "Username เดิม") : "");
     var why = canActOn(x), hasGrant = (x.entitlements || []).some(function (g) { return g.active; });
     var acts = why ? '<p class="note" id="actLocked">🔒 ' + esc(why) + "</p>" :
@@ -282,7 +283,8 @@
         '<button class="btn sm" type="button" data-act="extend"' + (ef.plan_id === "free" || !ef.valid_until ? " disabled" : "") + ">ขยายสิทธิ์</button>" +
         '<button class="btn sm danger" type="button" data-act="revoke"' + (hasGrant ? "" : " disabled") + ">ยกเลิกสิทธิ์ที่ให้</button>" +
         (u.suspended_at ? '<button class="btn sm" type="button" data-act="reactivate">เปิดบัญชีคืน</button>' : '<button class="btn sm danger" type="button" data-act="suspend">ระงับบัญชี</button>') +
-        (live ? '<button class="btn sm danger" type="button" data-act="cancel_sub">ยกเลิก subscription</button>' : "") + "</div>" +
+        (live ? '<button class="btn sm danger" type="button" data-act="cancel_sub">ยกเลิก subscription</button>' : "") +
+        (ME.isOwner && u.admin_role !== "owner" ? '<button class="btn sm role" type="button" data-act="set_role">🛡️ บทบาท: ' + esc(ROLE_LABEL[u.admin_role] || "สมาชิก") + "</button>" : "") + "</div>" +
       '<p class="count" style="margin-top:8px">ทุกการกระทำต้องยืนยันและใส่เหตุผล · บันทึกใน Audit log</p>';
     var subs = (x.subscriptions || []).map(function (s) {
       return "<tr><td data-l=\"Subscription\" class=\"mono\">" + esc(s.provider_subscription_id || s.id) + "</td><td data-l=\"แพ็กเกจ\">" + planPill(s.plan_id) +
@@ -298,7 +300,7 @@
         '</td><td data-l="ลิงก์">' + (inv ? '<a href="' + esc(inv) + '" target="_blank" rel="noopener noreferrer">ใบแจ้งหนี้</a> ' : "") + (pdf ? '<a href="' + esc(pdf) + '" target="_blank" rel="noopener noreferrer">PDF</a>' : "") + "</td></tr>";
     }).join("");
     var ents = (x.entitlements || []).map(function (g) {
-      return '<tr><td data-l="แพ็กเกจ">' + planPill(g.plan_id) + '</td><td data-l="ที่มา">' + esc(g.reason === "legacy_launch" ? "สมาชิกเดิม 90 วัน" : g.reason === "admin_grant" ? "ผู้ดูแลให้" : g.reason) +
+      return '<tr><td data-l="แพ็กเกจ">' + planPill(g.plan_id) + '</td><td data-l="ที่มา">' + esc(g.reason === "legacy_launch" ? "สมาชิกเดิม 90 วัน" : g.reason === "admin_grant" ? "ผู้ดูแลให้" : g.reason === "staff" ? "ทีมงาน · ไม่จำกัด" : g.reason) +
         (g.granted_by ? '<br><span class="muted">' + esc(g.granted_by) + "</span>" : "") + '</td><td data-l="ช่วง" class="num">' + d(g.starts_at) + " – " + (g.expires_at ? d(g.expires_at) : "ไม่มีกำหนด") +
         '</td><td data-l="สถานะ">' + (g.revoked_at ? pill("", "ยกเลิก " + d(g.revoked_at)) : g.active ? pill("ok", "ใช้งาน") : pill("", "หมดอายุ")) +
         '</td><td data-l="หมายเหตุ" class="muted">' + esc(g.note || "") + "</td></tr>";
@@ -314,7 +316,7 @@
         ["เข้าสู่ระบบล่าสุด", dt(u.last_login_at)], ["ใช้งานล่าสุด", actDot(u.activity) + " · " + rel(u.last_active_at)], ["หน้าล่าสุด", esc(u.last_page || "—")],
         ["ถูกระงับ", u.suspended_at ? dt(u.suspended_at) : "ไม่"], ["พอร์ตทองบน Cloud", x.gold_lots == null ? "—" : nf(x.gold_lots) + " รอบ"]]) + "</div>" +
       '<div class="dr-sec"><h3>สิทธิ์ปัจจุบัน (Entitlement)</h3>' + kv([
-        ["แพ็กเกจที่ใช้ได้", planPill(ef.plan_id)], ["มาจาก", esc(ef.source === "default" ? "—" : ef.source === "suspended" ? "ถูกระงับ" : ef.source || "—")],
+        ["แพ็กเกจที่ใช้ได้", planPill(ef.plan_id)], ["มาจาก", esc(ef.source === "default" ? "—" : ef.source === "suspended" ? "ถูกระงับ" : ef.source === "staff" ? "ทีมงาน (ไม่จำกัด)" : ef.source || "—")],
         ["ใช้ได้ถึง", ef.valid_until ? dt(ef.valid_until) : (ef.plan_id === "free" ? "—" : "ไม่มีกำหนด")],
         ["Stripe Customer", x.customer ? '<span class="mono">' + esc(x.customer.customer_id) + "</span>" : "—"]]) + "</div>" +
       '<div class="dr-sec"><h3>Subscription</h3>' + tbl(["Subscription ID", "แพ็กเกจ", "สถานะ", "ราคา", "รอบปัจจุบัน", "เริ่ม"], subs, "ไม่เคยสมัครแบบชำระเงิน", "drSubs") + "</div>" +
@@ -346,6 +348,9 @@
     revoke: { title: "ยกเลิกสิทธิ์ที่ให้", text: "ยกเลิกสิทธิ์ที่ผู้ดูแลให้และสิทธิ์สมาชิกเดิม 90 วัน · subscription ที่จ่ายเงินไม่ถูกยกเลิก", danger: true },
     suspend: { title: "ระงับบัญชี", text: "สมาชิกจะกลับเป็น Free ทันที ใช้ Cloud Sync และพอร์ตทองไม่ได้ · ข้อมูลไม่ถูกลบ · ไม่ยกเลิก subscription (ใช้ปุ่มยกเลิก subscription แยก)", danger: true },
     reactivate: { title: "เปิดบัญชีคืน", text: "สมาชิกจะกลับไปใช้สิทธิ์ตาม subscription / สิทธิ์ที่มีอยู่" },
+    set_role: { title: "เปลี่ยนบทบาท", text: "Admin = จัดการสมาชิก/ราคาได้ · Viewer = เปิดหน้า Admin ได้แต่ดูอย่างเดียว · ทั้งสองบทบาทได้ Finance Premium แบบไม่จำกัดเวลา · เลือก “สมาชิกทั่วไป” = ถอดบทบาทและสิทธิ์ทีมงาน (สิทธิ์อื่น / subscription ที่จ่ายเงินยังอยู่) · เฉพาะ Owner",
+      fields: '<label for="cfRole">บทบาท</label><select class="sel" id="cfRole"><option value="viewer">Viewer · ดูอย่างเดียว + Premium ไม่จำกัด</option><option value="admin">Admin · จัดการได้ + Premium ไม่จำกัด</option><option value="none">สมาชิกทั่วไป (ถอดบทบาท)</option></select>',
+      danger: function () { return $("cfRole").value === "admin"; } },
     cancel_sub: { title: "ยกเลิก subscription", text: "ยกเลิกใน Stripe จริง",
       fields: '<label for="cfMode">วิธียกเลิก</label><select class="sel" id="cfMode"><option value="period_end">เมื่อสิ้นรอบบิล (ใช้ได้จนถึงวันนั้น)</option><option value="now">ทันที (หมดสิทธิ์ตอนนี้ ไม่คืนเงินอัตโนมัติ)</option></select>',
       danger: true }
@@ -358,6 +363,7 @@
     $("cfText").textContent = sp.text;
     $("cfFields").innerHTML = sp.fields || "";
     if (kind === "set_plan") $("cfUntil").min = plus(1);
+    if (kind === "set_role") $("cfRole").value = u.admin_role === "admin" || u.admin_role === "viewer" ? (u.admin_role === "admin" ? "viewer" : "admin") : "viewer";
     $("cfReason").value = ""; $("cfErr").textContent = ""; $("cfType").value = "";
     syncDanger();
     $("cf").showModal();
@@ -397,6 +403,10 @@
         await rpc("admin_revoke_access", { p_user: u.user_id, p_reason: reason }); ok = "ยกเลิกสิทธิ์ที่ให้แล้ว";
       } else if (k === "suspend" || k === "reactivate") {
         await rpc("admin_set_suspended", { p_user: u.user_id, p_suspended: k === "suspend", p_reason: reason }); ok = k === "suspend" ? "ระงับบัญชีแล้ว" : "เปิดบัญชีคืนแล้ว";
+      } else if (k === "set_role") {
+        var role = $("cfRole").value;
+        await rpc("admin_set_role", { p_user: u.user_id, p_role: role, p_reason: reason });
+        ok = role === "none" ? "ถอดบทบาทแล้ว" : "ตั้งเป็น " + ROLE_LABEL[role] + " แล้ว · Premium ไม่จำกัด";
       } else if (k === "cancel_sub") {
         var r = await callFn("admin-actions", { action: "cancel_subscription", user_id: u.user_id, mode: $("cfMode").value, reason: reason });
         if (r.status !== 200) throw { message: r.status === 404 && !r.body.error ? "ยังไม่ได้ deploy admin-actions" : (r.body.error || r.status) };

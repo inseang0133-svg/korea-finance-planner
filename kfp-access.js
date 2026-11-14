@@ -229,7 +229,8 @@
   function planInfo() {
     return { state: PLAN.state, plan: PLAN.ent ? PLAN.ent.plan : null, planName: PLAN.ent ? PLAN.ent.plan_name : null,
              source: PLAN.ent ? PLAN.ent.source : null, status: PLAN.ent ? PLAN.ent.status : null,
-             validUntil: PLAN.ent ? PLAN.ent.valid_until : null, features: PLAN.ent ? PLAN.ent.features : null, limits: PLAN.ent ? PLAN.ent.limits : null };
+             validUntil: PLAN.ent ? PLAN.ent.valid_until : null, features: PLAN.ent ? PLAN.ent.features : null, limits: PLAN.ent ? PLAN.ent.limits : null,
+             adminRole: PLAN.ent && /^(owner|admin|viewer)$/.test(PLAN.ent.admin_role || "") ? PLAN.ent.admin_role : null };
   }
 
   function readCache() {

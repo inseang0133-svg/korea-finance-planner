@@ -165,7 +165,7 @@
           var pl = PLANS.filter(function (p) { return p.id === pid; })[0];
           var src = sessionStorage.getItem("__mock_source") || (pid === "free" ? "default" : "subscription:stripe");
           var ent = { user_id: uid, plan: pl.id, plan_name: pl.name, source: src, status: pid === "free" ? "none" : "active",
-                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: pl.features, limits: pl.limits, checked_at: new Date().toISOString() };
+                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: pl.features, limits: pl.limits, admin_role: sessionStorage.getItem("__mock_admin_role") || null, checked_at: new Date().toISOString() };
           var out = Promise.resolve({ data: ent, error: null });
           return mode === "slow" ? new Promise(function (r) { setTimeout(function () { r({ data: ent, error: null }); }, 2500); }) : out;
         }
@@ -253,7 +253,7 @@
       var paid = u.plan !== "free" && u.plan_source.indexOf("subscription") === 0;
       return ok({ user: { user_id: u.user_id, email: u.email, username: u.username, nickname: u.username, country: u.country, registered_at: u.registered_at, verified_at: u.verified ? u.registered_at : null,
           legacy_email: false, last_login_at: u.last_login_at, last_active_at: u.last_active_at, last_page: u.last_page, suspended_at: u.suspended ? iso(-1) : null, activity: u.activity,
-          admin_role: u.user_id === "u-real" ? role : (u.is_admin ? "admin" : null) },
+          admin_role: u.user_id === "u-real" ? role : (sessionStorage.getItem("__mock_role_" + u.user_id) || (u.is_admin ? "admin" : null)) },
         effective: { plan_id: u.suspended ? "free" : u.plan, source: u.suspended ? "suspended" : u.plan_source, status: paid ? "active" : "granted", valid_until: u.expires_at || (u.plan === "free" ? null : iso(20)) },
         customer: paid ? { provider: "stripe", customer_id: "cus_TEST" + u.user_id.slice(-3) } : null,
         subscriptions: paid ? [{ id: "s1", provider: "stripe", provider_subscription_id: "sub_TEST" + u.user_id.slice(-3), plan_id: u.plan, status: u.sub_status, billing_interval: "month", currency: "THB",
@@ -263,6 +263,14 @@
           hosted_invoice_url: "https://invoice.stripe.com/i/1", invoice_pdf_url: "javascript:alert(1)", paid_at: iso(-5), created_at: iso(-5) }] : [],
         payments_total: paid ? 1 : 0, activity: [{ kind: "page", page: "gold.html", at: iso(-0.1) }],
         audit: [{ id: 9, action: "plan.grant", reason: "<b>bold?</b>", at: iso(-1), admin: "owner@mail.test" }], gold_lots: u.plan === "premium" ? 4 : null });
+    }
+    if (fn === "admin_set_role") {
+      if (role !== "owner") return no();
+      if (a.p_user === session.user.id) return no("cannot_act_on_self");
+      if (!a.p_reason || a.p_reason.trim().length < 3) return no("reason_required", "22023");
+      if (a.p_role === "none") sessionStorage.removeItem("__mock_role_" + a.p_user); else sessionStorage.setItem("__mock_role_" + a.p_user, a.p_role);
+      window.__mockRoleCalls = (window.__mockRoleCalls || []).concat([a]);
+      return ok({ role: a.p_role === "none" ? null : a.p_role });
     }
     if (["admin_set_plan", "admin_extend_access", "admin_revoke_access", "admin_set_suspended"].indexOf(fn) >= 0) {
       if (!canWrite) return no();

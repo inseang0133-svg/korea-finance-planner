@@ -202,3 +202,11 @@ details summary{cursor:pointer;color:var(--gold-l);min-height:32px;display:inlin
 .bucket .val{display:block;font-size:22px;font-weight:700;line-height:1.2}
 .bucket small{display:block;font-size:12px;color:var(--muted);margin-top:3px}
 @media(max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi dd{font-size:19px}.bucket .val{font-size:19px}}
+/* staff role pills + role button (15/11/2026) */
+.pill.role-owner,.pill.role-admin{color:#1a1300;border:0;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  background:linear-gradient(120deg,#fff2b8,#e8be46 55%,#c9962b);box-shadow:0 0 14px -2px rgba(232,190,70,.7)}
+.pill.role-viewer{color:#20232b;border:0;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  background:linear-gradient(120deg,#ffffff,#c9ced8 55%,#8e95a3);box-shadow:0 0 14px -2px rgba(210,216,228,.6)}
+.btn.role{border-color:rgba(232,190,70,.5);color:var(--gold-l)}
+.btn.role:hover{background:rgba(232,190,70,.12)}
+.kfa-role.viewer{color:#20232b!important;border:0!important;background:linear-gradient(120deg,#ffffff,#c9ced8 55%,#8e95a3)!important}

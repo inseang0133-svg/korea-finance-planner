@@ -17,7 +17,7 @@ python3 -m http.server 8000       # ดูหน้าตาในเครื�
 ## 1. Supabase (production project)
 - [ ] **Backup** ก่อนเริ่ม (Dashboard → Database → Backups หรือ `pg_dump`)
 - [ ] Staging (project ใหม่ว่างเปล่า) เท่านั้น: รัน `supabase_schema.sql` ก่อน · **production ห้ามรันซ้ำ** (มีอยู่แล้ว)
-- [ ] SQL Editor → วางไฟล์ **`supabase/install_all.sql`** ทั้งไฟล์แล้วกด Run (รวม migration 0100, 0300 → 1100 ตามลำดับ · รันซ้ำได้)
+- [ ] SQL Editor → วางไฟล์ **`supabase/install_all.sql`** ทั้งไฟล์แล้วกด Run (รวม migration 0050, 0100, 0300 → 1200 ตามลำดับ · รันซ้ำได้ · 0050 = ปรับ production เดิมที่ไม่มี function/trigger · 1200 = สร้าง profile ให้บัญชีที่ไม่มี)
       หรือรันทีละไฟล์ใน `supabase/migrations/` ตามชื่อ (ข้าม `0200`)
       (`0200_legacy_launch_grant` = **วันเปิดระบบ** ข้อ 6)
 - [ ] `select * from public.kfp_security_report();` → ต้องเหลือแค่ `INFO no_owner` (ก่อนข้อถัดไป) แล้ว **ว่าง**

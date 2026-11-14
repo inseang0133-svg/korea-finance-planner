@@ -31,7 +31,7 @@
     var lines = [
       "UA: " + navigator.userAgent.slice(0, 140),
       "view " + w + "x" + h + " scrollY=" + Math.round(scrollY) + " docH=" + document.documentElement.scrollHeight,
-      st("#gate"), st("#app"), st(".ad-top"), st("#view-overview"), st("#kfpAuthRoot"), st("#kfpAuthPanel"), st("#kfpGateFallback"), st("#drawer"), st("#cf"),
+      st("#gate"), st("#app"), st(".kfa-top"), st("#view-overview"), st("#kfpAuthRoot"), st("#kfpAuthPanel"), st("#kfpGateFallback"), st("#drawer"), st("#cf"),
       "top-left → " + chain(40, 90),
       "center → " + chain(w / 2, h / 2),
       "html attrs: " + [].map.call(document.documentElement.attributes, function (a) { return a.name + "=" + a.value; }).join(" ").slice(0, 200),

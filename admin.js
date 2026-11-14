@@ -116,7 +116,7 @@
     }
     $("gate").hidden = true; $("app").hidden = false;
     $("whoEmail").textContent = ME.email || "";
-    $("whoRole").textContent = ME.role; $("whoRole").className = "ad-role " + ME.role;
+    $("whoRole").textContent = ME.role; $("whoRole").className = "kfa-role " + ME.role;
     route();
   }
   var started = false;
@@ -139,11 +139,11 @@
     });
     if (!loaded[t]) { loaded[t] = true; ({ overview: loadOverview, users: loadUsers, activity: loadActivity, revenue: loadRevenue, prices: loadPrices, audit: loadAudit })[t](); }
   }
-  document.querySelector(".ad-tabs").addEventListener("click", function (e) {
+  document.querySelector(".kfa-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("[data-tab]"); if (!b) return;
     history.replaceState(null, "", "#" + b.dataset.tab); route();
   });
-  document.querySelector(".ad-tabs").addEventListener("keydown", function (e) {
+  document.querySelector(".kfa-tabs").addEventListener("keydown", function (e) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     var i = TABS.indexOf((location.hash || "#overview").slice(1)); if (i < 0) i = 0;
     var n = TABS[(i + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
@@ -171,24 +171,24 @@
       var tot = Number(u.total) || 0, buckets = ["active", "recent", "inactive", "dormant", "never"];
       var colors = { active: "var(--green)", recent: "var(--blue)", inactive: "var(--amber)", dormant: "var(--red)", never: "#55555e" };
       box.innerHTML =
-        '<div class="ad-sec"><h3>สมาชิก</h3><dl class="kpis">' +
+        '<div class="kfa-sec"><h3>สมาชิก</h3><dl class="kpis">' +
           kpi("สมาชิกทั้งหมด", nf(u.total), nf(u.unverified) + " ยังไม่ยืนยันอีเมล", "gold", "kTotal") +
           kpi("สมัครใหม่วันนี้", nf(u.new_today), "", "", "kToday") + kpi("สมัครใหม่เดือนนี้", nf(u.new_month), "", "", "kMonth") +
           kpi("Free", nf(p.free), "", "", "kFree") + kpi("Plus", nf(p.plus), "", "", "kPlus") + kpi("Premium", nf(p.premium), "", "gold", "kPremium") +
           kpi("ได้สิทธิ์จากการให้ (ไม่ได้จ่าย)", nf(p.via_grant), "รวมสิทธิ์สมาชิกเดิม 90 วัน", "", "kGrant") +
           kpi("ถูกระงับ", nf(u.suspended), "", Number(u.suspended) ? "warn" : "", "kSusp") + "</dl></div>" +
-        '<div class="ad-sec"><h3>Subscription</h3><dl class="kpis">' +
+        '<div class="kfa-sec"><h3>Subscription</h3><dl class="kpis">' +
           kpi("ใช้งานอยู่ (จ่ายเงิน)", nf(s.active), "", "good", "kActive") + kpi("ทดลองใช้", nf(s.trialing)) +
           kpi("ตั้งยกเลิก (รอสิ้นรอบ)", nf(s.cancelling), "", Number(s.cancelling) ? "warn" : "", "kCancelling") +
           kpi("ค้างชำระ", nf(s.past_due), "", Number(s.past_due) ? "bad" : "", "kPastDue") + kpi("หมดอายุ / สิ้นสุด", nf(s.expired), "", "", "kExpired") +
           kpi("Churn 30 วัน", (Number(ch.rate_pct) || 0).toFixed(1) + "%", nf(ch.churned) + " จาก " + nf(ch.base) + " subscription", Number(ch.rate_pct) > 10 ? "bad" : "", "kChurn") + "</dl></div>" +
-        '<div class="ad-sec"><h3>รายได้ (แยกสกุลเงิน)</h3><dl class="kpis">' +
+        '<div class="kfa-sec"><h3>รายได้ (แยกสกุลเงิน)</h3><dl class="kpis">' +
           kpi("MRR", perCur(o.mrr, "mrr_minor"), "", "gold", "kMrr") + kpi("ARR", perCur(o.mrr, "arr_minor"), "", "", "kArr") +
           kpi("รายได้สุทธิทั้งหมด", perCur(o.revenue, "net_minor"), "หักคืนเงินแล้ว", "", "kRev") +
           kpi("ARPU (ต่อสมาชิกที่จ่าย/เดือน)", perCur(o.mrr, "arpu_minor"), "", "", "kArpu") +
           kpi("จ่ายเงินไม่สำเร็จ 30 วัน", nf(o.failed_payments_30d), "", Number(o.failed_payments_30d) ? "bad" : "", "kFailed") +
           kpi("Webhook ที่ล้มเหลว", nf(o.webhooks_failed), Number(o.webhooks_failed) ? "ตรวจ stripe_webhook_events" : "ปกติ", Number(o.webhooks_failed) ? "bad" : "good", "kHook") + "</dl></div>" +
-        '<div class="ad-sec"><h3>การใช้งาน</h3><div class="kpi" id="kActivity"><div class="actbar" role="img" aria-label="สัดส่วนสมาชิกตามการใช้งาน">' +
+        '<div class="kfa-sec"><h3>การใช้งาน</h3><div class="kpi" id="kActivity"><div class="actbar" role="img" aria-label="สัดส่วนสมาชิกตามการใช้งาน">' +
           buckets.map(function (b) { return '<span style="width:' + (tot ? (100 * (Number(a[b]) || 0) / tot) : 0) + '%;background:' + colors[b] + '"></span>'; }).join("") +
           '</div><div class="legend">' + buckets.map(function (b) { return "<span>" + actDot(b) + " <b>" + nf(a[b]) + "</b></span>"; }).join("") +
           '</div><p class="count" style="margin:8px 0 0">Active ≤ 24 ชม. · Recent ≤ 7 วัน · Inactive 8–30 วัน · Dormant &gt; 30 วัน</p></div></div>';
@@ -447,29 +447,29 @@
       var pages = (a.pages || []), maxP = Math.max.apply(null, pages.map(function (p) { return p.views; }).concat([1]));
       var feats = (a.features || []);
       box.innerHTML =
-        '<div class="ad-sec"><dl class="kpis">' +
+        '<div class="kfa-sec"><dl class="kpis">' +
           kpi("DAU (วันนี้)", nf(k.dau), "", "gold", "aDau") + kpi("WAU (7 วัน)", nf(k.wau), "", "", "aWau") + kpi("MAU (30 วัน)", nf(k.mau), "", "", "aMau") +
           kpi("Stickiness", stick.toFixed(1) + "%", "DAU เฉลี่ย 30 วัน ÷ MAU", stick >= 20 ? "good" : "", "aStick") +
           kpi("ใช้งานในช่วงที่เลือก", nf(k.active_in_range), nf(a.days) + " วัน", "", "aRange") +
           kpi("สมัครใหม่ในช่วงที่เลือก", nf(k.signups_in_range), "", "", "aSign") + "</dl></div>" +
-        '<div class="ad-sec"><h3>สถานะการใช้งานของสมาชิก (แตะเพื่อดูรายชื่อ)</h3><div class="kpis" id="aBuckets">' +
+        '<div class="kfa-sec"><h3>สถานะการใช้งานของสมาชิก (แตะเพื่อดูรายชื่อ)</h3><div class="kpis" id="aBuckets">' +
           ["active", "recent", "inactive", "dormant", "never"].map(function (x) {
             return '<button type="button" class="kpi bucket" data-bucket="' + x + '"><span class="lbl"><span class="dot b-' + x + '" aria-hidden="true"></span>' + esc(BUCKET_LABEL[x]) + '</span><span class="val num">' + nf(b[x]) +
               "</span><small>" + (tot ? (100 * (Number(b[x]) || 0) / tot).toFixed(1) : "0") + "% ของสมาชิก</small></button>";
           }).join("") + "</div></div>" +
-        '<div class="ad-sec"><h3>แยกตามแพ็กเกจ</h3><div class="tbl-wrap" id="aByPlan"><table class="tbl cards"><thead><tr><th scope="col">แพ็กเกจ</th>' +
+        '<div class="kfa-sec"><h3>แยกตามแพ็กเกจ</h3><div class="tbl-wrap" id="aByPlan"><table class="tbl cards"><thead><tr><th scope="col">แพ็กเกจ</th>' +
           ["active", "recent", "inactive", "dormant", "never"].map(function (x) { return '<th scope="col" class="r">' + esc(x[0].toUpperCase() + x.slice(1)) + "</th>"; }).join("") + "</tr></thead><tbody>" +
           ["free", "plus", "premium"].map(function (p) {
             var row = bp[p] || {};
             return "<tr><td data-l=\"แพ็กเกจ\">" + planPill(p) + "</td>" + ["active", "recent", "inactive", "dormant", "never"].map(function (x) {
               return '<td data-l="' + x + '" class="r num">' + nf(row[x]) + "</td>"; }).join("") + "</tr>";
           }).join("") + "</tbody></table></div></div>" +
-        '<div class="ad-sec two">' +
+        '<div class="kfa-sec two">' +
           '<div class="chart-card" id="aDauChart"><h3>ผู้ใช้งานรายวัน (DAU) <small>' + esc(shortDay(a.from)) + " – " + esc(shortDay(a.to)) + "</small></h3>" +
             barsSvg(series.map(function (r) { return Number(r.dau) || 0; }), series.map(function (r) { return shortDay(r.day); }), { label: "ผู้ใช้งานรายวัน" }) + "</div>" +
           '<div class="chart-card" id="aSignChart"><h3>สมัครใหม่รายวัน</h3>' +
             barsSvg(series.map(function (r) { return Number(r.signups) || 0; }), series.map(function (r) { return shortDay(r.day); }), { label: "สมัครใหม่รายวัน", cls: "b2" }) + "</div></div>" +
-        '<div class="ad-sec two">' +
+        '<div class="kfa-sec two">' +
           '<div class="chart-card"><h3>ฟีเจอร์ที่ใช้ <small>% ของผู้ใช้งานในช่วงนี้</small></h3><div class="tbl-wrap" id="aFeatures"><table class="tbl cards"><thead><tr><th scope="col">ฟีเจอร์</th><th scope="col" class="r">ผู้ใช้</th><th scope="col">สัดส่วน</th><th scope="col" class="r">ครั้ง</th></tr></thead><tbody>' +
             (feats.map(function (f) {
               return '<tr><td data-l="ฟีเจอร์">' + esc(FEATURE_LABEL[f.feature] || f.feature) + '</td><td data-l="ผู้ใช้" class="r num">' + nf(f.users) +
@@ -480,18 +480,18 @@
               return '<tr><td data-l="หน้า" class="mono">' + esc(p.page) + '</td><td data-l="ครั้ง"><span class="meter"><i style="width:' + (100 * p.views / maxP) + '%"></i></span> <span class="num">' + nf(p.views) +
                 '</span></td><td data-l="ผู้ใช้" class="r num">' + nf(p.users) + "</td></tr>";
             }).join("") || '<tr><td colspan="3" class="empty">ยังไม่มีข้อมูล</td></tr>') + "</tbody></table></div></div></div>" +
-        '<div class="ad-sec two">' +
+        '<div class="kfa-sec two">' +
           '<div class="chart-card" id="aHours"><h3>ช่วงเวลาที่ใช้งาน <small>เวลาเกาหลี</small></h3>' +
             barsSvg((a.hours || []).map(Number), Array.from({ length: 24 }, function (_, i) { return String(i); }), { label: "จำนวนการใช้งานตามชั่วโมง", ticks: 8, h: 140 }) + "</div>" +
           '<div class="chart-card" id="aWeek"><h3>วันในสัปดาห์</h3>' + barsSvg((a.weekdays || []).map(Number), WEEKDAY, { label: "ผู้ใช้งานตามวันในสัปดาห์", ticks: 7, h: 140 }) + "</div></div>" +
-        '<div class="ad-sec"><h3>Retention ตามสัปดาห์ที่สมัคร <small class="muted">% ที่กลับมาใช้ในสัปดาห์ที่ 1–4</small></h3><div class="tbl-wrap" id="aRet"><table class="tbl cards ret"><thead><tr><th scope="col">สัปดาห์ที่สมัคร</th><th scope="col" class="r">สมาชิก</th><th scope="col">สัปดาห์ 1</th><th scope="col">สัปดาห์ 2</th><th scope="col">สัปดาห์ 3</th><th scope="col">สัปดาห์ 4</th></tr></thead><tbody>' +
+        '<div class="kfa-sec"><h3>Retention ตามสัปดาห์ที่สมัคร <small class="muted">% ที่กลับมาใช้ในสัปดาห์ที่ 1–4</small></h3><div class="tbl-wrap" id="aRet"><table class="tbl cards ret"><thead><tr><th scope="col">สัปดาห์ที่สมัคร</th><th scope="col" class="r">สมาชิก</th><th scope="col">สัปดาห์ 1</th><th scope="col">สัปดาห์ 2</th><th scope="col">สัปดาห์ 3</th><th scope="col">สัปดาห์ 4</th></tr></thead><tbody>' +
           ((a.retention || []).map(function (r) {
             return '<tr><td data-l="สัปดาห์" class="num">' + d(r.week) + '</td><td data-l="สมาชิก" class="r num">' + nf(r.size) + "</td>" + ["w1", "w2", "w3", "w4"].map(function (w, i) {
               var v = r[w];
               return '<td data-l="สัปดาห์ ' + (i + 1) + '" class="c"' + (v == null ? "" : ' style="background:rgba(61,220,151,' + (0.08 + Number(v) / 160).toFixed(2) + ')"') + ">" + (v == null ? '<span class="muted">—</span>' : esc(v) + "%") + "</td>";
             }).join("") + "</tr>";
           }).join("") || '<tr><td colspan="6" class="empty">ยังไม่มีสมาชิกใหม่ใน 8 สัปดาห์</td></tr>') + "</tbody></table></div></div>" +
-        '<div class="ad-sec"><h3>สมาชิกที่จ่ายเงินแต่ไม่ได้ใช้งาน &gt; 14 วัน (เสี่ยงยกเลิก) · ' + nf(a.at_risk_total) + ' คน</h3><div class="tbl-wrap" id="aRisk"><table class="tbl cards"><thead><tr><th scope="col">สมาชิก</th><th scope="col">แพ็กเกจ</th><th scope="col" class="r">MRR</th><th scope="col">ใช้งานล่าสุด</th><th scope="col" class="r">วัน</th></tr></thead><tbody>' +
+        '<div class="kfa-sec"><h3>สมาชิกที่จ่ายเงินแต่ไม่ได้ใช้งาน &gt; 14 วัน (เสี่ยงยกเลิก) · ' + nf(a.at_risk_total) + ' คน</h3><div class="tbl-wrap" id="aRisk"><table class="tbl cards"><thead><tr><th scope="col">สมาชิก</th><th scope="col">แพ็กเกจ</th><th scope="col" class="r">MRR</th><th scope="col">ใช้งานล่าสุด</th><th scope="col" class="r">วัน</th></tr></thead><tbody>' +
           ((a.at_risk || []).map(function (r) {
             return '<tr class="click" tabindex="0" data-open-user="' + esc(r.user_id) + '"><td data-l="สมาชิก" class="u"><b>' + esc(r.email || r.user_id) + '</b></td><td data-l="แพ็กเกจ">' + planPill(r.plan) +
               '</td><td data-l="MRR" class="r num">' + money(r.mrr_minor, r.currency) + '</td><td data-l="ใช้งานล่าสุด" class="num">' + (r.last_active_at ? d(r.last_active_at) : "ไม่เคย") +
@@ -561,11 +561,11 @@
           '</td><td data-l="เหตุผล">' + esc(f.reason || "—") + '</td><td data-l="ใบแจ้งหนี้" class="mono">' + esc(f.invoice || "") + "</td></tr>";
       }).join("");
       var t = function (h, rows, empty, id) { return '<div class="tbl-wrap" id="' + id + '"><table class="tbl cards"><thead><tr>' + h.map(function (x) { return '<th scope="col">' + esc(x) + "</th>"; }).join("") + "</tr></thead><tbody>" + (rows || '<tr><td colspan="' + h.length + '" class="empty">' + esc(empty) + "</td></tr>") + "</tbody></table></div>"; };
-      box.innerHTML = '<div class="ad-sec"><div class="cur-grid">' + cards + "</div></div>" +
-        '<div class="ad-sec"><h3>Net รายเดือน (หักคืนเงิน)</h3><div class="cur-grid">' + monthly + "</div></div>" +
-        '<div class="ad-sec"><h3>รายได้ตามแพ็กเกจ</h3>' + t(["แพ็กเกจ", "สกุลเงิน", "สมาชิกที่จ่าย", "MRR", "Gross", "Net"], byPlan, "ยังไม่มี", "revPlans") + "</div>" +
-        '<div class="ad-sec"><h3>จ่ายเงินไม่สำเร็จ (30 วัน: ' + nf(r.failed.count_30d) + ")</h3>" + t(["วันที่", "สมาชิก", "ยอด", "เหตุผล", ""], failed, "ไม่มี", "revFailed") + "</div>" +
-        '<div class="ad-sec"><h3>คืนเงิน (' + nf(r.refunds.count) + ")</h3>" + t(["วันที่", "สมาชิก", "ยอด", "เหตุผล", "ใบแจ้งหนี้"], refunds, "ไม่มี", "revRefunds") + "</div>";
+      box.innerHTML = '<div class="kfa-sec"><div class="cur-grid">' + cards + "</div></div>" +
+        '<div class="kfa-sec"><h3>Net รายเดือน (หักคืนเงิน)</h3><div class="cur-grid">' + monthly + "</div></div>" +
+        '<div class="kfa-sec"><h3>รายได้ตามแพ็กเกจ</h3>' + t(["แพ็กเกจ", "สกุลเงิน", "สมาชิกที่จ่าย", "MRR", "Gross", "Net"], byPlan, "ยังไม่มี", "revPlans") + "</div>" +
+        '<div class="kfa-sec"><h3>จ่ายเงินไม่สำเร็จ (30 วัน: ' + nf(r.failed.count_30d) + ")</h3>" + t(["วันที่", "สมาชิก", "ยอด", "เหตุผล", ""], failed, "ไม่มี", "revFailed") + "</div>" +
+        '<div class="kfa-sec"><h3>คืนเงิน (' + nf(r.refunds.count) + ")</h3>" + t(["วันที่", "สมาชิก", "ยอด", "เหตุผล", "ใบแจ้งหนี้"], refunds, "ไม่มี", "revRefunds") + "</div>";
     } catch (e) { box.innerHTML = '<p class="note">' + esc(errText(e)) + "</p>"; }
   }
   $("revMonths").addEventListener("change", loadRevenue);
@@ -594,7 +594,7 @@
           '</td><td data-l="ใช้ช่วง" class="num">' + d(x.created_at) + " – " + d(x.deactivated_at) + "</td></tr>";
       }).join("");
       box.innerHTML = '<div class="tbl-wrap" id="priceTable"><table class="tbl cards"><thead><tr><th scope="col">แพ็กเกจ</th><th scope="col">รอบบิล</th><th scope="col">สกุลเงิน</th><th scope="col" class="r">ราคา</th><th scope="col">Stripe Price</th><th scope="col"></th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
-        '<details class="ad-sec" style="margin-top:14px"><summary>ประวัติราคาเดิม (' + PRICES.filter(function (x) { return !x.active; }).length + ")</summary>" +
+        '<details class="kfa-sec" style="margin-top:14px"><summary>ประวัติราคาเดิม (' + PRICES.filter(function (x) { return !x.active; }).length + ")</summary>" +
         '<div class="tbl-wrap"><table class="tbl cards"><tbody>' + (hist || '<tr><td class="empty">ไม่มี</td></tr>') + "</tbody></table></div></details>";
     } catch (e) { box.innerHTML = '<p class="note">' + esc(errText(e)) + "</p>"; }
   }

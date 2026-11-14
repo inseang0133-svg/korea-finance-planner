@@ -10,20 +10,20 @@
      No inline scripts on this page; data may only go to Supabase. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'">
 <title>Admin Console · Korea Finance Planner</title>
-<script src="kfp-debug.js?v=20261114-saas13"></script>
+<script src="kfp-debug.js?v=20261114-saas14"></script>
 <script src="supabase-config.js?v=20261114-saas13"></script>
 <script src="kfp-storage.js?v=20261114-saas13"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kfp-access.css?v=20261114-saas13">
-<link rel="stylesheet" href="admin.css?v=20261114-saas13">
+<link rel="stylesheet" href="admin.css?v=20261114-saas14">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
 <script src="auth.js?v=20261114-saas13"></script>
 </head>
 <body data-no-preview-ui>
 <!-- Hiding this page is NOT the protection: every admin_* function checks the role in the database. -->
-<div id="gate" class="ad-gate" role="status" aria-live="polite">
+<div id="gate" class="kfa-gate" role="status" aria-live="polite">
   <div class="ico" aria-hidden="true">🔐</div>
   <h1 id="gateTitle">กำลังตรวจสอบสิทธิ์…</h1>
   <p id="gateText">ตรวจสอบบทบาทผู้ดูแลจากฐานข้อมูล</p>
@@ -31,29 +31,29 @@
 </div>
 
 <div id="app" hidden>
-  <header class="ad-top">
-    <div class="ad-brand"><a href="index.html" aria-label="กลับหน้าหลัก">‹</a><b>🛡️ Admin Console</b></div>
-    <div class="ad-who"><span id="whoEmail"></span><span class="ad-role" id="whoRole"></span></div>
+  <header class="kfa-top">
+    <div class="kfa-brand"><a href="index.html" aria-label="กลับหน้าหลัก">‹</a><b>🛡️ Admin Console</b></div>
+    <div class="kfa-who"><span id="whoEmail"></span><span class="kfa-role" id="whoRole"></span></div>
   </header>
-  <nav class="ad-tabs" role="tablist" aria-label="ส่วนของ Admin">
-    <button class="ad-tab" role="tab" id="tab-overview" aria-controls="view-overview" data-tab="overview">📊 ภาพรวม</button>
-    <button class="ad-tab" role="tab" id="tab-users" aria-controls="view-users" data-tab="users">👥 สมาชิก</button>
-    <button class="ad-tab" role="tab" id="tab-activity" aria-controls="view-activity" data-tab="activity">📈 การใช้งาน</button>
-    <button class="ad-tab" role="tab" id="tab-revenue" aria-controls="view-revenue" data-tab="revenue">💰 รายได้</button>
-    <button class="ad-tab" role="tab" id="tab-prices" aria-controls="view-prices" data-tab="prices">🏷️ ราคา</button>
-    <button class="ad-tab" role="tab" id="tab-audit" aria-controls="view-audit" data-tab="audit">📜 Audit log</button>
+  <nav class="kfa-tabs" role="tablist" aria-label="ส่วนของ Admin">
+    <button class="kfa-tab" role="tab" id="tab-overview" aria-controls="view-overview" data-tab="overview">📊 ภาพรวม</button>
+    <button class="kfa-tab" role="tab" id="tab-users" aria-controls="view-users" data-tab="users">👥 สมาชิก</button>
+    <button class="kfa-tab" role="tab" id="tab-activity" aria-controls="view-activity" data-tab="activity">📈 การใช้งาน</button>
+    <button class="kfa-tab" role="tab" id="tab-revenue" aria-controls="view-revenue" data-tab="revenue">💰 รายได้</button>
+    <button class="kfa-tab" role="tab" id="tab-prices" aria-controls="view-prices" data-tab="prices">🏷️ ราคา</button>
+    <button class="kfa-tab" role="tab" id="tab-audit" aria-controls="view-audit" data-tab="audit">📜 Audit log</button>
   </nav>
 
-  <main class="ad-main">
+  <main class="kfa-main">
     <!-- OVERVIEW -->
     <section id="view-overview" role="tabpanel" aria-labelledby="tab-overview" hidden>
-      <div class="ad-h"><h2>ภาพรวม</h2><small id="ovTime"></small><button class="btn sm sp" type="button" data-reload="overview">↻ รีเฟรช</button></div>
+      <div class="kfa-h"><h2>ภาพรวม</h2><small id="ovTime"></small><button class="btn sm sp" type="button" data-reload="overview">↻ รีเฟรช</button></div>
       <div id="ovBody"><div class="kpis"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div></div>
     </section>
 
     <!-- USERS -->
     <section id="view-users" role="tabpanel" aria-labelledby="tab-users" hidden>
-      <div class="ad-h"><h2>สมาชิก</h2></div>
+      <div class="kfa-h"><h2>สมาชิก</h2></div>
       <form class="tools" id="userFilters" role="search">
         <label class="sr-only" for="fQ">ค้นหา</label>
         <input class="inp" type="search" id="fQ" name="q" placeholder="ค้นหาอีเมล ชื่อผู้ใช้ หรือ User ID" autocomplete="off" maxlength="100">
@@ -89,7 +89,7 @@
 
     <!-- ACTIVITY (Phase 11) -->
     <section id="view-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
-      <div class="ad-h"><h2>การใช้งาน</h2><small id="acTime"></small>
+      <div class="kfa-h"><h2>การใช้งาน</h2><small id="acTime"></small>
         <label class="sr-only" for="acDays">ช่วงเวลา</label>
         <select class="sel sp" id="acDays"><option value="7">7 วัน</option><option value="30" selected>30 วัน</option><option value="90">90 วัน</option><option value="180">180 วัน</option></select>
         <button class="btn sm" type="button" id="acRefresh">↻ คำนวณใหม่</button></div>
@@ -98,7 +98,7 @@
 
     <!-- REVENUE -->
     <section id="view-revenue" role="tabpanel" aria-labelledby="tab-revenue" hidden>
-      <div class="ad-h"><h2>รายได้</h2><small>แยกตามสกุลเงิน · ไม่รวม THB กับ KRW เข้าด้วยกัน</small>
+      <div class="kfa-h"><h2>รายได้</h2><small>แยกตามสกุลเงิน · ไม่รวม THB กับ KRW เข้าด้วยกัน</small>
         <label class="sr-only" for="revMonths">ช่วงเวลา</label>
         <select class="sel sp" id="revMonths"><option value="3">3 เดือน</option><option value="6">6 เดือน</option><option value="12" selected>12 เดือน</option><option value="24">24 เดือน</option></select></div>
       <div id="revBody"><div class="kpis"><div class="sk"></div><div class="sk"></div></div></div>
@@ -106,13 +106,13 @@
 
     <!-- PRICES -->
     <section id="view-prices" role="tabpanel" aria-labelledby="tab-prices" hidden>
-      <div class="ad-h"><h2>ราคาแพ็กเกจ</h2><small>เปลี่ยนราคาแล้วมีผลกับการสมัครใหม่ · ลูกค้าเดิมจ่ายราคาเดิมจนกว่าจะเปลี่ยนแพ็กเกจ</small></div>
+      <div class="kfa-h"><h2>ราคาแพ็กเกจ</h2><small>เปลี่ยนราคาแล้วมีผลกับการสมัครใหม่ · ลูกค้าเดิมจ่ายราคาเดิมจนกว่าจะเปลี่ยนแพ็กเกจ</small></div>
       <div id="priceBody"></div>
     </section>
 
     <!-- AUDIT -->
     <section id="view-audit" role="tabpanel" aria-labelledby="tab-audit" hidden>
-      <div class="ad-h"><h2>Audit log</h2><small>บันทึกทุกการกระทำของผู้ดูแล · แก้ไขหรือลบไม่ได้</small>
+      <div class="kfa-h"><h2>Audit log</h2><small>บันทึกทุกการกระทำของผู้ดูแล · แก้ไขหรือลบไม่ได้</small>
         <label class="sr-only" for="auFilter">ประเภท</label>
         <select class="sel sp" id="auFilter"><option value="">ทั้งหมด</option><option value="plan.">แพ็กเกจ/สิทธิ์</option><option value="user.">บัญชี</option>
           <option value="subscription.">Subscription</option><option value="price.">ราคา</option></select></div>
@@ -144,7 +144,7 @@
   </form>
 </dialog>
 
-<script src="admin.js?v=20261114-saas13"></script>
+<script src="admin.js?v=20261114-saas14"></script>
 <script src="kfp-access.js?v=20261114-saas13"></script>
 </body>
 </html>

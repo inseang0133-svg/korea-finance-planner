@@ -6,6 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="theme-color" content="#0a0a0b">
 <title>พอร์ตทองคำ</title>
+    <!-- Phase 3: storage isolation must run before every other script -->
+    <script src="supabase-config.js?v=20261114-saas13"></script>
+    <script src="kfp-demo-data.js?v=20261113-saas5"></script>
+    <script src="kfp-storage.js?v=20261114-saas13"></script>
+    <link rel="stylesheet" href="kfp-access.css?v=20261114-saas13">
     <script>
 /* ถ้าเพิ่งกดอ่านข่าวแล้วหน้าถูกโหลดใหม่ ซ่อนหน้าไว้จนกว่าจะคืนตำแหน่งเลื่อนเสร็จ (กันภาพกระพริบ/ไหลลง) */
 (function(){try{var s=JSON.parse(sessionStorage.getItem("kfp_gold_scroll_v1")||"null");
@@ -19,10 +24,10 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 <link rel="stylesheet" href="theme.css?v=20261109-fix2">
 
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=20261018-uifix1"></script>
-<script src="pwa-persistence.js?v=20261018-uifix1"></script>
-<script src="auth.js?v=20261030-glass1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script src="pwa-persistence.js?v=20261113-saas5"></script>
+<script src="auth.js?v=20261114-saas13"></script>
+<script src="kfp-gold-sync.js?v=20261114-saas13"></script>
 <style>
     .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
     .gold2go-market-box{border-color:#d4af37}
@@ -296,6 +301,9 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       </div>
       <div class="table-actions">
         <button class="small-gold-btn" id="exportGoldBtn">⬇️ Export</button>
+        <button class="small-gold-btn" id="importGoldBtn" type="button" title="กู้คืนจากไฟล์ที่ Export ไว้">♻️ กู้คืนจากไฟล์</button>
+        <button class="small-gold-btn" id="undoGoldBtn" type="button" hidden title="ย้อนกลับไปข้อมูลชุดก่อนการกู้คืน/เปลี่ยนจาก Cloud ครั้งล่าสุด">↩️ ย้อนกลับ</button>
+        <input type="file" id="importGoldFile" accept="application/json,.json" hidden>
         <button class="small-danger-btn" id="clearGoldBtn">ล้างทั้งหมด</button>
       </div>
     </div>
@@ -407,10 +415,11 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 
 </div>
 
-<script src="gold.js?v=20261109-fix2"></script>
+<script src="gold.js?v=20261114-saas13"></script>
+<script src="kfp-access.js?v=20261114-saas13"></script>
 <script src="ui-numflow.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
-<script src="floating-nav.js?v=20261029-fab2" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
+<script src="floating-nav.js?v=20261113-saas5" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {

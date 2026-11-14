@@ -14,6 +14,27 @@
   const SNAPSHOT_MS = 10000;
   const DELETED_KEYS = "__kfp_deleted_keys_v1";
 
+  // Phase 3: always back up / restore the REAL LocalStorage (all account
+  // namespaces), never the per-page view that kfp-storage.js provides.
+  const LS = window.__kfpRealLocalStorage || window.localStorage;
+  const KS = window.kfpStorage || null;
+  // Old un-prefixed personal keys are never restored: kfp-storage.js has
+  // already moved them into the right namespace, and restoring them could
+  // show a previous user's data to the next person on this device (R4).
+  function isRestorable(key) {
+    if (!KS) return true;
+    return !KS.isPersonalBare(key);
+  }
+  // Tombstones live inside each namespace: kfp:u:<id>:__kfp_deleted_keys_v1 lists bare key names.
+  function tombstoneFor(key, snapshot) {
+    const m = /^(kfp:(?:u:[^:]+|device):)(.+)$/.exec(key);
+    const scope = m ? m[1] : "";
+    const inner = m ? m[2] : key;
+    const read = (raw) => { try { const x = typeof raw === "string" ? JSON.parse(raw || "{}") : (raw || {}); return x && typeof x === "object" && !Array.isArray(x) ? x : {}; } catch (_) { return {}; } };
+    const t = { ...read(snapshot?.[scope + DELETED_KEYS]), ...read(LS.getItem(scope + DELETED_KEYS)) };
+    return Object.prototype.hasOwnProperty.call(t, inner);
+  }
+
   function openDB() {
     return new Promise((resolve, reject) => {
       if (!window.indexedDB) return reject(new Error("IndexedDB unavailable"));
@@ -53,6 +74,7 @@
   function isAuthStorageKey(key) {
     return typeof key === "string" && (
       key.startsWith("sb-") ||
+      key === "__kfp_auth_user_v1" ||   // login marker: restoring it after logout would mis-attribute data
       key === "supabase.auth.token" ||
       key.includes("supabase.auth")
     );
@@ -61,10 +83,10 @@
   function collectLocalStorage() {
     const data = {};
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key !== null && !isAuthStorageKey(key)) {
-          data[key] = localStorage.getItem(key);
+      for (let i = 0; i < LS.length; i++) {
+        const key = LS.key(i);
+        if (key !== null && !isAuthStorageKey(key) && isRestorable(key)) {
+          data[key] = LS.getItem(key);
         }
       }
     } catch (_) {}
@@ -72,30 +94,22 @@
   }
 
   function hasLocalStorageData() {
-    try { return localStorage.length > 0; } catch (_) { return false; }
+    try { return LS.length > 0; } catch (_) { return false; }
   }
 
   function restoreMissing(snapshot) {
     let restored = 0;
     if (!snapshot || typeof snapshot !== "object") return restored;
     try {
-      let tombstones = {};
-      try {
-        const raw = localStorage.getItem(DELETED_KEYS);
-        tombstones = raw ? JSON.parse(raw) : {};
-      } catch (_) {}
-      try {
-        const snapshotDeleted = snapshot?.[DELETED_KEYS];
-        const x = typeof snapshotDeleted === "string" ? JSON.parse(snapshotDeleted || "{}") : (snapshotDeleted || {});
-        if (x && typeof x === "object" && !Array.isArray(x)) tombstones = { ...x, ...tombstones };
-      } catch (_) {}
       for (const [key, value] of Object.entries(snapshot)) {
         // Supabase Auth owns these keys; never restore them from our PWA snapshot.
         if (isAuthStorageKey(key)) continue;
+        // Never resurrect old un-prefixed personal keys (R4).
+        if (!isRestorable(key)) continue;
         // Explicitly deleted data must never be restored from an older snapshot.
-        if (tombstones && Object.prototype.hasOwnProperty.call(tombstones, key)) continue;
-        if (localStorage.getItem(key) === null) {
-          localStorage.setItem(key, value);
+        if (tombstoneFor(key, snapshot)) continue;
+        if (LS.getItem(key) === null) {
+          LS.setItem(key, value);
           restored++;
         }
       }
@@ -116,7 +130,7 @@
         const before = collectLocalStorage();
         const restored = restoreMissing(snapshot);
         const now = collectLocalStorage();
-        const missingBefore = Object.keys(snapshot).some(k => !(k in before));
+        const missingBefore = Object.keys(snapshot).some(k => !(k in before) && !isAuthStorageKey(k) && isRestorable(k));
         const changed = restored > 0 && missingBefore;
 
         if (changed && !wasRestored) {

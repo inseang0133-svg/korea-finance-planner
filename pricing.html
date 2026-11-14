@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0b">
+<title>แพ็กเกจสมาชิก · Korea Finance Planner</title>
+<script src="supabase-config.js?v=20261114-saas13"></script>
+<script src="kfp-storage.js?v=20261114-saas13"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kfp-access.css?v=20261114-saas13">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script src="auth.js?v=20261114-saas13"></script>
+<style>
+:root{--bg:#06070a;--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--green:#3ddc97;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--text);font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif;
+  background:radial-gradient(60% 40% at 50% 0%,rgba(232,190,70,.16),transparent 65%),radial-gradient(50% 40% at 100% 100%,rgba(61,220,151,.06),transparent 60%),var(--bg)}
+.wrap{width:min(1080px,100%);margin:0 auto;padding:84px 16px 56px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--gold-l);text-decoration:none;font-size:14px;margin-bottom:18px}
+.hero{text-align:center;margin-bottom:26px;animation:in .6s var(--ease) both}
+.eyebrow{display:inline-block;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:1.6px;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46)}
+h1{margin:14px 0 8px;font-size:clamp(26px,5vw,38px);line-height:1.25;color:var(--gold-l)}
+.hero p{margin:0 auto;max-width:560px;color:var(--muted);line-height:1.7}
+.toggles{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:22px 0 28px}
+.seg{position:relative;display:inline-grid;grid-auto-flow:column;padding:4px;border-radius:16px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
+.seg button{position:relative;z-index:1;min-height:42px;padding:8px 16px;border:0;border-radius:12px;background:transparent;color:var(--muted);font:600 14px inherit;font-family:inherit;cursor:pointer;transition:color .25s}
+.seg button.on{color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 8px 20px -8px rgba(232,190,70,.8)}
+.seg button:focus-visible{outline:2px solid var(--gold-l);outline-offset:2px}
+.save:empty{display:none}
+.save{margin-left:6px;padding:2px 7px;border-radius:99px;font-size:11px;color:#06210f;background:var(--green)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.plan{position:relative;display:flex;flex-direction:column;padding:24px 20px 20px;border-radius:28px;
+  background:linear-gradient(160deg,rgba(32,34,46,.9),rgba(13,14,20,.94));border:1px solid rgba(255,255,255,.1);
+  box-shadow:0 30px 60px -30px rgba(0,0,0,.8);animation:in .6s var(--ease) both;transition:transform .35s var(--spring),border-color .25s}
+.plan:nth-child(2){animation-delay:.07s}.plan:nth-child(3){animation-delay:.14s}
+.plan:hover{transform:translateY(-4px)}
+.plan.hl{border-color:rgba(232,190,70,.7);box-shadow:0 30px 70px -30px rgba(232,190,70,.55),0 0 0 1px rgba(232,190,70,.35)}
+.plan.cur{outline:2px solid var(--green);outline-offset:3px}
+.badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:1px;white-space:nowrap;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46)}
+.badge.cur{color:#06210f;background:var(--green)}
+.plan h2{margin:4px 0 4px;font-size:20px}
+.plan .desc{margin:0 0 16px;color:var(--muted);font-size:13.5px;line-height:1.6;min-height:44px}
+.price{display:flex;align-items:baseline;gap:6px;margin-bottom:4px;font-variant-numeric:tabular-nums}
+.price b{font-size:36px;line-height:1.1;color:var(--gold-l)}
+.price span{color:var(--muted);font-size:14px}
+.sub{min-height:20px;margin-bottom:16px;color:var(--muted);font-size:12.5px}
+.feats{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:9px;flex:1}
+.feats li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.5}
+.feats li i{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:700}
+.feats li.y i{color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46)}
+.feats li.n{color:#6f6c63}.feats li.n i{color:#6f6c63;border:1px solid #3a3a40}
+.cta{width:100%;min-height:50px;border:0;border-radius:16px;font:700 15px inherit;font-family:inherit;cursor:pointer;color:#1a1300;
+  background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 12px 26px -12px rgba(232,190,70,.9);transition:transform .2s}
+.cta:active{transform:scale(.97)}
+a.cta{display:grid;place-items:center;text-decoration:none}
+.cta.ghost{color:var(--text);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16);box-shadow:none}
+.cta:disabled{cursor:not-allowed;opacity:.65}
+.note{margin:28px auto 0;max-width:760px;padding:16px 18px;border-radius:20px;font-size:13px;line-height:1.75;color:var(--muted);
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.note b{color:var(--gold-l)}
+.co-status{margin:0 auto 22px;max-width:760px;padding:14px 16px;border-radius:18px;font-size:14.5px;line-height:1.65;text-align:center;
+  background:rgba(232,190,70,.08);border:1px solid rgba(232,190,70,.45);color:var(--text);animation:in .45s var(--ease) both}
+.co-status.ok{background:rgba(61,220,151,.1);border-color:rgba(61,220,151,.5)}
+.co-status.err{background:rgba(255,107,122,.1);border-color:rgba(255,107,122,.5)}
+.co-status b{color:var(--gold-l)}.co-status.ok b{color:var(--green)}
+.co-status button{margin:10px auto 0;display:block;min-height:42px;padding:8px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:var(--text);font:600 14px inherit;font-family:inherit;cursor:pointer}
+.spin{display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:50%;border:2px solid rgba(232,190,70,.25);border-top-color:var(--gold);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.cta.busy{opacity:.75;cursor:wait}
+@keyframes in{from{opacity:0;transform:translateY(14px)}}
+@media(prefers-reduced-motion:reduce){.plan,.hero{animation:none}.plan:hover{transform:none}}
+</style>
+</head>
+<body data-no-preview-ui>
+<main class="wrap">
+  <a class="back" href="index.html">‹ กลับหน้าหลัก</a>
+  <header class="hero">
+    <span class="eyebrow">MEMBERSHIP</span>
+    <h1>เลือกแพ็กเกจที่ใช่สำหรับคุณ</h1>
+    <p>เริ่มฟรีได้ทันที อัปเกรดเมื่อต้องการบันทึกงาน สถิติขั้นสูง Cloud Sync หรือพอร์ตทอง · ยกเลิกได้ทุกเมื่อ ข้อมูลไม่หาย</p>
+  </header>
+
+  <div class="toggles">
+    <div class="seg" role="radiogroup" aria-label="รอบการชำระเงิน" id="segInterval">
+      <button type="button" role="radio" data-v="month" class="on" aria-checked="true">รายเดือน</button>
+      <button type="button" role="radio" data-v="year" aria-checked="false">รายปี <span class="save" id="saveBadge"></span></button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="สกุลเงิน" id="segCurrency">
+      <button type="button" role="radio" data-v="THB" class="on" aria-checked="true">฿ บาท</button>
+      <button type="button" role="radio" data-v="KRW" aria-checked="false">₩ วอน</button>
+    </div>
+  </div>
+
+  <div id="coStatus" class="co-status" role="status" aria-live="polite" hidden></div>
+  <section class="grid" id="plans" aria-live="polite"></section>
+
+  <div class="note">
+    <b>เงื่อนไข</b> · แพ็กเกจรายเดือน/รายปีต่ออายุอัตโนมัติจนกว่าจะยกเลิก · ยกเลิกแล้วใช้ได้ถึงวันสิ้นสุดรอบบิล ·
+    หมดอายุแล้วกลับเป็น Free โดย<b>ข้อมูลทั้งหมดยังอยู่</b> · ราคาเป็นค่าเริ่มต้นและอาจเปลี่ยนแปลงได้ (แจ้งล่วงหน้า) ·
+    ชำระผ่าน Stripe (บัตรเครดิต/เดบิต) · เปลี่ยนแพ็กเกจ ยกเลิก หรือดูใบเสร็จได้ที่ <a href="account.html" style="color:var(--gold-l)">แพ็กเกจและการชำระเงิน</a>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  // Fallback only (offline / table not migrated). Real prices come from the plan_prices table,
+  // which admins change with admin_set_price() — see docs/SETUP.md.
+  var PRICES = {
+    plus:    { month: { THB: 129, KRW: 5900 }, year: { THB: 1290, KRW: null } },
+    premium: { month: { THB: 199, KRW: 8900 }, year: { THB: 1990, KRW: null } }
+  };
+  var FALLBACK_PLANS = [
+    { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน",
+      features: { salary: true, salary_history: true, expenses: true }, limits: { salary_history_months: 6, expense_history_months: 2 } },
+    { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync",
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true }, limits: {} },
+    { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด",
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true, gold_portfolio: true }, limits: {} }
+  ];
+  var ROWS = [
+    ["salary", "เครื่องคิดเงินเดือน + แบ่งเงินเดือน"],
+    ["salary_history", "ประวัติเงินเดือน", "salary_history_months"],
+    ["expenses", "บันทึกรายจ่าย วอน/บาท", "expense_history_months"],
+    ["work_records", "บันทึกการเข้างาน + สรุปรายได้ OT"],
+    ["advanced_statistics", "สถิติขั้นสูง + กราฟ"],
+    ["export", "Export Excel"],
+    ["cloud_sync", "Cloud Sync ข้ามเครื่อง"],
+    ["gold_portfolio", "พอร์ตทอง: ต้นทุน กำไร/ขาดทุน ราคาเรียลไทม์"]
+  ];
+  var RANKS = { free: 0, plus: 1, premium: 2 };
+  var state = { interval: "month", currency: "THB", plans: FALLBACK_PLANS, current: null, source: null, validUntil: null };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]; }); };
+  var money = function (n, cur) { return cur === "KRW" ? "₩" + Number(n).toLocaleString("en-US") : "฿" + Number(n).toLocaleString("en-US"); };
+
+  function render() {
+    var box = document.getElementById("plans");
+    var plusY = PRICES.plus.year[state.currency], plusM = PRICES.plus.month[state.currency];
+    document.getElementById("saveBadge").textContent = plusY && plusM ? "ประหยัด " + Math.round((1 - plusY / (plusM * 12)) * 100) + "%" : "";
+    box.innerHTML = state.plans.map(function (p) {
+      var pr = PRICES[p.id], amount = p.id === "free" ? 0 : pr && pr[state.interval][state.currency];
+      var per = state.interval === "month" ? "/ เดือน" : "/ ปี";
+      var priceHtml = p.id === "free" ? '<b>' + money(0, state.currency) + '</b><span>ตลอดไป</span>'
+        : amount ? '<b>' + money(amount, state.currency) + '</b><span>' + per + '</span>'
+        : '<b>—</b><span>' + per + '</span>';
+      var sub = p.id === "free" ? "ไม่ต้องใช้บัตร"
+        : !amount ? "ราคารายปีสกุลวอนจะประกาศเร็วๆ นี้"
+        : state.interval === "year" ? "เฉลี่ย " + money(Math.round(amount / 12), state.currency) + " / เดือน" : "ยกเลิกได้ทุกเมื่อ";
+      var isCur = state.current === p.id, hl = p.id === "premium";
+      var feats = ROWS.map(function (r) {
+        var y = !!(p.features && p.features[r[0]]), lim = r[2] && p.limits && p.limits[r[2]];
+        var label = r[1] + (y && lim ? " (ย้อนหลัง " + lim + " เดือน)" : y && r[2] && p.id !== "free" ? " (ไม่จำกัด)" : "");
+        return '<li class="' + (y ? "y" : "n") + '"><i aria-hidden="true">' + (y ? "✓" : "–") + '</i><span>' + esc(label) +
+               '<span class="sr-only">' + (y ? " · มี" : " · ไม่มี") + '</span></span></li>';
+      }).join("");
+      var subscriber = String(state.source || "").indexOf("subscription") === 0;
+      var co = ' data-checkout="' + p.id + ":" + state.interval + ":" + state.currency + '"';
+      var cta;
+      if (p.id === "free") cta = isCur ? '<button class="cta ghost" type="button" disabled>✓ แพ็กเกจปัจจุบันของคุณ</button>'
+        : state.current ? '<button class="cta ghost" type="button" disabled>รวมอยู่ในทุกแพ็กเกจ</button>'
+        : '<button class="cta ghost" type="button" data-start="free">เริ่มใช้ฟรี</button>';
+      else if (subscriber) cta = isCur ? '<a class="cta ghost" href="account.html">⚙️ จัดการแพ็กเกจและการชำระเงิน</a>'
+        : !amount ? '<button class="cta" type="button" disabled>ยังไม่เปิดขายในสกุลเงินนี้</button>'
+        : '<button class="cta" type="button" data-switch="' + p.id + ":" + state.interval + '">' +
+          (RANKS[p.id] > RANKS[state.current] ? "อัปเกรดเป็น " : "เปลี่ยนเป็น ") + esc(p.name) + '</button>';   // Stripe confirm screen (proration shown there)
+      else if (!amount) cta = '<button class="cta" type="button" disabled>ยังไม่เปิดขายในสกุลเงินนี้</button>';
+      else if (isCur) cta = '<button class="cta" type="button"' + co + '>สมัครเพื่อใช้ต่อหลังหมดสิทธิ์</button>';   // e.g. legacy 90-day grant
+      else cta = '<button class="cta" type="button"' + co + '>สมัคร ' + esc(p.name) + '</button>';
+      return '<article class="plan' + (hl ? " hl" : "") + (isCur ? " cur" : "") + '" id="' + esc(p.id) + '" aria-label="' + esc(p.name) + '">' +
+        (isCur ? '<span class="badge cur">แพ็กเกจของคุณ</span>' : hl ? '<span class="badge">ครบที่สุด</span>' : "") +
+        '<h2>' + esc(p.name) + '</h2><p class="desc">' + esc(p.description) + '</p>' +
+        '<div class="price">' + priceHtml + '</div><div class="sub">' + esc(sub) + '</div>' +
+        '<ul class="feats">' + feats + '</ul>' + cta + '</article>';
+    }).join("");
+  }
+
+  function seg(id, key) {
+    var el = document.getElementById(id);
+    el.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-v]"); if (!b) return;
+      state[key] = b.dataset.v;
+      [].forEach.call(el.querySelectorAll("button"), function (x) { var on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false"); });
+      render();
+    });
+  }
+  seg("segInterval", "interval"); seg("segCurrency", "currency");
+  document.getElementById("plans").addEventListener("click", function (e) {
+    if (e.target.closest("[data-start=free]") && window.kfpAuth) window.kfpAuth.open("register");
+  });
+  window.addEventListener("kfp:plan", function (e) {
+    var d = e.detail || {};
+    state.current = d.state === "ready" || d.state === "offline" ? d.plan : null;
+    state.source = d.source || null; state.validUntil = d.validUntil || null;
+    render();
+  });
+
+  /* ---------------- Checkout / Customer Portal (Phase 7) ---------------- */
+  var cfg0 = window.KFP_SUPABASE_CONFIG || {};
+  var box = document.getElementById("coStatus");
+  function status(html, kind, retry) {
+    box.className = "co-status " + (kind || ""); box.innerHTML = html; box.hidden = !html;
+    if (retry) { var b = document.createElement("button"); b.type = "button"; b.textContent = retry[0]; b.onclick = retry[1]; box.appendChild(b); }
+    if (html) box.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  var ERR = {
+    legacy_email: "บัญชีนี้ยังใช้ระบบ Username แบบเก่า · <b>กรุณาเชื่อมอีเมลจริงก่อนสมัครแพ็กเกจ</b> (ใช้รับใบเสร็จและกู้บัญชี)",
+    email_not_verified: "กรุณายืนยันอีเมลก่อนสมัครแพ็กเกจ",
+    suspended: "บัญชีนี้ถูกระงับ กรุณาติดต่อผู้ดูแล",
+    price_not_available: "แพ็กเกจนี้ยังไม่เปิดขายในรอบบิล/สกุลเงินที่เลือก",
+    rate_limited: "ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่",
+    no_customer: "ยังไม่มีประวัติการชำระเงินของบัญชีนี้",
+    resume_first: "แพ็กเกจของคุณตั้งยกเลิกไว้ · กดต่ออายุอัตโนมัติก่อนจึงเปลี่ยนแพ็กเกจได้",
+    not_switchable: "มียอดค้างชำระ · กรุณาชำระเงินก่อนเปลี่ยนแพ็กเกจ",
+    same_plan: "นี่คือแพ็กเกจปัจจุบันของคุณอยู่แล้ว",
+    unauthorized: "กรุณาเข้าสู่ระบบอีกครั้ง"
+  };
+  // Phase 12: only ever follow a Stripe page (or this site) returned by our Edge Functions
+  function goStripe(u) {
+    try {
+      var x = new URL(String(u), location.href);
+      var okHost = x.protocol === "https:" && /(^|\.)stripe\.com$/.test(x.hostname);
+      if (okHost || x.origin === location.origin) { location.href = x.href; return true; }
+    } catch (_) {}
+    return false;
+  }
+  async function callFn(name, body) {
+    var client = window.kfpAuth && window.kfpAuth.client && window.kfpAuth.client();
+    var sess = client ? (await client.auth.getSession()).data.session : null;
+    if (!sess) return { status: 401, body: { error: "unauthorized" } };
+    var res;
+    try {
+      res = await fetch(cfg0.SUPABASE_URL + "/functions/v1/" + name, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: cfg0.SUPABASE_ANON_KEY, Authorization: "Bearer " + sess.access_token },
+        body: JSON.stringify(body || {})
+      });
+    } catch (_) { return { status: 0, body: { error: "network" } }; }
+    var j = {}; try { j = await res.json(); } catch (_) {}
+    return { status: res.status, body: j };
+  }
+  function busy(btn, on, text) { if (!btn) return; if (on) { btn.dataset.l = btn.textContent; btn.disabled = true; btn.classList.add("busy"); btn.innerHTML = '<span class="spin"></span>' + text; } else { btn.disabled = false; btn.classList.remove("busy"); btn.textContent = btn.dataset.l || btn.textContent; } }
+  function failMsg(r) {
+    if (r.status === 0) return "เชื่อมต่อไม่ได้ กรุณาตรวจอินเทอร์เน็ต";
+    if (r.status === 404 && !r.body.error) return "ระบบชำระเงินยังไม่เปิดให้บริการ";
+    return ERR[r.body.error] || "เกิดข้อผิดพลาด กรุณาลองใหม่ (" + (r.body.error || r.status) + ")";
+  }
+  async function openPortal(btn, body) {
+    busy(btn, true, body && body.flow === "switch" ? "กำลังเปิดหน้ายืนยัน…" : "กำลังเปิดหน้าจัดการบิล…");
+    var r = await callFn("create-portal", body);
+    if (r.status === 200 && r.body.url && goStripe(r.body.url)) return;
+    busy(btn, false);
+    var more = r.body.error === "resume_first" || r.body.error === "not_switchable" || r.body.error === "price_not_available";
+    status(failMsg(r) + (more ? ' · <a href="account.html" style="color:inherit">ไปหน้าแพ็กเกจของฉัน</a>' : ""), "err");
+  }
+  async function startCheckout(btn, spec) {
+    if (window.requireAuth && !window.requireAuth("สมัครแพ็กเกจ")) return;           // guest → login modal
+    if (window.kfpAuth && window.kfpAuth.isLegacy && window.kfpAuth.isLegacy()) {
+      status(ERR.legacy_email, "err", ["🔗 เชื่อมอีเมลตอนนี้", function () { window.kfpAuth.open("account"); }]); return;
+    }
+    var parts = spec.split(":");
+    busy(btn, true, "กำลังไปหน้าชำระเงิน…");
+    var r = await callFn("create-checkout", { plan: parts[0], interval: parts[1], currency: parts[2] });
+    if (r.status === 200 && r.body.url && goStripe(r.body.url)) return;   // Stripe Checkout
+    busy(btn, false);
+    if (r.status === 409 && r.body.error === "already_subscribed") {
+      status("คุณมีแพ็กเกจที่ชำระเงินอยู่แล้ว · เปลี่ยน/อัปเกรดแพ็กเกจได้ในหน้าแพ็กเกจของฉัน", "", ["⚙️ ไปหน้าแพ็กเกจของฉัน", function () { location.href = "account.html"; }]);
+      return;
+    }
+    if (r.body.error === "legacy_email") { status(ERR.legacy_email, "err", ["🔗 เชื่อมอีเมลตอนนี้", function () { window.kfpAuth.open("account"); }]); return; }
+    status(failMsg(r), "err");
+  }
+  document.getElementById("plans").addEventListener("click", function (e) {
+    var c = e.target.closest("[data-checkout]"); if (c && !c.disabled) { startCheckout(c, c.getAttribute("data-checkout")); return; }
+    var sw = e.target.closest("[data-switch]"); if (sw && !sw.disabled) { var q = sw.getAttribute("data-switch").split(":"); openPortal(sw, { flow: "switch", plan: q[0], interval: q[1] }); return; }
+    var pt = e.target.closest("[data-portal]"); if (pt && !pt.disabled) openPortal(pt);
+  });
+
+  // Back from Stripe. The redirect proves nothing — access appears only when the webhook
+  // has updated the database, so we poll the server-side entitlements.
+  (function handleReturn() {
+    var q = new URLSearchParams(location.search), co = q.get("checkout"), portal = q.get("portal");
+    if (!co && !portal) return;
+    history.replaceState(null, "", location.pathname + location.hash);
+    if (co === "cancel") { status("ยกเลิกการชำระเงินแล้ว · <b>ไม่มีการตัดเงิน</b>", ""); return; }
+    if (portal) { status("อัปเดตข้อมูลแพ็กเกจล่าสุดแล้ว", "ok"); var p0 = window.kfpPlan; if (p0) p0.refresh(); return; }
+    if (co !== "success") return;
+    var start = Date.now(), before = state.current;
+    status('<span class="spin"></span>ได้รับการชำระเงินแล้ว กำลังเปิดสิทธิ์ให้บัญชีของคุณ…', "");
+    var timer = setInterval(function () {
+      var P = window.kfpPlan;
+      if (P) P.refresh();
+      var info = P ? P.info() : {};
+      var paid = String(info.source || "").indexOf("subscription") === 0 && info.plan && info.plan !== "free";
+      if (paid) { clearInterval(timer); status("🎉 <b>ชำระเงินสำเร็จ!</b> ตอนนี้คุณใช้ " + (info.planName || info.plan) + " แล้ว · <a href=\"index.html\" style=\"color:inherit\">กลับไปใช้งาน</a>", "ok"); }
+      else if (Date.now() - start > 60000) { clearInterval(timer); status("ได้รับการชำระเงินแล้ว ระบบกำลังอัปเดตสิทธิ์ (อาจใช้เวลา 1–2 นาที) · ลองรีเฟรชหน้านี้อีกครั้ง", ""); }
+    }, 3000);
+  })();
+
+  // Plans + features from the database (anon can read active plans).
+  try {
+    var cfg = window.KFP_SUPABASE_CONFIG || {};
+    if (window.supabase && cfg.SUPABASE_URL) {
+      var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storage: window.__kfpRealLocalStorage } });
+      Promise.resolve(sb.from("plans").select("id,name,description,features,limits,sort").order("sort")).then(function (r) {
+        if (r && !r.error && Array.isArray(r.data) && r.data.length) { state.plans = r.data; render(); }
+      }, function () {});
+      Promise.resolve(sb.from("plan_prices").select("plan_id,billing_interval,currency,amount_minor").eq("active", true)).then(function (r) {
+        if (!r || r.error || !Array.isArray(r.data) || !r.data.length) return;
+        var next = {};
+        r.data.forEach(function (row) {
+          var exp = row.currency === "KRW" ? 0 : 2;                     // KRW is zero-decimal
+          next[row.plan_id] = next[row.plan_id] || { month: { THB: null, KRW: null }, year: { THB: null, KRW: null } };
+          next[row.plan_id][row.billing_interval][row.currency] = Number(row.amount_minor) / Math.pow(10, exp);
+        });
+        PRICES = next; state.pricesFrom = "db"; render();
+      }, function () {});
+    }
+  } catch (_) {}
+  if (location.hash) setTimeout(function () { var t = document.querySelector(location.hash); if (t) t.scrollIntoView({ behavior: "smooth", block: "center" }); }, 300);
+  render();
+})();
+</script>
+<script src="kfp-access.js?v=20261114-saas13"></script>
+<style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style>
+</body>
+</html>

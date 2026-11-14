@@ -232,3 +232,7 @@ html[data-mode="THB"] .tool-row .tool-work{display:none}
 
 @media(max-width:420px){.tl-modal .tl-card{padding:16px 14px 20px}.tl-head-txt h2{font-size:19px}.tl-big{font-size:26px}.tl-sval b{font-size:32px}}
 @media(prefers-reduced-motion:reduce){.tl-view,.tl-mbtn,.tl-type,.tl-li.ex,.tl-seg-pill,.tl-toast,.tool-btn,.tool-btn::after{animation:none !important;transition:none !important}}
+
+/* Phase 5: Free plan history limit note */
+.tl-limit{margin:-4px 0 12px;padding:10px 12px;border-radius:14px;font-size:12.5px;line-height:1.55;color:#cfc9b8;background:rgba(232,190,70,.07);border:1px dashed rgba(232,190,70,.45)}
+.tl-limit a{color:#ffe08a;font-weight:600}

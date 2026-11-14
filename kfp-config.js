@@ -171,7 +171,7 @@
     function card(x, wide, n) {
       var c = x.c;
       var portfolio = x.c.role === "gold"
-        ? '<div id="goldPortfolioInfo" class="stat-portfolio" hidden>' +
+        ? '<div id="goldPortfolioInfo" class="stat-portfolio" data-feature="gold_portfolio" hidden>' +
             '<div class="sp-label">🪙 พอร์ตทอง · มูลค่าปัจจุบัน</div>' +
             '<div class="sp-value" id="goldPortfolioValue">-</div>' +
             '<div class="sp-pl" id="goldPortfolioPL">-</div>' +

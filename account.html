@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="robots" content="noindex">
+<title>แพ็กเกจและการชำระเงิน · Korea Finance Planner</title>
+<script src="supabase-config.js?v=20261114-saas13"></script>
+<script src="kfp-storage.js?v=20261114-saas13"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kfp-access.css?v=20261114-saas13">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script src="auth.js?v=20261114-saas13"></script>
+<style>
+:root{--bg:#06070a;--card:rgba(20,21,29,.92);--line:rgba(255,255,255,.09);--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--dim:#77746b;
+  --green:#3ddc97;--red:#ff6b7a;--amber:#ffb547;--blue:#7cb8ff;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;min-height:100vh;color:var(--text);font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif;
+  background:radial-gradient(60% 36% at 50% 0%,rgba(232,190,70,.14),transparent 65%),radial-gradient(50% 40% at 100% 100%,rgba(61,220,151,.05),transparent 60%),var(--bg)}
+.wrap{width:min(760px,100%);margin:0 auto;padding:84px 16px 64px}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--gold-l);text-decoration:none;font-size:14px}
+.hero{margin:6px 0 22px;animation:in .55s var(--ease) both}
+.eyebrow{display:inline-block;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:1.6px;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46)}
+h1{margin:12px 0 4px;font-size:clamp(24px,5vw,32px);line-height:1.25;color:var(--gold-l)}
+.hero p{margin:0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}
+.card{position:relative;margin-bottom:16px;padding:22px 20px;border-radius:26px;background:linear-gradient(160deg,rgba(32,34,46,.9),rgba(13,14,20,.94));
+  border:1px solid var(--line);box-shadow:0 30px 60px -32px rgba(0,0,0,.85);animation:in .55s var(--ease) both}
+.card:nth-of-type(2){animation-delay:.05s}.card:nth-of-type(3){animation-delay:.1s}
+.card h2{margin:0 0 14px;font-size:17px;display:flex;align-items:center;gap:8px}
+.card h2 small{margin-left:auto;font-size:12.5px;font-weight:500;color:var(--muted)}
+/* plan summary */
+.plan-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:6px}
+.plan-name{font-size:clamp(22px,4.6vw,28px);font-weight:700;color:var(--gold-l);line-height:1.2}
+.plan-price{color:var(--muted);font-size:14.5px;font-variant-numeric:tabular-nums;margin-bottom:16px}
+.plan-price b{color:var(--text);font-size:18px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;border:1px solid}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--green);border-color:rgba(61,220,151,.45);background:rgba(61,220,151,.1)}
+.pill.warn{color:var(--amber);border-color:rgba(255,181,71,.45);background:rgba(255,181,71,.1)}
+.pill.bad{color:var(--red);border-color:rgba(255,107,122,.45);background:rgba(255,107,122,.1)}
+.pill.info{color:var(--blue);border-color:rgba(124,184,255,.4);background:rgba(124,184,255,.1)}
+.pill.mute{color:var(--muted);border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.04)}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
+@media(max-width:350px){.facts{grid-template-columns:1fr}}
+.fact{padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--line);min-width:0}
+.fact dt{font-size:12px;color:var(--muted);margin-bottom:3px}
+.fact dd{margin:0;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.fact dd span{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:2px}
+.fact dd .renew{display:inline-flex;margin:0;font-size:15px;font-weight:600;color:var(--text)}
+.fact dd .sw{display:block;margin:0}
+.renew{display:inline-flex;align-items:center;gap:8px}
+.sw{position:relative;flex:none;width:34px;height:20px;border-radius:99px;background:#3a3a42;transition:background .25s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .3s var(--spring)}
+.sw.on{background:var(--green)}.sw.on::after{transform:translateX(14px)}
+/* alerts */
+.alert{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;padding:14px 16px;border-radius:20px;font-size:14px;line-height:1.65;border:1px solid;animation:in .45s var(--ease) both}
+.alert>i{flex:none;font-style:normal;font-size:20px;line-height:1.3}
+.alert b{display:block;font-size:15px}
+.alert .row{margin-top:10px}
+.alert.bad{background:rgba(255,107,122,.08);border-color:rgba(255,107,122,.45)}
+.alert.warn{background:rgba(255,181,71,.08);border-color:rgba(255,181,71,.45)}
+.alert.info{background:rgba(124,184,255,.07);border-color:rgba(124,184,255,.38)}
+.alert.ok{background:rgba(61,220,151,.08);border-color:rgba(61,220,151,.45)}
+/* buttons */
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 18px;border-radius:15px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.05);color:var(--text);font:600 14.5px/1.3 inherit;font-family:inherit;text-decoration:none;cursor:pointer;transition:transform .2s,background .2s,border-color .2s}
+.btn:hover{background:rgba(255,255,255,.09)}
+.btn:active{transform:scale(.97)}
+.btn:focus-visible,.opt:focus-visible{outline:2px solid var(--gold-l);outline-offset:2px}
+.btn.gold{border:0;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 12px 26px -12px rgba(232,190,70,.9)}
+.btn.danger{color:#ffd5da;border-color:rgba(255,107,122,.5);background:rgba(255,107,122,.08)}
+.btn.danger:hover{background:rgba(255,107,122,.16)}
+.btn.link{border:0;background:none;padding:10px 4px;color:var(--gold-l);text-decoration:underline;text-underline-offset:3px}
+.btn:disabled,.opt:disabled{opacity:.5;cursor:not-allowed}
+.btn.busy{cursor:wait;opacity:.8}
+.spin{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid rgba(232,190,70,.25);border-top-color:var(--gold);animation:sp 1s linear infinite}
+.btn.gold .spin{border-color:rgba(26,19,0,.25);border-top-color:#1a1300}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* plan change options */
+.opts{display:grid;gap:10px;margin-bottom:14px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:12px 14px;border-radius:18px;text-align:left;cursor:pointer;color:var(--text);
+  font:inherit;background:rgba(255,255,255,.03);border:1px solid var(--line);transition:border-color .2s,transform .25s var(--spring),background .2s}
+.opt:hover:not(:disabled){border-color:rgba(232,190,70,.6);background:rgba(232,190,70,.06);transform:translateY(-1px)}
+.opt .tag{flex:none;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.opt .tag.up{color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46)}
+.opt .tag.down{color:var(--muted);border:1px solid rgba(255,255,255,.2)}
+.opt .tag.cyc{color:#06210f;background:var(--green)}
+.opt .what{flex:1;min-width:0}
+.opt .what b{display:block;font-size:15px}
+.opt .what span{font-size:12.5px;color:var(--muted)}
+.opt .amt{flex:none;text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:var(--gold-l)}
+.opt .amt span{display:block;font-size:11.5px;font-weight:400;color:var(--muted)}
+.hint{margin:0 0 14px;font-size:12.5px;line-height:1.7;color:var(--muted)}
+.divider{height:1px;margin:18px 0;background:var(--line)}
+/* history */
+.pays{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pay{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+.pay .d{font-weight:600;font-size:14.5px}
+.pay .s{font-size:12.5px;color:var(--muted)}
+.pay .a{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;font-size:15.5px}
+.pay .a.void{color:var(--dim);text-decoration:line-through}
+.pay .st{text-align:right}
+.pay .links{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px}
+.pay .links a{display:inline-flex;align-items:center;min-height:36px;color:var(--gold-l);font-size:13.5px;text-underline-offset:3px}
+.pay .why{grid-column:1/-1;font-size:12.5px;color:#ffc2c9}
+.pay .ref{grid-column:1/-1;font-size:12.5px;color:var(--blue)}
+.empty{padding:22px 10px;text-align:center;color:var(--muted);font-size:14px;line-height:1.7}
+.more{display:flex;justify-content:center;margin-top:14px}
+/* skeleton / guest */
+.sk{height:14px;border-radius:8px;margin:10px 0;background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.1),rgba(255,255,255,.04));background-size:200% 100%;animation:sh 1.3s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.center{text-align:center}
+.center p{color:var(--muted);line-height:1.7}
+.status{margin-bottom:16px}
+/* confirm dialog */
+dialog{width:min(440px,calc(100% - 32px));padding:0;border:1px solid rgba(255,255,255,.12);border-radius:26px;color:var(--text);
+  background:linear-gradient(160deg,#1d1e27,#0f1016);box-shadow:0 40px 90px -30px rgba(0,0,0,.9)}
+dialog::backdrop{background:rgba(0,0,0,.66);backdrop-filter:blur(4px)}
+dialog[open]{animation:pop .35s var(--spring)}
+.dlg{padding:24px 22px 20px}
+.dlg h3{margin:0 0 10px;font-size:19px;color:var(--gold-l)}
+.dlg ul{margin:0 0 14px;padding-left:20px;color:#d9d4c6;font-size:14px;line-height:1.75}
+.dlg label{display:block;margin:4px 0 6px;font-size:13px;color:var(--muted)}
+.dlg select{width:100%;min-height:46px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:#15161d;color:var(--text);font:inherit;font-size:14.5px}
+.dlg .row{margin-top:18px}
+.dlg .row .btn{flex:1 1 160px}
+@keyframes pop{from{opacity:0;transform:scale(.94)}}
+@keyframes in{from{opacity:0;transform:translateY(12px)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body data-no-preview-ui>
+<main class="wrap">
+  <a class="back" href="index.html">‹ กลับหน้าหลัก</a>
+  <header class="hero">
+    <span class="eyebrow">BILLING</span>
+    <h1>แพ็กเกจและการชำระเงิน</h1>
+    <p id="whoami">บัญชีของคุณ</p>
+  </header>
+
+  <div id="acStatus" class="status" role="status" aria-live="polite"></div>
+  <div id="alerts"></div>
+
+  <section class="card" id="planCard" aria-labelledby="planH" aria-busy="true">
+    <h2 id="planH">💎 แพ็กเกจปัจจุบัน</h2>
+    <div id="planBody"><div class="sk" style="width:46%"></div><div class="sk" style="width:30%"></div><div class="sk"></div><div class="sk" style="width:80%"></div></div>
+  </section>
+
+  <section class="card" id="manageCard" aria-labelledby="manageH" hidden>
+    <h2 id="manageH">⚙️ จัดการแพ็กเกจ</h2>
+    <div id="manageBody"></div>
+  </section>
+
+  <section class="card" id="historyCard" aria-labelledby="historyH" hidden>
+    <h2 id="historyH">🧾 ประวัติการชำระเงิน <small id="historyCount"></small></h2>
+    <ul class="pays" id="payList"></ul>
+    <div class="more" id="moreBox" hidden><button class="btn" type="button" id="moreBtn">โหลดเพิ่ม</button></div>
+  </section>
+
+  <section class="card" id="dataCard" aria-labelledby="dataH" hidden>
+    <h2 id="dataH">📦 ข้อมูลของฉัน</h2>
+    <p class="hint">ดาวน์โหลดข้อมูลทั้งหมดของบัญชีนี้เป็นไฟล์ JSON ได้ทุกแพ็กเกจ (รวมถึงหลังแพ็กเกจหมดอายุ) — เงินเดือน รายจ่าย บันทึกงาน การแบ่งเงิน และพอร์ตทองที่เก็บไว้บน Cloud · ไฟล์นี้มีข้อมูลส่วนตัว เก็บไว้ในที่ปลอดภัย</p>
+    <div class="row"><button class="btn" type="button" id="exportMyData">⬇️ ดาวน์โหลดข้อมูลของฉัน (JSON)</button></div>
+  </section>
+</main>
+
+<dialog id="cancelDlg" aria-labelledby="cancelH">
+  <form method="dialog" class="dlg" id="cancelForm">
+    <h3 id="cancelH">ยกเลิกการต่ออายุอัตโนมัติ?</h3>
+    <ul id="cancelFacts"></ul>
+    <label for="cancelReason">บอกเหตุผลเพื่อให้เราปรับปรุง (ไม่บังคับ)</label>
+    <select id="cancelReason">
+      <option value="">— ไม่ระบุ —</option>
+      <option value="too_expensive">ราคาสูงเกินไป</option>
+      <option value="unused">ไม่ค่อยได้ใช้</option>
+      <option value="missing_features">ขาดฟีเจอร์ที่ต้องการ</option>
+      <option value="too_complex">ใช้งานยาก</option>
+      <option value="switched_service">ไปใช้บริการอื่น</option>
+      <option value="other">อื่นๆ</option>
+    </select>
+    <div class="row">
+      <button class="btn gold" type="submit" value="keep" autofocus>ใช้ต่อ</button>
+      <button class="btn danger" type="submit" value="confirm" id="cancelConfirm">ยืนยันยกเลิก</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  var cfg = window.KFP_SUPABASE_CONFIG || {};
+  var KS = window.kfpStorage;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]; }); };
+  var LIVE = ["active", "trialing", "past_due", "unpaid"];
+  var RANK = { free: 0, plus: 1, premium: 2 };
+  var PLAN_NAMES = { free: "Free", plus: "Finance Plus", premium: "Finance Premium" };
+  var PAGE = 10;
+  var st = { billing: null, prices: [], plans: null, pays: [], loaded: false, uid: null };
+
+  /* ------------------------------------------------------------ format */
+  function money(minor, cur) {
+    if (minor == null || !cur) return "—";
+    var krw = String(cur).toUpperCase() === "KRW", n = Number(minor) / (krw ? 1 : 100);
+    var s = n.toLocaleString("en-US", { minimumFractionDigits: krw || n % 1 === 0 ? 0 : 2, maximumFractionDigits: krw ? 0 : 2 });
+    return (krw ? "₩" : "฿") + s;
+  }
+  function day(iso) { return iso ? new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : "—"; }
+  function daysLeft(iso) { return iso ? Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 86400000)) : null; }
+  var per = function (iv) { return iv === "year" ? "ปี" : "เดือน"; };
+  var safeUrl = function (u) { return /^https:\/\//i.test(String(u || "")) ? String(u) : null; };   // Stripe links only (never javascript:)
+  function planName(id) { var p = (st.plans || []).filter(function (x) { return x.id === id; })[0]; return p ? p.name : PLAN_NAMES[id] || id; }
+
+  /* ------------------------------------------------------------ status */
+  function status(html, kind) {
+    var box = $("acStatus");
+    box.innerHTML = html ? '<div class="alert ' + (kind || "info") + '"><i aria-hidden="true">' +
+      ({ ok: "✅", bad: "⚠️", warn: "⏳", info: "ℹ️" }[kind || "info"]) + '</i><div>' + html + '</div></div>' : "";
+    if (html) box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  var ERR = {
+    rate_limited: "ทำรายการบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่",
+    no_customer: "ยังไม่มีประวัติการชำระเงินของบัญชีนี้",
+    no_subscription: "ไม่พบแพ็กเกจแบบชำระเงินที่ใช้งานอยู่",
+    resume_first: "แพ็กเกจนี้ตั้งยกเลิกไว้ · <b>กดต่ออายุอัตโนมัติก่อน</b> แล้วจึงเปลี่ยนแพ็กเกจได้",
+    not_switchable: "มียอดค้างชำระ · กรุณาชำระเงินหรือเปลี่ยนบัตรก่อนเปลี่ยนแพ็กเกจ",
+    same_plan: "นี่คือแพ็กเกจปัจจุบันของคุณอยู่แล้ว",
+    price_not_available: "แพ็กเกจนี้ยังไม่เปิดขายในสกุลเงินของการสมัครปัจจุบัน",
+    subscription_ended: "แพ็กเกจนี้สิ้นสุดไปแล้ว · ข้อมูลในหน้านี้อัปเดตแล้ว",
+    suspended: "บัญชีนี้ถูกระงับ กรุณาติดต่อผู้ดูแล",
+    unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง"
+  };
+  function failMsg(r) {
+    if (r.status === 0) return "เชื่อมต่อไม่ได้ กรุณาตรวจอินเทอร์เน็ต";
+    if (r.status === 404 && !r.body.error) return "ระบบชำระเงินยังไม่เปิดให้บริการ";
+    return ERR[r.body.error] || "เกิดข้อผิดพลาด กรุณาลองใหม่ (" + esc(r.body.error || r.status) + ")";
+  }
+
+  /* ------------------------------------------------------------ server */
+  function client() { return window.kfpAuth && window.kfpAuth.client && window.kfpAuth.client(); }
+  // Phase 12: only ever follow a Stripe page (or this site) returned by our Edge Functions
+  function goStripe(u) {
+    try {
+      var x = new URL(String(u), location.href);
+      var okHost = x.protocol === "https:" && /(^|\.)stripe\.com$/.test(x.hostname);
+      if (okHost || x.origin === location.origin) { location.href = x.href; return true; }
+    } catch (_) {}
+    return false;
+  }
+  async function callFn(name, body) {
+    var c = client(), sess = c ? (await c.auth.getSession()).data.session : null;
+    if (!sess) return { status: 401, body: { error: "unauthorized" } };
+    var res;
+    try {
+      res = await fetch(cfg.SUPABASE_URL + "/functions/v1/" + name, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: cfg.SUPABASE_ANON_KEY, Authorization: "Bearer " + sess.access_token },
+        body: JSON.stringify(body || {})
+      });
+    } catch (_) { return { status: 0, body: { error: "network" } }; }
+    var j = {}; try { j = await res.json(); } catch (_) {}
+    return { status: res.status, body: j || {} };
+  }
+  function busy(btn, on, text) {
+    if (!btn) return;
+    if (on) { btn.dataset.l = btn.innerHTML; btn.disabled = true; btn.classList.add("busy"); btn.innerHTML = '<span class="spin" aria-hidden="true"></span>' + esc(text); }
+    else { btn.disabled = false; btn.classList.remove("busy"); if (btn.dataset.l) btn.innerHTML = btn.dataset.l; }
+  }
+
+  async function loadBilling() {
+    var c = client(); if (!c) throw new Error("no client");
+    var r = await c.rpc("get_my_billing");
+    if (r.error || !r.data) throw r.error || new Error("empty");
+    st.billing = r.data;
+  }
+  async function loadCatalog() {
+    var c = client(); if (!c) return;
+    try {
+      var a = await c.from("plans").select("id,name,sort").order("sort");
+      if (a && !a.error && Array.isArray(a.data)) st.plans = a.data;
+      var b = await c.from("plan_prices").select("plan_id,billing_interval,currency,amount_minor").eq("active", true);
+      if (b && !b.error && Array.isArray(b.data)) st.prices = b.data;
+    } catch (_) {}
+  }
+  async function loadPayments(reset) {
+    var c = client(); if (!c) return;
+    var from = reset ? 0 : st.pays.length;
+    // filter by user_id explicitly: the RLS policy also lets admins read other people's rows
+    var r = await c.from("payments")
+      .select("id,created_at,paid_at,plan_id,billing_interval,currency,amount_due_minor,amount_paid_minor,amount_refunded_minor,status,failure_reason,period_start,period_end,hosted_invoice_url,invoice_pdf_url")
+      .eq("user_id", st.uid).order("created_at", { ascending: false }).range(from, from + PAGE - 1);
+    if (r.error) throw r.error;
+    st.pays = (reset ? [] : st.pays).concat(r.data || []);
+  }
+
+  /* ------------------------------------------------------------ view model */
+  function vm() {
+    var b = st.billing || {}, ent = b.entitlements || {}, sub = b.subscription;
+    var live = !!(sub && LIVE.indexOf(sub.status) >= 0);
+    var grant = (b.grants || []).filter(function (g) { return g.plan_id === ent.plan; })[0] || (b.grants || [])[0] || null;
+    var kind = live ? "sub" : String(ent.source || "").indexOf("subscription") !== 0 && ent.plan && ent.plan !== "free" && grant ? "grant" : "free";
+    return { b: b, ent: ent, sub: sub, live: live, grant: grant, kind: kind };
+  }
+
+  /* ------------------------------------------------------------ render */
+  function renderPlan() {
+    var v = vm(), s = v.sub, h = "", facts = [];
+    var pill = function (cls, t) { return '<span class="pill ' + cls + '" id="planPill">' + esc(t) + '</span>'; };
+    var renew = function (on, note) { return '<span class="renew"><span class="sw' + (on ? " on" : "") + '" aria-hidden="true"></span>' + (on ? "เปิด" : "ปิด") + '</span>' + (note ? '<span>' + esc(note) + '</span>' : ""); };
+    var fact = function (k, val, id) { facts.push('<div class="fact"' + (id ? ' id="' + id + '"' : "") + '><dt>' + esc(k) + '</dt><dd>' + val + '</dd></div>'); };
+
+    if (v.kind === "sub") {
+      var cancelling = !!s.cancel_at_period_end, p;
+      if (s.status === "past_due") p = pill("bad", "ค้างชำระ");
+      else if (s.status === "unpaid") p = pill("bad", "ระงับชั่วคราว · ค้างชำระ");
+      else if (cancelling) p = pill("warn", "ยกเลิกแล้ว · ใช้ได้ถึง " + day(s.current_period_end));
+      else if (s.status === "trialing") p = pill("info", "ช่วงทดลองใช้");
+      else p = pill("ok", "ใช้งานอยู่");
+      h += '<div class="plan-top"><span class="plan-name" id="planName">' + esc(s.plan_name || planName(s.plan_id)) + '</span>' + p + '</div>';
+      h += '<div class="plan-price" id="planPrice"><b>' + money(s.unit_amount_minor, s.currency) + '</b> / ' + per(s.billing_interval) +
+           ' · ชำระผ่านบัตร (Stripe)</div>';
+      fact("เริ่มเป็นสมาชิก", esc(day(s.started_at)));
+      fact("รอบบิลปัจจุบัน", esc(day(s.current_period_start) + " – " + day(s.current_period_end)));
+      var next;
+      if (cancelling) next = "ไม่มี<span>ยกเลิกแล้ว จะไม่ตัดเงินอีก</span>";
+      else if (s.status === "trialing") next = esc(day(s.trial_end || s.current_period_end)) + "<span>วันแรกที่ตัดเงินหลังทดลองใช้</span>";
+      else if (s.status === "past_due" || s.status === "unpaid") next = "รอชำระ<span>ระบบจะลองตัดเงินอีกครั้งอัตโนมัติ</span>";
+      else next = esc(day(s.current_period_end)) + "<span>" + money(s.unit_amount_minor, s.currency) + "</span>";
+      fact("วันตัดเงินถัดไป", next, "factNext");
+      fact("วันหมดอายุ", cancelling ? esc(day(s.current_period_end)) + "<span>เหลือ " + daysLeft(s.current_period_end) + " วัน · หลังจากนั้นกลับเป็น Free</span>"
+                                    : "ไม่มีวันหมดอายุ<span>ต่ออายุทุก" + per(s.billing_interval) + "จนกว่าจะยกเลิก</span>", "factExpiry");
+      fact("ต่ออายุอัตโนมัติ", renew(!cancelling), "factRenew");
+    } else if (v.kind === "grant") {
+      var g = v.grant, why = g.reason === "legacy_launch" ? "สิทธิ์สมาชิกเดิม (ฟรีช่วงเปิดระบบ)" : g.reason === "admin_grant" ? "ได้รับจากผู้ดูแลระบบ" : "สิทธิ์พิเศษ";
+      h += '<div class="plan-top"><span class="plan-name" id="planName">' + esc(v.ent.plan_name || planName(g.plan_id)) + '</span>' + pill("info", why) + '</div>';
+      h += '<div class="plan-price" id="planPrice"><b>ฟรี</b> · ไม่มีการตัดเงิน</div>';
+      fact("เริ่มใช้สิทธิ์", esc(day(g.starts_at)));
+      fact("วันหมดอายุ", g.expires_at ? esc(day(g.expires_at)) + "<span>เหลือ " + daysLeft(g.expires_at) + " วัน · หลังจากนั้นกลับเป็น Free</span>" : "ไม่มีวันหมดอายุ", "factExpiry");
+      fact("วันตัดเงินถัดไป", "ไม่มี<span>ไม่ใช่แพ็กเกจแบบชำระเงิน</span>", "factNext");
+      fact("ต่ออายุอัตโนมัติ", renew(false, "สมัครแพ็กเกจเพื่อใช้ต่อหลังหมดสิทธิ์"), "factRenew");
+    } else {
+      h += '<div class="plan-top"><span class="plan-name" id="planName">Free</span>' + pill("mute", "แพ็กเกจฟรี") + '</div>';
+      h += '<div class="plan-price" id="planPrice"><b>' + money(0, "THB") + '</b> · ไม่ต้องใช้บัตร</div>';
+      if (s && s.status === "canceled") fact("แพ็กเกจเดิม", esc((s.plan_name || planName(s.plan_id))) + "<span>สิ้นสุดเมื่อ " + esc(day(s.ended_at || s.current_period_end)) + " · ข้อมูลยังอยู่ครบ</span>");
+      fact("วันตัดเงินถัดไป", "ไม่มี", "factNext");
+      fact("ต่ออายุอัตโนมัติ", renew(false), "factRenew");
+    }
+    $("planBody").innerHTML = h + '<dl class="facts">' + facts.join("") + '</dl>';
+    $("planCard").setAttribute("aria-busy", "false");
+  }
+
+  function renderAlerts() {
+    var v = vm(), s = v.sub, inv = v.b.open_invoice, out = [];
+    if (v.kind === "sub" && (s.status === "past_due" || s.status === "unpaid")) {
+      var pay = inv && safeUrl(inv.hosted_invoice_url);
+      out.push('<div class="alert bad" id="alertPastDue"><i aria-hidden="true">⚠️</i><div><b>ชำระเงินรอบล่าสุดไม่สำเร็จ</b>' +
+        (inv && inv.failure_reason ? esc(inv.failure_reason) + " · " : "") +
+        (inv ? "ยอด " + money(inv.amount_due_minor, inv.currency) + " · " : "") +
+        'กรุณาชำระหรือเปลี่ยนบัตรเพื่อใช้งานต่อ' + (s.status === "past_due" ? " (ยังใช้ได้ในช่วงผ่อนผัน)" : "") +
+        '<div class="row">' + (pay ? '<a class="btn gold" id="payNowBtn" href="' + esc(pay) + '" target="_blank" rel="noopener">💳 ชำระเงินตอนนี้</a>' : "") +
+        '<button class="btn" type="button" data-portal-flow="payment_method">เปลี่ยนบัตร</button></div></div></div>');
+    } else if (v.kind === "sub" && s.cancel_at_period_end) {
+      out.push('<div class="alert warn" id="alertCancelling"><i aria-hidden="true">⏳</i><div><b>แพ็กเกจจะสิ้นสุดวันที่ ' + esc(day(s.current_period_end)) + '</b>' +
+        'ระบบจะไม่ตัดเงินอีก · ใช้งานได้ตามปกติจนถึงวันนั้น แล้วกลับเป็น Free โดยข้อมูลไม่หาย' +
+        '<div class="row"><button class="btn gold" type="button" data-action="resume">↺ ต่ออายุอัตโนมัติอีกครั้ง</button></div></div></div>');
+    } else if (v.kind === "grant" && v.grant.expires_at) {
+      out.push('<div class="alert info" id="alertGrant"><i aria-hidden="true">🎁</i><div><b>สิทธิ์ ' + esc(v.ent.plan_name || planName(v.grant.plan_id)) + ' ฟรีถึง ' + esc(day(v.grant.expires_at)) + '</b>' +
+        'สมัครแพ็กเกจก่อนหมดสิทธิ์เพื่อใช้ฟีเจอร์ต่อเนื่อง · ไม่สมัครก็ไม่เป็นไร ข้อมูลยังอยู่ครบ' +
+        '<div class="row"><a class="btn gold" href="pricing.html#' + esc(v.grant.plan_id) + '">ดูแพ็กเกจ</a></div></div></div>');
+    }
+    if (window.kfpAuth && window.kfpAuth.isLegacy && window.kfpAuth.isLegacy()) {
+      out.push('<div class="alert warn" id="alertLegacy"><i aria-hidden="true">🔗</i><div><b>เชื่อมอีเมลจริงก่อนสมัครแพ็กเกจ</b>' +
+        'บัญชีนี้ยังใช้ระบบ Username แบบเก่า · อีเมลใช้รับใบเสร็จและกู้บัญชี' +
+        '<div class="row"><button class="btn" type="button" id="linkEmailBtn">เชื่อมอีเมลตอนนี้</button></div></div></div>');
+    }
+    $("alerts").innerHTML = out.join("");
+  }
+
+  function switchOptions(s) {
+    var cur = String(s.currency || "").toUpperCase();
+    return st.prices.filter(function (p) {
+      return String(p.currency).toUpperCase() === cur && !(p.plan_id === s.plan_id && p.billing_interval === s.billing_interval) && RANK[p.plan_id] > 0;
+    }).sort(function (a, b) { return (RANK[b.plan_id] - RANK[a.plan_id]) || (a.billing_interval === "month" ? -1 : 1); });
+  }
+  function renderManage() {
+    var v = vm(), s = v.sub, h = "";
+    if (v.kind === "sub") {
+      var locked = s.cancel_at_period_end ? "แพ็กเกจตั้งยกเลิกไว้ · ต่ออายุอัตโนมัติก่อนจึงเปลี่ยนแพ็กเกจได้"
+        : (s.status === "past_due" || s.status === "unpaid") ? "มียอดค้างชำระ · ชำระเงินก่อนจึงเปลี่ยนแพ็กเกจได้" : "";
+      var opts = switchOptions(s);
+      h += '<div id="change"><p class="hint">เลือกแพ็กเกจใหม่ แล้วยืนยันในหน้าของ Stripe · ระบบจะแสดงยอดที่ต้องจ่ายเพิ่มหรือเครดิตคืนตามสัดส่วนก่อนให้กดยืนยัน · สกุลเงินคงเดิม (' + esc(s.currency) + ')</p>';
+      if (opts.length) {
+        h += '<div class="opts" role="list">' + opts.map(function (p) {
+          var up = RANK[p.plan_id] > RANK[s.plan_id], down = RANK[p.plan_id] < RANK[s.plan_id];
+          var tag = up ? '<span class="tag up">อัปเกรด</span>' : down ? '<span class="tag down">ดาวน์เกรด</span>' : '<span class="tag cyc">' + (p.billing_interval === "year" ? "รายปี" : "รายเดือน") + '</span>';
+          var label = up ? "อัปเกรดเป็น " : down ? "ดาวน์เกรดเป็น " : "เปลี่ยนเป็น ";
+          var name = planName(p.plan_id) + " · ราย" + per(p.billing_interval);
+          var sub2 = up ? (p.plan_id === "premium" ? "ได้พอร์ตทองครบชุด" : "เพิ่มฟีเจอร์") : down ? "ฟีเจอร์ที่ไม่มีในแพ็กเกจใหม่จะถูกซ่อน · ข้อมูลไม่หาย" : p.billing_interval === "year" ? "จ่ายรายปี ประหยัดกว่า" : "จ่ายทีละเดือน";
+          return '<button class="opt" type="button" role="listitem" data-switch="' + esc(p.plan_id + ":" + p.billing_interval) + '"' + (locked ? " disabled" : "") + '>' + tag +
+            '<span class="what"><b>' + esc(label + name) + '</b><span>' + esc(sub2) + '</span></span>' +
+            '<span class="amt">' + money(p.amount_minor, p.currency) + '<span>/ ' + per(p.billing_interval) + '</span></span></button>';
+        }).join("") + '</div>';
+      } else h += '<p class="hint" id="noOpts">ยังไม่มีแพ็กเกจอื่นในสกุลเงิน ' + esc(s.currency) + ' ให้เปลี่ยน</p>';
+      if (locked) h += '<p class="hint" id="lockedHint">🔒 ' + esc(locked) + '</p>';
+      h += '</div><div class="divider"></div><div class="row">';
+      if (s.cancel_at_period_end) h += '<button class="btn gold" type="button" data-action="resume">↺ ต่ออายุอัตโนมัติอีกครั้ง</button>';
+      else h += '<button class="btn danger" type="button" data-action="cancel">ยกเลิกการต่ออายุ</button>';
+      h += '<button class="btn" type="button" data-portal-flow="payment_method">💳 เปลี่ยนบัตร</button>' +
+           '<button class="btn" type="button" data-portal-flow="manage">จัดการบิลใน Stripe ↗</button></div>';
+    } else {
+      h += '<p class="hint">' + (v.kind === "grant" ? "สมัครแพ็กเกจแบบชำระเงินเพื่อใช้ต่อหลังวันที่ " + esc(day(v.grant.expires_at)) + " · เริ่มนับรอบบิลวันที่สมัคร"
+                                                   : "อัปเกรดเพื่อใช้บันทึกงาน สถิติขั้นสูง Export Cloud Sync และพอร์ตทอง") + '</p>';
+      h += '<div class="row"><a class="btn gold" id="upgradeLink" href="pricing.html">' + (v.kind === "grant" ? "สมัครแพ็กเกจ" : "⬆ อัปเกรดแพ็กเกจ") + '</a>';
+      if (v.b.has_customer) h += '<button class="btn" type="button" data-portal-flow="manage">ใบแจ้งหนี้เดิมใน Stripe ↗</button>';
+      h += '</div>';
+    }
+    $("manageBody").innerHTML = h;
+    $("manageCard").hidden = false;
+  }
+
+  var PAY_ST = { paid: ["ok", "ชำระแล้ว"], failed: ["bad", "ไม่สำเร็จ"], action_required: ["warn", "รอยืนยัน"], open: ["warn", "รอชำระ"],
+                 draft: ["mute", "ร่าง"], void: ["mute", "ยกเลิก"], uncollectible: ["bad", "เรียกเก็บไม่ได้"],
+                 refunded: ["info", "คืนเงินแล้ว"], partially_refunded: ["info", "คืนเงินบางส่วน"] };
+  function renderHistory() {
+    var total = Number((st.billing || {}).payments_total || 0);
+    $("historyCard").hidden = false;
+    $("historyCount").textContent = total ? total + " รายการ" : "";
+    if (!st.pays.length) {
+      $("payList").innerHTML = '<li class="empty" id="payEmpty">ยังไม่มีประวัติการชำระเงิน<br>ใบเสร็จทุกฉบับจะแสดงที่นี่หลังสมัครแพ็กเกจ</li>';
+      $("moreBox").hidden = true; return;
+    }
+    $("payList").innerHTML = st.pays.map(function (p) {
+      var s = PAY_ST[p.status] || ["mute", p.status];
+      var amt = p.status === "paid" || p.status === "refunded" || p.status === "partially_refunded" ? p.amount_paid_minor : p.amount_due_minor;
+      var desc = (p.plan_id ? planName(p.plan_id) : "การชำระเงิน") + (p.billing_interval ? " · ราย" + per(p.billing_interval) : "");
+      var period = p.period_start && p.period_end ? "รอบ " + day(p.period_start) + " – " + day(p.period_end) : "";
+      var inv = safeUrl(p.hosted_invoice_url), pdf = safeUrl(p.invoice_pdf_url);
+      var links = (inv ? '<a href="' + esc(inv) + '" target="_blank" rel="noopener">🧾 ' + (p.status === "paid" || p.status === "refunded" || p.status === "partially_refunded" ? "ใบเสร็จ / ใบแจ้งหนี้" : (p.status === "failed" || p.status === "open" || p.status === "action_required") ? "ชำระเงิน / ดูใบแจ้งหนี้" : "ใบแจ้งหนี้") + '<span class="sr-only"> (เปิดหน้าใหม่)</span></a>' : "") +
+                  (pdf ? '<a href="' + esc(pdf) + '" target="_blank" rel="noopener">⬇ PDF<span class="sr-only"> ใบแจ้งหนี้</span></a>' : "");
+      return '<li class="pay" data-status="' + esc(p.status) + '">' +
+        '<div><div class="d">' + esc(desc) + '</div><div class="s">' + esc(day(p.paid_at || p.created_at)) + (period ? " · " + esc(period) : "") + '</div></div>' +
+        '<div><div class="a' + (p.status === "void" ? " void" : "") + '">' + money(amt, p.currency) + '</div><div class="st"><span class="pill ' + s[0] + '">' + esc(s[1]) + '</span></div></div>' +
+        (p.amount_refunded_minor > 0 ? '<div class="ref">↩ คืนเงิน ' + money(p.amount_refunded_minor, p.currency) + '</div>' : "") +
+        ((p.status === "failed" || p.status === "action_required") && p.failure_reason ? '<div class="why">' + esc(p.failure_reason) + '</div>' : "") +
+        (links ? '<div class="links">' + links + '</div>' : "") + '</li>';
+    }).join("");
+    $("moreBox").hidden = st.pays.length >= total;
+  }
+  function renderAll() { renderPlan(); renderAlerts(); renderManage(); renderHistory(); $("dataCard").hidden = false; }
+
+  // PART 7: data stays after expiry and the member can always take it with them.
+  async function exportMyData(btn) {
+    busy(btn, true, "กำลังเตรียมไฟล์…");
+    var data = {}, gold = null, note = null;
+    try {
+      for (var i = 0; i < localStorage.length; i++) {           // this account's keys only (kfp-storage namespace)
+        var k = localStorage.key(i);
+        if (!k || k.indexOf("__") === 0 || k.indexOf("sb-") === 0) continue;
+        var v = localStorage.getItem(k);
+        try { data[k] = JSON.parse(v); } catch (_) { data[k] = v; }
+      }
+      try { var r = await client().rpc("export_my_gold"); if (r.error) throw r.error; gold = r.data; }
+      catch (e) { note = /rate_limited/.test((e && e.message) || "") ? "ดาวน์โหลดพอร์ตทองบน Cloud บ่อยเกินไป ลองใหม่ใน 1 ชั่วโมง" : "ดึงพอร์ตทองบน Cloud ไม่ได้ในขณะนี้"; }
+      var u = window.kfpAuth.user() || {}, b = st.billing || {};
+      var file = { app: "Korea Finance Planner", exported_at: new Date().toISOString(),
+        account: { user_id: u.id, email: u.email, username: (window.kfpAuth.profile() || {}).username || null, plan: (b.entitlements || {}).plan || null },
+        device_data: data, cloud_gold: gold, note: note };
+      var blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "korea-finance-planner-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+      status("ดาวน์โหลดข้อมูลแล้ว" + (note ? " · " + esc(note) : ""), note ? "warn" : "ok");
+    } catch (_) { status("สร้างไฟล์ไม่สำเร็จ กรุณาลองใหม่", "bad"); }
+    busy(btn, false);
+  }
+
+  /* ------------------------------------------------------------ actions */
+  async function openPortal(btn, flow, extra) {
+    busy(btn, true, flow === "switch" ? "กำลังเปิดหน้ายืนยัน…" : "กำลังเปิด Stripe…");
+    var r = await callFn("create-portal", Object.assign({ flow: flow }, extra || {}));
+    if (r.status === 200 && r.body.url && goStripe(r.body.url)) return;
+    busy(btn, false); status(failMsg(r), "bad");
+    if (r.body.error === "subscription_ended" || r.body.error === "resume_first" || r.body.error === "not_switchable") refresh();
+  }
+  async function runAction(btn, action, extra) {
+    busy(btn, true, action === "cancel" ? "กำลังยกเลิก…" : "กำลังต่ออายุ…");
+    var r = await callFn("billing-action", Object.assign({ action: action }, extra || {}));
+    busy(btn, false);
+    if (r.status === 200) {
+      status(action === "cancel"
+        ? "<b>ยกเลิกการต่ออายุแล้ว</b> ใช้งานได้ถึง " + esc(day(r.body.current_period_end)) + " · ไม่มีการตัดเงินอีก · เปลี่ยนใจได้จนถึงวันนั้น"
+        : "<b>เปิดต่ออายุอัตโนมัติแล้ว</b> · รอบถัดไปตัดเงินวันที่ " + esc(day(r.body.current_period_end)), "ok");
+      await refresh();
+      if (window.kfpPlan) window.kfpPlan.refresh();
+      return;
+    }
+    status(failMsg(r), "bad");
+    if (r.status === 409) refresh();
+  }
+  function askCancel(btn) {
+    var s = vm().sub, dlg = $("cancelDlg");
+    $("cancelFacts").innerHTML = [
+      "ใช้ " + esc(s.plan_name || planName(s.plan_id)) + " ได้ตามปกติถึง <b>" + esc(day(s.current_period_end)) + "</b>",
+      "ไม่มีการตัดเงินรอบถัดไป · ไม่คืนเงินส่วนที่เหลือของรอบนี้",
+      "หลังจากนั้นกลับเป็น Free · <b>ข้อมูลทั้งหมดยังอยู่</b>",
+      "เปลี่ยนใจได้ก่อนวันสิ้นสุดด้วยปุ่ม “ต่ออายุอัตโนมัติอีกครั้ง”"
+    ].map(function (t) { return "<li>" + t + "</li>"; }).join("");
+    $("cancelReason").value = "";
+    dlg.returnValue = "";
+    dlg.onclose = function () {
+      if (dlg.returnValue === "confirm") { var f = $("cancelReason").value; runAction(btn, "cancel", f ? { feedback: f } : null); }
+      else btn.focus();
+    };
+    if (dlg.showModal) dlg.showModal(); else if (window.confirm("ยกเลิกการต่ออายุอัตโนมัติ?")) runAction(btn, "cancel");
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("[data-action],[data-portal-flow],[data-switch],#moreBtn,#linkEmailBtn,#retryBtn,#loginBtn,#exportMyData");
+    if (!t || t.disabled) return;
+    if (t.id === "exportMyData") return exportMyData(t);
+    if (t.id === "moreBtn") return loadMore(t);
+    if (t.id === "linkEmailBtn" && window.kfpAuth) return window.kfpAuth.open("account");
+    if (t.id === "loginBtn" && window.kfpAuth) return window.kfpAuth.open("login");
+    if (t.id === "retryBtn") return start();
+    if (t.dataset.action === "cancel") return askCancel(t);
+    if (t.dataset.action === "resume") return runAction(t, "resume");
+    if (t.dataset.portalFlow) return openPortal(t, t.dataset.portalFlow);
+    if (t.dataset.switch) { var p = t.dataset.switch.split(":"); return openPortal(t, "switch", { plan: p[0], interval: p[1] }); }
+  });
+  async function loadMore(btn) {
+    busy(btn, true, "กำลังโหลด…");
+    try { await loadPayments(false); renderHistory(); } catch (_) { status("โหลดประวัติไม่สำเร็จ กรุณาลองใหม่", "bad"); }
+    busy(btn, false);
+  }
+
+  /* ------------------------------------------------------------ lifecycle */
+  async function refresh() {
+    try { await Promise.all([loadBilling(), loadPayments(true)]); renderAll(); } catch (_) {}
+  }
+  function showGuest() {
+    $("planCard").setAttribute("aria-busy", "false");
+    $("planBody").innerHTML = '<div class="center" id="guestBox"><p>เข้าสู่ระบบเพื่อดูแพ็กเกจ วันต่ออายุ และใบเสร็จของคุณ</p>' +
+      '<div class="row" style="justify-content:center"><button class="btn gold" type="button" id="loginBtn">เข้าสู่ระบบ / สมัครสมาชิก</button>' +
+      '<a class="btn" href="pricing.html">ดูแพ็กเกจ</a></div></div>';
+    $("whoami").textContent = "ยังไม่ได้เข้าสู่ระบบ";
+  }
+  function showError(msg) {
+    $("planCard").setAttribute("aria-busy", "false");
+    $("planBody").innerHTML = '<div class="center" id="errorBox"><p>' + msg + '</p><button class="btn" type="button" id="retryBtn">ลองใหม่</button></div>';
+  }
+  var started = false;
+  async function start() {
+    var u = window.kfpAuth && window.kfpAuth.user && window.kfpAuth.user();
+    if (!u) return;
+    started = true; st.uid = u.id;
+    $("whoami").textContent = u.email && !/@kfp\.example\.com$/i.test(u.email) ? u.email : "บัญชี " + ((window.kfpAuth.profile() || {}).username || "");
+    try {
+      await Promise.all([loadBilling(), loadCatalog(), loadPayments(true)]);
+      st.loaded = true; renderAll();
+    } catch (e) {
+      var missing = e && (e.code === "PGRST202" || /get_my_billing/.test(e.message || ""));
+      showError(missing ? "ระบบการชำระเงินยังไม่เปิดให้บริการ (ผู้ดูแลยังไม่ได้รัน migration)" : "โหลดข้อมูลการชำระเงินไม่สำเร็จ · ตรวจอินเทอร์เน็ตแล้วลองใหม่");
+    }
+  }
+  // Back from Stripe portal: show a note, then re-read the server (the webhook may still be on its way).
+  (function handleReturn() {
+    var q = new URLSearchParams(location.search), portal = q.get("portal");
+    if (!portal) return;
+    history.replaceState(null, "", location.pathname + location.hash);
+    if (portal === "updated") {
+      status("<b>เปลี่ยนแพ็กเกจเรียบร้อย</b> · ระบบกำลังอัปเดตสิทธิ์ (ไม่กี่วินาที)", "ok");
+      [3000, 8000, 15000].forEach(function (ms) { setTimeout(function () { if (started) refresh().then(function () { if (window.kfpPlan) window.kfpPlan.refresh(); }); }, ms); });
+    } else status("อัปเดตข้อมูลล่าสุดจาก Stripe แล้ว", "info");
+  })();
+
+  if (!cfg.SUPABASE_URL || !window.supabase) showError("ยังไม่ได้ตั้งค่าระบบสมาชิก");
+  else if (KS && KS.isPreview && KS.isPreview()) showGuest();
+  else {
+    window.addEventListener("kfp:auth-ready", function () { if (!started) start(); });
+    if (window.kfpAuth && window.kfpAuth.user && window.kfpAuth.user()) start();
+    setTimeout(function () { if (!started) showError("เชื่อมต่อบัญชีไม่สำเร็จ · กรุณาเข้าสู่ระบบอีกครั้ง"); }, 12000);
+  }
+})();
+</script>
+<script src="kfp-access.js?v=20261114-saas13"></script>
+</body>
+</html>

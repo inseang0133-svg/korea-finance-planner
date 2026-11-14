@@ -306,8 +306,8 @@
       (mode_ === "hist" ? '<div class="tl-mini"><span>📊 ' + monthDays + ' วัน</span><b>' + fmt(monthTotal) + ' ₩</b></div>' : "");
   }
 
-  function monthNav(ym, nextOk, key) {
-    return '<div class="tl-mnav"><button type="button" data-act="' + key + '-prev" aria-label="เดือนก่อน">‹</button><b>' + ymLabel(ym) + '</b>' +
+  function monthNav(ym, nextOk, key, prevOk) {
+    return '<div class="tl-mnav"><button type="button" data-act="' + key + '-prev" aria-label="เดือนก่อน"' + (prevOk === false ? " disabled" : "") + '>‹</button><b>' + ymLabel(ym) + '</b>' +
       '<button type="button" data-act="' + key + '-next" aria-label="เดือนถัดไป"' + (nextOk ? "" : " disabled") + ">›</button></div>";
   }
 
@@ -432,7 +432,12 @@
   function renderExpenseList() {
     var ex = S.ex, isK = S.cur === "KRW", list = monthExpenses();
     var nextOk = addMonth(ex.month, 1) <= ymOf(todayStr());
-    $("exMonth").innerHTML = monthNav(ex.month, nextOk, "exm");
+    // Phase 5: Free plan sees only the last N months (plans.limits.expense_history_months); data is kept
+    var cutoff = typeof window.kfpHistoryCutoff === "function" ? window.kfpHistoryCutoff("expense_history_months") : null;
+    if (cutoff && ex.month < cutoff) ex.month = cutoff;
+    var prevOk = !cutoff || addMonth(ex.month, -1) >= cutoff;
+    $("exMonth").innerHTML = monthNav(ex.month, nextOk, "exm", prevOk) +
+      (prevOk ? "" : '<p class="tl-limit">🔒 ดูรายจ่ายย้อนหลังได้ถึง ' + ymLabel(cutoff) + ' · ข้อมูลเก่ายังอยู่ครบ · <a href="pricing.html#plus">ดูทั้งหมดด้วย Finance Plus</a></p>');
     var seg = $("exSeg"); if (seg) { seg.setAttribute("data-on", ex.tab); [].forEach.call(seg.querySelectorAll("button"), function (b) { b.classList.toggle("on", b.dataset.v === ex.tab); }); }
     var tk = 0, tt = 0; list.forEach(function (e) { tk += num(e.krw); tt += num(e.thb); });
     var h = "";
@@ -574,7 +579,7 @@
       case "set-reset": store(K_SET, DEFAULT_SET); toast("↺ คืนค่าเริ่มต้นแล้ว"); render(); break;
       /* รายจ่าย */
       case "ex-tab": S.ex.tab = v; S.ex.delId = null; renderExpenseList(); break;
-      case "exm-prev": S.ex.month = addMonth(S.ex.month, -1); S.ex.delId = null; renderExpenseList(); break;
+      case "exm-prev": if (t.disabled) break; S.ex.month = addMonth(S.ex.month, -1); S.ex.delId = null; renderExpenseList(); break;
       case "exm-next": S.ex.month = addMonth(S.ex.month, 1); S.ex.delId = null; renderExpenseList(); break;
       case "ex-save": saveExpense(); break;
       case "ex-cancel": S.ex.editing = null; fillExpenseForm(); renderExpenseList(); break;

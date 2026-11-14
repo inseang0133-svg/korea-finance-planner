@@ -16,15 +16,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=20261019-news2">
     <link rel="stylesheet" href="theme.css?v=20261109-fix2">
-    <link rel="stylesheet" href="tools.css?v=20261112-tools1">
+    <link rel="stylesheet" href="tools.css?v=20261113-saas5">
     
     <link rel="manifest" href="manifest.json">
+    <!-- Phase 3: storage isolation must run before every other script -->
+    <script src="supabase-config.js?v=20261114-saas13"></script>
+    <script src="kfp-demo-data.js?v=20261113-saas5"></script>
+    <script src="kfp-storage.js?v=20261114-saas13"></script>
+    <link rel="stylesheet" href="kfp-access.css?v=20261114-saas13">
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js?v=20261018-uifix1"></script>
-    <script src="auth.js?v=20261030-glass1"></script>
-    <script src="pwa-persistence.js?v=20261018-uifix1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+    <script src="auth.js?v=20261114-saas13"></script>
+    <script src="pwa-persistence.js?v=20261113-saas5"></script>
 </head>
 <body>
 
@@ -82,7 +86,7 @@
             </button>
         </div>
         <div class="tool-row" id="toolRow">
-            <button type="button" class="tool-btn tool-work" data-open-tool="work" aria-haspopup="dialog">
+            <button type="button" class="tool-btn tool-work" data-open-tool="work" aria-haspopup="dialog" data-feature="work_records">
                 <span class="ti" aria-hidden="true">🗂️</span> บันทึกการเข้างาน
             </button>
             <button type="button" class="tool-btn tool-exp" data-open-tool="expense" aria-haspopup="dialog">
@@ -100,7 +104,7 @@
     </div>
     <div class="results" id="results"></div>
 
-    <div class="card">
+    <div class="card" data-feature="advanced_statistics">
         <h2>🥧 สัดส่วนการเงิน</h2>
         <div class="pie-chart-container">
             <canvas id="pieChart"></canvas>
@@ -131,14 +135,18 @@
 
     <div class="card">
         <h2>📊 สถิติการเงิน</h2>
-        <button onclick="exportExcel()" style="margin-bottom: 20px;">📁 Export Excel</button>
+        <button onclick="exportExcel()" style="margin-bottom: 20px;" data-feature="export">📁 Export Excel</button>
         
         <div class="stats-grid" id="statsGrid" style="margin-top:20px;"></div>
 
+        <div data-feature="advanced_statistics">
         <h3 class="chart-title">💵 รายได้แต่ละเดือน <small>(บาท)</small></h3>
         <div class="chart-box"><canvas id="salaryChart"></canvas></div>
+        </div>
 
-        <div id="savingChartBlock">
+        <div class="kfp-locked-note" data-feature-off="advanced_statistics">📈 <b>กราฟรายได้ เงินเก็บสะสม และสัดส่วนการเงิน</b> มีในแพ็กเกจ Finance Plus · <a href="pricing.html#plus">ดูแพ็กเกจ</a></div>
+
+        <div id="savingChartBlock" data-feature="advanced_statistics">
         <h3 class="chart-title" id="savingChartTitle">📈 เงินเก็บสะสม <small>(บาท)</small></h3>
         <div class="chart-box"><canvas id="savingChart"></canvas></div>
         </div>
@@ -233,14 +241,15 @@
     </div>
 
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<script src="kfp-config.js?v=20261109-fix2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="kfp-config.js?v=20261114-saas13"></script>
 <script src="script.js?v=20261109-fix2"></script>
 <script src="alloc-ui.js?v=20261109-fix2"></script>
 <script src="ui-charts.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
-<script src="tools-ui.js?v=20261112-tools1"></script>
-<script src="floating-nav.js?v=20261029-fab2" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง"></script>
+<script src="tools-ui.js?v=20261113-saas5"></script>
+<script src="kfp-access.js?v=20261114-saas13"></script>
+<script src="floating-nav.js?v=20261113-saas5" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง" data-feature="gold_portfolio"></script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {

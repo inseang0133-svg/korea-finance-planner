@@ -21,6 +21,7 @@
   var TARGET = (script && script.dataset.target) || "index.html";
   var ICON = (script && script.dataset.icon) || "🏠";
   var LABEL = (script && script.dataset.label) || "นำทาง";
+  var FEATURE = (script && script.dataset.feature) || "";   // Phase 5: hidden when the plan lacks this feature
   var POS_KEY = "kfp_fab_pos_v1";
 
   var SIZE = 60;
@@ -77,6 +78,7 @@
   document.head.appendChild(style);
 
   var btn = document.createElement("button");
+  if (FEATURE) btn.setAttribute("data-feature", FEATURE);
   btn.type = "button";
   btn.className = "kfp-fab";
   btn.setAttribute("aria-label", LABEL);

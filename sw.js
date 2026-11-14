@@ -1,11 +1,11 @@
-const CACHE_NAME = 'korea-finance-pwa-20261112-tools1';
-const API_CACHE_NAME = 'korea-finance-api-20261112-tools1';
+const CACHE_NAME = 'korea-finance-pwa-20261114-saas13';
+const API_CACHE_NAME = 'korea-finance-api-20261114-saas13';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
   'gold.html', 'gold.css', 'gold.js', 'pwa-persistence.js',
-  'auth.js', 'supabase-config.js', 'floating-nav.js',
-  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js'
+  'auth.js', 'auth-callback.html', 'supabase-config.js', 'floating-nav.js',
+  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js', 'kfp-storage.js', 'kfp-demo-data.js', 'kfp-access.js', 'kfp-access.css', 'pricing.html', 'account.html', 'kfp-gold-sync.js'
 ];
 
 const API_HOSTS = new Set([
@@ -61,6 +61,8 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   const request=event.request;
   if(!isGet(request))return;
+  // Admin Console is never cached (always the live version, nothing kept on shared devices).
+  try{ if(/\/admin\.(html|js|css)$/.test(new URL(request.url).pathname)) return; }catch(_){}
 
   // Local HTML/CSS/JS: NETWORK FIRST. This prevents an installed PWA from
   // continuing to run an old gold.js/gold.css after a deployment.

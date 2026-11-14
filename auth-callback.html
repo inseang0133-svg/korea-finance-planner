@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="robots" content="noindex">
+<title>ยืนยันบัญชี · Korea Finance Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06070a;--gold:#e8be46;--gold-light:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--green:#3ddc97;--red:#ff6b7a;--ease:cubic-bezier(.22,1,.36,1)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(70% 50% at 20% 0%,rgba(232,190,70,.14),transparent 60%),radial-gradient(60% 50% at 100% 100%,rgba(61,220,151,.07),transparent 60%),var(--bg);color:var(--text);font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif}
+.card{width:min(440px,100%);padding:28px 22px 24px;border-radius:26px;text-align:center;background:linear-gradient(160deg,rgba(30,32,42,.9),rgba(13,14,20,.94));border:1px solid rgba(232,190,70,.45);box-shadow:0 30px 70px -20px rgba(0,0,0,.8),0 0 50px -10px rgba(232,190,70,.25);animation:in .5s var(--ease) both}
+@keyframes in{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.ico{font-size:46px;line-height:1;filter:drop-shadow(0 0 18px rgba(232,190,70,.55))}
+h1{margin:14px 0 8px;font-size:22px;font-weight:600;color:var(--gold-light)}
+p{margin:0 0 18px;color:var(--muted);line-height:1.65}
+label{display:block;text-align:left;margin:12px 0 6px;color:var(--gold-light);font-size:14px}
+input{width:100%;min-height:48px;padding:12px 14px;border-radius:14px;border:1px solid #2d2d31;background:#16171c;color:#fff;font:inherit;font-size:16px;outline:none}
+input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(232,190,70,.22)}
+.btn{display:block;width:100%;margin-top:16px;min-height:50px;padding:12px;border:0;border-radius:16px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 14px 30px -14px rgba(232,190,70,.9);text-decoration:none;line-height:26px}
+.btn:disabled{opacity:.6;cursor:wait}
+.msg{min-height:22px;margin-top:12px;font-size:14px}.msg.ok{color:var(--green)}.msg.err{color:var(--red)}
+.spin{width:38px;height:38px;margin:6px auto;border-radius:50%;border:3px solid rgba(232,190,70,.2);border-top-color:var(--gold);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.card,.spin{animation:none}}
+</style>
+</head>
+<body>
+<main class="card" id="card" aria-live="polite">
+  <div class="spin" aria-hidden="true"></div>
+  <h1>กำลังตรวจสอบลิงก์…</h1>
+  <p>กรุณารอสักครู่</p>
+</main>
+
+<script src="supabase-config.js?v=20261113-saas3"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script>
+(() => {
+  "use strict";
+  const card = document.getElementById("card");
+  const HOME = "index.html";
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+  const show = (ico, title, text, extra = "") => {
+    card.innerHTML = `<div class="ico" aria-hidden="true">${ico}</div><h1>${esc(title)}</h1><p>${esc(text)}</p>${extra}`;
+  };
+  const homeBtn = (label = "เข้าใช้งาน") => `<a class="btn" href="${HOME}">${esc(label)}</a>`;
+
+  // Read the link parameters BEFORE supabase-js consumes and clears the hash.
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(location.search);
+  const type = hash.get("type") || query.get("type") || "";
+  const errCode = hash.get("error_code") || query.get("error_code") || "";
+  const errDesc = hash.get("error_description") || query.get("error_description") || "";
+
+  if (errCode || hash.get("error")) {
+    const expired = /expired|otp_expired/i.test(errCode + errDesc);
+    show("⚠️", expired ? "ลิงก์หมดอายุแล้ว" : "ลิงก์ใช้ไม่ได้",
+      expired ? "ลิงก์ในอีเมลใช้ได้ครั้งเดียวและมีอายุจำกัด กรุณาขอลิงก์ใหม่จากหน้าเข้าสู่ระบบ" : (errDesc || "กรุณาลองขอลิงก์ใหม่"),
+      homeBtn("กลับหน้าหลัก"));
+    return;
+  }
+
+  const CFG = window.KFP_SUPABASE_CONFIG || {};
+  if (!window.supabase?.createClient || !CFG.SUPABASE_URL) {
+    show("⚠️", "เชื่อมต่อไม่ได้", "ไม่สามารถโหลดระบบบัญชีได้ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่", homeBtn("กลับหน้าหลัก"));
+    return;
+  }
+  const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
+
+  let handled = false;
+  function showReset() {
+    handled = true;
+    show("🔑", "ตั้งรหัสผ่านใหม่", "ตั้งรหัสผ่านใหม่สำหรับบัญชีของคุณ",
+      `<label for="p1">รหัสผ่านใหม่</label><input id="p1" type="password" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัว มีตัวอักษรและตัวเลข">
+       <label for="p2">ยืนยันรหัสผ่านใหม่</label><input id="p2" type="password" autocomplete="new-password">
+       <button class="btn" id="save" type="button">💾 บันทึกรหัสผ่านใหม่</button><div class="msg" id="msg" role="status"></div>`);
+    const p1 = document.getElementById("p1"), p2 = document.getElementById("p2"), btn = document.getElementById("save"), msg = document.getElementById("msg");
+    p1.focus();
+    const err = t => { msg.textContent = t; msg.className = "msg err"; };
+    const save = async () => {
+      const a = p1.value, b = p2.value;
+      if (a.length < 8) return err("รหัสผ่านต้องมีอย่างน้อย 8 ตัว");
+      if (!/[A-Za-z]/.test(a) || !/[0-9]/.test(a)) return err("รหัสผ่านต้องมีทั้งตัวอักษรและตัวเลข");
+      if (a !== b) return err("ยืนยันรหัสผ่านไม่ตรงกัน");
+      btn.disabled = true; btn.textContent = "⏳ กำลังบันทึก...";
+      const { error } = await sb.auth.updateUser({ password: a });
+      if (error) { btn.disabled = false; btn.textContent = "💾 บันทึกรหัสผ่านใหม่"; return err(error.message); }
+      show("✅", "ตั้งรหัสผ่านใหม่แล้ว", "คุณเข้าสู่ระบบอยู่แล้ว ใช้งานต่อได้เลย", homeBtn());
+    };
+    btn.onclick = save;
+    p2.addEventListener("keydown", e => { if (e.key === "Enter") save(); });
+  }
+
+  function showDone(session) {
+    if (handled) return;
+    handled = true;
+    if (type === "email_change") {
+      show("🔗", "ยืนยันอีเมลใหม่แล้ว", `บัญชีของคุณใช้อีเมล ${session?.user?.email || "ใหม่"} แล้ว · ข้อมูลและแพ็กเกจเดิมยังอยู่ครบ`, homeBtn());
+    } else {
+      show("🎉", "ยืนยันอีเมลสำเร็จ", "บัญชีของคุณพร้อมใช้งานแล้ว · เริ่มต้นที่แพ็กเกจ Free", homeBtn("เข้าสู่หน้าหลัก"));
+    }
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") return showReset();
+    if (type === "recovery" && session) return showReset();
+    if ((event === "SIGNED_IN" || event === "USER_UPDATED" || event === "INITIAL_SESSION") && session) {
+      setTimeout(() => { if (!handled) showDone(session); }, 50);
+    }
+  });
+
+  (async () => {
+    // PKCE links (?code=) only work in the same browser that requested them.
+    const code = query.get("code");
+    if (code) {
+      const { error } = await sb.auth.exchangeCodeForSession(code);
+      if (error) {
+        show("⚠️", "เปิดลิงก์ในเบราว์เซอร์อื่น", "กรุณาเปิดลิงก์นี้ในเบราว์เซอร์/เครื่องเดียวกับที่ใช้สมัคร หรือขอลิงก์ใหม่", homeBtn("กลับหน้าหลัก"));
+        return;
+      }
+    }
+    setTimeout(async () => {
+      if (handled) return;
+      const { data } = await sb.auth.getSession();
+      if (data?.session) { if (type === "recovery") showReset(); else showDone(data.session); }
+      else show("ℹ️", "ไม่พบข้อมูลลิงก์", "ลิงก์นี้อาจถูกใช้ไปแล้ว ลองเข้าสู่ระบบได้เลย", homeBtn("ไปหน้าเข้าสู่ระบบ"));
+    }, 1500);
+  })();
+})();
+</script>
+</body>
+</html>

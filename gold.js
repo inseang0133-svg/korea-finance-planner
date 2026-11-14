@@ -94,7 +94,9 @@ function loadLots(){
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
   catch { return []; }
 }
-function saveLots(lots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(lots)); }
+// Phase 9: every change is pushed to the Premium-only Cloud table by kfp-gold-sync.js
+const kfpGoldChanged = () => { try { window.kfpGoldSync && window.kfpGoldSync.changed(); } catch(_){} };
+function saveLots(lots){ localStorage.setItem(STORAGE_KEY, JSON.stringify(lots)); kfpGoldChanged(); }
 
 function loadHistory(){
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
@@ -106,7 +108,7 @@ function loadSettings(){
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); }
   catch { return {}; }
 }
-function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+function saveSettings(s){ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); kfpGoldChanged(); }
 
 function unitToGrams(quantity, unit){
   if (!Number.isFinite(quantity)) return 0;
@@ -1881,10 +1883,64 @@ function exportData(){
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
+// Phase 12 · Backup / Restore (PART 10): restore from a file made by "Export", or undo the last
+// replacement (Cloud choice / restore) using the copy kept in __kfp_gold_backup_v1.
+// Formulas are untouched — only the saved lots/settings are replaced, then recomputed as usual.
+const GOLD_BACKUP_KEY="__kfp_gold_backup_v1";
+function cleanImportedLots(arr){
+  if(!Array.isArray(arr)||arr.length>2000) return null;
+  const out=[];
+  for(const l of arr){
+    if(!l||typeof l!=="object"||Array.isArray(l)) return null;
+    const grams=Number(l.grams), cost=Number(l.costThb);
+    if(!Number.isFinite(grams)||grams<0||!Number.isFinite(cost)||cost<0) return null;
+    const lot=Object.assign({},l,{grams,costThb:cost});
+    lot.id=(typeof l.id==="string"&&l.id.length>=1&&l.id.length<=100)?l.id:("r"+Date.now().toString(36)+out.length);
+    if(lot.note!=null) lot.note=String(lot.note).slice(0,500);
+    out.push(lot);
+  }
+  return out;
+}
+function keepBackup(from){
+  try{ localStorage.setItem(GOLD_BACKUP_KEY,JSON.stringify({at:new Date().toISOString(),from,lots:loadLots(),settings:loadSettings()})); }catch(_){}
+}
+function applyRestored(lots,settings){
+  if(settings&&typeof settings==="object"&&!Array.isArray(settings)) saveSettings(Object.assign(loadSettings(),settings));
+  saveLots(lots);
+  renderPortfolio();renderLots();renderChart();updateUndoButton();
+}
+function importData(file){
+  if(!file) return;
+  if(file.size>2*1024*1024){alert("ไฟล์ใหญ่เกินไป (สูงสุด 2 MB)");return;}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    let data=null; try{ data=JSON.parse(String(reader.result||"")); }catch(_){}
+    const lots=cleanImportedLots(Array.isArray(data)?data:(data&&data.lots));
+    if(!lots){alert("ไฟล์นี้ไม่ใช่ไฟล์ Export พอร์ตทองที่ถูกต้อง");return;}
+    if(!confirm(`กู้คืน ${lots.length} รอบจากไฟล์นี้?\nข้อมูลปัจจุบัน (${loadLots().length} รอบ) จะถูกแทนที่ และเก็บสำรองไว้ — กด "ย้อนกลับ" ได้`)) return;
+    keepBackup("before-restore");
+    applyRestored(lots,data&&!Array.isArray(data)?data.settings:null);
+  };
+  reader.readAsText(file);
+}
+function readBackup(){ try{ const b=JSON.parse(localStorage.getItem(GOLD_BACKUP_KEY)||"null"); return b&&Array.isArray(b.lots)?b:null; }catch(_){ return null; } }
+function updateUndoButton(){
+  const b=readBackup(), btn=$("undoGoldBtn"); if(!btn) return;
+  btn.hidden=!b;
+  if(b) btn.title=`ย้อนกลับไปข้อมูล ${b.lots.length} รอบ (บันทึกไว้ ${new Date(b.at).toLocaleString("th-TH")})`;
+}
+function undoRestore(){
+  const b=readBackup(); if(!b) return;
+  const lots=cleanImportedLots(b.lots); if(!lots){alert("ข้อมูลสำรองเสียหาย");return;}
+  if(!confirm(`ย้อนกลับไปข้อมูล ${lots.length} รอบที่สำรองไว้เมื่อ ${new Date(b.at).toLocaleString("th-TH")}?\n(ข้อมูลปัจจุบันจะถูกสำรองแทน กดย้อนกลับซ้ำได้)`)) return;
+  keepBackup("before-undo");
+  applyRestored(lots,b.settings);
+}
+
 function clearAll(){
   if(!loadLots().length){alert("ยังไม่มีข้อมูลให้ลบ");return;}
   if(confirm("ต้องการลบรายการซื้อทองทั้งหมดในหน้านี้ใช่หรือไม่?")){
-    localStorage.removeItem(STORAGE_KEY);renderPortfolio();renderLots();renderChart();
+    localStorage.removeItem(STORAGE_KEY);kfpGoldChanged();renderPortfolio();renderLots();renderChart();
   }
 }
 
@@ -2156,6 +2212,13 @@ function setup(){
   initNews();
   $("exportGoldBtn").addEventListener("click",exportData);
   $("clearGoldBtn").addEventListener("click",clearAll);
+  if($("importGoldBtn")){
+    $("importGoldBtn").addEventListener("click",()=>$("importGoldFile").click());
+    $("importGoldFile").addEventListener("change",e=>{ importData(e.target.files&&e.target.files[0]); e.target.value=""; });
+    $("undoGoldBtn").addEventListener("click",undoRestore);
+    updateUndoButton();
+    window.addEventListener("kfp:gold-sync",updateUndoButton);
+  }
 
   document.querySelectorAll(".simulate-btn").forEach(btn=>{
     btn.addEventListener("click",()=>simulate(Number(btn.dataset.percent)));

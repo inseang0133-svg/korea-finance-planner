@@ -1,4 +1,6 @@
--- Korea Finance Planner - Supabase database
+-- Korea Finance Planner - Supabase database (ORIGINAL schema, kept as-is)
+-- SaaS upgrade: after this file, run every file in supabase/migrations/ in name order.
+-- See docs/SETUP.md.
 -- Run this entire file once in Supabase SQL Editor.
 -- IMPORTANT: the browser uses only the Publishable/anon key, never service_role.
 

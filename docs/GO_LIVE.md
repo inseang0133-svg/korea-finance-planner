@@ -50,14 +50,19 @@ for u in https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supa
 ```
   แล้วแก้ `<script src="…" integrity="sha384-…" crossorigin="anonymous">` ใน `index.html`, `gold.html`, `pricing.html`, `account.html`, `admin.html`, `auth-callback.html` (ทดสอบทุกหน้าว่ายังโหลดได้)
 - [ ] `supabase-config.js` ชี้ production (publishable key เท่านั้น)
-- [ ] อัปโหลดเว็บทั้งหมด → เปิดเว็บด้วย PWA ที่ติดตั้งไว้ ตรวจว่าได้เวอร์ชันใหม่ (`sw.js` cache `…-saas12`)
+- [ ] อัปโหลดเว็บทั้งหมด → เปิดเว็บด้วย PWA ที่ติดตั้งไว้ ตรวจว่าได้เวอร์ชันใหม่ (`sw.js` cache `…-saas13`)
 - [ ] หน้า Privacy Policy / Terms: เก็บอะไร (อีเมล ข้อมูลการเงินที่ผู้ใช้กรอก ชื่อหน้า/ฟีเจอร์ที่ใช้) · ชำระผ่าน Stripe · การลบบัญชี · ติดต่อ (ปรึกษากฎหมาย PDPA/PIPA)
 
 ## 4. Stripe (Live mode)
-- [ ] ข้อจำกัดประเทศของบัญชี Stripe (SAAS_PLAN ข้อ 9) · Business details + Terms URL
-- [ ] Customer portal: Cancel at period end · Switch plans (`kfp_plus`, `kfp_premium` ทุกราคา) · Update payment methods · Invoice history
-- [ ] Emails: renewal reminders (แจ้งก่อนตัดเงิน 7 วัน) · failed payment · receipts
-- [ ] Webhook endpoint production + 8 events (SETUP Phase 7) · Signing secret ตรงกับ `STRIPE_WEBHOOK_SECRET`
+บัญชี Stripe `planner` (`acct_1UawqTFuf3NEqdjZ`, ประเทศ TH, Live, รับเงินได้ + ผูกกสิกรไทยแล้ว) — ตั้งผ่าน Stripe connector เมื่อ 14/11/2026:
+- [x] Products `kfp_plus` (Finance Plus) · `kfp_premium` (Finance Premium) + 6 Prices ตรงกับ `plan_prices`
+      (฿129/เดือน · ฿1,290/ปี · ₩5,900/เดือน · ฿199/เดือน · ฿1,990/ปี · ₩8,900/เดือน · lookup_key `kfp_<plan>_<interval>_<cur>`)
+- [x] Customer portal `bpc_1Ubc3LFuf3NEqdjZJ7Qod8V1` (default): Cancel at period end + เหตุผล · Switch plans ทุกราคา (`always_invoice` = อัปเกรดเก็บส่วนต่างทันที) · Update payment methods · Invoice history
+- [x] Webhook `we_1Ubc3WFuf3NEqdjZnQeha12D` → `https://yelkgtddtuugzoyzvqug.supabase.co/functions/v1/stripe-webhook` · API 2024-06-20 · 8 events
+- [ ] **หลัง install_all.sql:** SQL Editor (production) → รัน `supabase/stripe_live_prices.sql` (ผูก Price id → ไม่สร้างราคาซ้ำ · ต้องได้ 6 แถว)
+- [ ] Secrets: `STRIPE_SECRET_KEY` = Dashboard → Developers → API keys → Secret key (`sk_live_…` หรือสร้าง Restricted key) · `STRIPE_WEBHOOK_SECRET` = Developers → Webhooks → endpoint ด้านบน → Signing secret → Reveal
+- [ ] ข้อจำกัดประเทศของบัญชี Stripe (SAAS_PLAN ข้อ 9) · Business details: Support email + Terms/Privacy URL (ใส่ใน portal ได้ภายหลัง)
+- [ ] Emails (Settings → Billing → Subscriptions and emails / Customer emails): renewal reminders (แจ้งก่อนตัดเงิน 7 วัน) · failed payment · receipts — ตั้งได้ใน Dashboard เท่านั้น
 - [ ] ฐานข้อมูล production ต้อง**ไม่มี** id ของ Test mode (`plan_prices.provider_price_id`, `billing_customers`) — SETUP Phase 7 ข้อ 5
 - [ ] ทดลองซื้อจริง 1 ครั้งด้วยบัตรตัวเอง → refund → ตรวจ `payments`, `payment_refunds`, หน้า Billing
 

@@ -593,3 +593,14 @@ SRI ยังไม่ได้ใส่ (ต้องออกเน็ตเ�
 | — | ติดตั้งฐานข้อมูล | ต้องรัน 10 ไฟล์ทีละไฟล์ | **`supabase/install_all.sql`** ไฟล์เดียว (สร้างด้วย `tools/build-install-sql.sh`) · ทดสอบติดตั้งบนฐานข้อมูลว่าง + บัญชีเดิม: `tests/run-fresh-install.sh` → 18 ตาราง, ข้อมูลเดิมครบ, ทองย้ายแล้ว, security findings 0 |
 
 ไฟล์ที่แก้/เพิ่ม: `account.html`, `auth.js` (ประเทศ), `gold.html`, `gold.js`, `kfp-access.js` (gate ปุ่มใหม่ใน Preview), `supabase/migrations/20261114001100_security_hardening.sql` (+`export_my_gold`), `supabase/install_all.sql`, `tools/build-install-sql.sh`, `tests/run-fresh-install.sh`, `tests/sql/fresh_seed.sql`, `tests/sql/phase12_test.sql` (S7), `tests/e2e/phase12.test.js` (X7, X8), `tests/e2e/mock-supabase.js`, `docs/GO_LIVE.md` (ข้อ 0 ดูหน้าตาก่อน + git branch, ข้อ 1 ใช้ install_all.sql), เวอร์ชันไฟล์ `saas13`
+
+## Phase 16 — Smart Credit & Debt (16/11/2026)
+
+โมดูลใหม่สำหรับ Finance Premium (ลูกค้าบาทและวอนใช้ได้เท่ากัน) — ไม่แก้ระบบเดิม (auth, Stripe Checkout, localStorage keys, Cloud Sync)
+
+- หน้า `credit-debt.html` — แท็บ ภาพรวม / ฿ บาท / ₩ วอน · บัตร · ผ่อน · โอนหนี้ · ชำระ · ปฏิทิน · วิเคราะห์ · แผนปลดหนี้ · Export CSV/JSON
+- โหมด: full (Premium) · read_only (หมดอายุ/ระงับ — ดูและ export ได้ ข้อมูลไม่หาย) · locked (หน้าแนะนำ + Demo) · guest · offline (ข้อมูลล่าสุดในเครื่อง)
+- ฐานข้อมูล: migration `20261116001700_smart_debt.sql` — 7 ตาราง, RLS อ่านของตัวเองเท่านั้น, ไม่มีสิทธิ์เขียนจากเบราว์เซอร์, เขียนผ่าน RPC `debt_*` ที่ตรวจ Premium ที่ server ทุกครั้ง
+- จุดเข้าใช้งาน: การ์ดหน้าแรก, ลิงก์ในโปรไฟล์, แถวในหน้าราคา · เวอร์ชันไฟล์ `saas19`
+- เอกสาร: `docs/SMART-DEBT-{AUDIT,SPEC,DATABASE,ACCESS-CONTROL,TEST-REPORT}.md`
+- ขึ้น production แล้ว: migration (2 ส่วน, ตรวจโค้ดฟังก์ชันตรงกับที่ทดสอบ 30/30) · security report 0 · GitHub Pages `main`

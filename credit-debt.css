@@ -42,11 +42,11 @@ body{margin:0;background:var(--cd-bg);color:var(--cd-text);font-family:"Prompt",
 .cd-busy .cd-btn{pointer-events:none;opacity:.7}
 
 /* workspace + tabs */
-.cd-ws{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border-radius:16px;background:var(--cd-card);border:1px solid var(--cd-line);margin-bottom:14px;position:sticky;top:8px;z-index:20;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.cd-ws{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border-radius:16px;background:var(--cd-card);border:1px solid var(--cd-line);margin-bottom:14px;position:sticky;top:var(--cd-pin,72px);z-index:20;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:rgba(12,13,18,.94);box-shadow:0 8px 22px rgba(0,0,0,.45)}
 .cd-ws-t{appearance:none;border:0;background:transparent;color:var(--cd-muted);font:inherit;font-weight:600;font-size:15px;padding:9px 6px;border-radius:12px;cursor:pointer;min-height:48px;display:flex;flex-direction:column;align-items:center;line-height:1.2;transition:background .2s,color .2s}
 .cd-ws-t small{font-size:10px;font-weight:500;opacity:.75;letter-spacing:.08em}
 .cd-ws-t.on{background:linear-gradient(135deg,rgba(255,224,138,.22),rgba(232,190,70,.12));color:var(--cd-gold2);box-shadow:inset 0 0 0 1px rgba(232,190,70,.45)}
-.cd-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:4px 0 12px;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.cd-tabs{position:relative;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:4px 0 12px;padding-bottom:2px;-webkit-overflow-scrolling:touch}
 .cd-tabs::-webkit-scrollbar{display:none}
 .cd-tab{appearance:none;flex:0 0 auto;border:1px solid var(--cd-line);background:var(--cd-card);color:var(--cd-muted);font:inherit;font-size:14px;border-radius:12px;padding:8px 12px;min-height:44px;cursor:pointer;display:flex;align-items:center;gap:6px}
 .cd-tab small{font-size:10px;opacity:.6}
@@ -267,3 +267,7 @@ html.cd-noscroll,html.cd-noscroll body{overflow:hidden}
 
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(min-width:760px){.cd-tabs{flex-wrap:wrap;overflow:visible}}
+
+/* pinned workspace tabs sit just under the fixed OWNER/plan badge and the profile button (both ~50px tall) */
+:root{--cd-pin:72px}
+@media(max-width:600px){:root{--cd-pin:calc(max(8px, env(safe-area-inset-top)) + 60px)}}

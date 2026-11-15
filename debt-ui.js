@@ -133,7 +133,7 @@
   /* ------------------------------------------------------------ render: frame */
   function render() {
     if (!root) return;
-    var m = S.access.mode, html = '';
+    var m = S.access.mode, html = '', oldStrip = root.querySelector('.cd-tabs'), stripX = oldStrip ? oldStrip.scrollLeft : (S.stripX || 0);
     html += banner();
     if (m === 'loading') html += skeleton();
     else if (m === 'error') html += '<div class="cd-state cd-error" role="alert"><div class="cd-state-ico">⚠️</div><h3>โหลดข้อมูลไม่สำเร็จ</h3><p>' + esc(S.error) +
@@ -142,6 +142,18 @@
     else html += workspaceTabs() + '<div id="cdMain" class="cd-main">' + (S.ws === 'overview' ? overview() : workspace(S.ws)) + '</div>';
     root.innerHTML = html;
     root.setAttribute('data-mode', S.demo ? 'demo' : m);
+    var strip = root.querySelector('.cd-tabs');
+    if (strip) {
+      strip.scrollLeft = stripX;
+      var on = strip.querySelector('.cd-tab.on');
+      if (on) {                                          // only nudge when the chosen tab is cut off at an edge
+        var l = on.offsetLeft, r = l + on.offsetWidth;
+        if (l < strip.scrollLeft) strip.scrollLeft = Math.max(l - 8, 0);
+        else if (r > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = r - strip.clientWidth + 8;
+      }
+      S.stripX = strip.scrollLeft;
+      strip.addEventListener('scroll', function () { S.stripX = strip.scrollLeft; }, { passive: true });
+    }
     if (S.ws !== 'overview' && S.tab === 'analytics') drawCharts();
   }
   function skeleton() {

@@ -363,6 +363,35 @@ const addM = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const t
     await page.goto(`${BASE}/pricing.html`); await page.waitForTimeout(1200);
     ok((await txt(page, "body")).includes("Smart Credit & Debt"), "pricing lists the module under Premium");
 
+    console.log("D20 pinned workspace tabs sit under the badge + profile button; sub-tab strip keeps its place");
+    page = await newPage(browser, { width: 390, height: 844 });
+    await seed(page, member(), { "__mock_country": "TH", "__mock_plan_u-real": "premium", "__mock_admin_role": "owner" });
+    await open(page);
+    await page.evaluate(() => window.scrollTo(0, 900)); await page.waitForTimeout(300);
+    const box = await page.evaluate(() => {
+      const r = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
+      return { ws: r(".cd-ws"), badge: r("#kfpBadge"), prof: r("#kfpAuthButton") };
+    });
+    ok(box.ws && box.ws.top >= Math.max(box.badge ? box.badge.bottom : 0, box.prof ? box.prof.bottom : 0), "pinned tabs start below the badge and profile button (" + Math.round(box.ws.top) + "px)");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.$eval(".cd-tabs", e => { e.scrollLeft = e.scrollWidth; }); await page.waitForTimeout(100);
+    const before16 = await page.$eval(".cd-tabs", e => e.scrollLeft);
+    await page.click('[data-act="tab"][data-tab="planner"]'); await page.waitForTimeout(300);
+    const after16 = await page.$eval(".cd-tabs", e => e.scrollLeft);
+    ok(before16 > 50 && Math.abs(after16 - before16) < 30, "choosing แผนปลดหนี้ does not jump the strip back to บัตร (" + before16 + " → " + after16 + ")");
+    const vis16 = await page.$eval(".cd-tabs", e => { const on = e.querySelector(".cd-tab.on"); return on.offsetLeft >= e.scrollLeft - 1 && on.offsetLeft + on.offsetWidth <= e.scrollLeft + e.clientWidth + 1; });
+    ok(vis16, "chosen tab stays fully visible");
+    await page.$eval('[data-act="tab"][data-tab="calendar"]', e => e.click()); await page.waitForTimeout(300);
+    const cal16 = await page.$eval(".cd-tabs", e => { const on = e.querySelector(".cd-tab.on"); return { x: e.scrollLeft, vis: on.offsetLeft >= e.scrollLeft - 1 && on.offsetLeft + on.offsetWidth <= e.scrollLeft + e.clientWidth + 1 }; });
+    ok(cal16.vis && cal16.x > 50, "a half-hidden tab is nudged into view, never reset to the start (" + cal16.x + ")");
+    await shot(page, "d20-pinned", false);
+
+    console.log("D21 Admin Console has the home bubble back to index");
+    await page.goto(`${BASE}/admin.html`); await page.waitForTimeout(1500);
+    ok(await vis(page, ".kfp-fab"), "home bubble on admin page");
+    await page.click(".kfp-fab"); await page.waitForTimeout(1200);
+    ok(/index\.html$/.test(page.url()), "tapping it opens index.html");
+
     console.log("D19 desktop layout");
     page = await newPage(browser, { width: 1280, height: 900 }, false);
     await seed(page, member(), { "__mock_country": "KR", "__mock_plan_u-real": "free" });

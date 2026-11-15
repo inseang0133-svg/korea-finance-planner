@@ -187,13 +187,13 @@
   /* =========================================================
      PLAN VISIBILITY (Phase 5)
      ========================================================= */
-  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "planning", "monthly_digest", "export", "cloud_sync", "gold_portfolio"];
+  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "planning", "monthly_digest", "export", "cloud_sync", "gold_portfolio", "credit_debt"];
   var FEATURE_LABEL = {
     work_records: "บันทึกการเข้างาน", advanced_statistics: "สถิติการเงินและกราฟ", planning: "สัญญาจ้างเกาหลีและเป้าหมายเงินเก็บ", monthly_digest: "แจ้งเตือนสรุปรายเดือนแบบป๊อปอัพ", export: "Export ข้อมูล",
-    cloud_sync: "Cloud Sync", gold_portfolio: "พอร์ตทอง", salary_history: "ประวัติเงินเดือนทั้งหมด", expenses: "ประวัติรายจ่ายทั้งหมด"
+    cloud_sync: "Cloud Sync", gold_portfolio: "พอร์ตทอง", credit_debt: "Smart Credit & Debt (บัตรเครดิตและหนี้)", salary_history: "ประวัติเงินเดือนทั้งหมด", expenses: "ประวัติรายจ่ายทั้งหมด"
   };
   var FEATURE_PLAN = { work_records: "Finance Plus", advanced_statistics: "Finance Plus", planning: "Finance Plus", monthly_digest: "Finance Premium", export: "Finance Plus", cloud_sync: "Finance Plus",
-                       salary_history: "Finance Plus", expenses: "Finance Plus", gold_portfolio: "Finance Premium" };
+                       salary_history: "Finance Plus", expenses: "Finance Plus", gold_portfolio: "Finance Premium", credit_debt: "Finance Premium" };
   var ENT_CACHE_KEY = "__kfp_ent_cache_v1";          // per-account (namespaced by kfp-storage.js)
   var ENT_TIMEOUT_MS = 8000;
   var html = document.documentElement;
@@ -279,7 +279,7 @@
   }
 
   // ---- upgrade prompt (members without a feature) ----
-  function upgradeUrl(key) { return "pricing.html" + (key === "gold_portfolio" ? "#premium" : "#plus"); }
+  function upgradeUrl(key) { return "pricing.html" + (key === "gold_portfolio" || key === "credit_debt" ? "#premium" : "#plus"); }
   function requireFeature(key, options) {
     options = options || {};
     if (!requireAuth(options.action || FEATURE_LABEL[key] || key)) return false;

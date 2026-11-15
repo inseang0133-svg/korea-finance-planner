@@ -179,7 +179,7 @@
     var bal = card.opening_date && card.opening_date > asOf ? 0 : int(card.opening_balance_minor);
     var unbilled = 0, unbilledPrincipal = 0, plans = [];
     (data.installment_plans || []).forEach(function (p) {
-      if (p.card_id !== card.id) return;
+      if (p.card_id !== card.id || (p.purchase_date && p.purchase_date > asOf)) return;   // not bought yet at asOf
       var b = planBilled(p, liveRows(data, p.id), asOf);
       bal += b.billed; unbilled += b.unbilledAmount; unbilledPrincipal += b.unbilledPrincipal;
       plans.push(p);
@@ -272,7 +272,7 @@
     });
     var end = addDays(asOf, 30), ym = monthKey(asOf);
     (data.installment_plans || []).forEach(function (p) {
-      if (p.currency !== cur) return;
+      if (p.currency !== cur || (p.purchase_date && p.purchase_date > asOf)) return;
       var ps = planStatus(data, p, asOf);
       if (p.status === 'active' || p.status === 'paused') s.activePlans++;
       if (!p.card_id) { s.shopDebt += ps.remaining; s.overdue += ps.overdue || 0; }

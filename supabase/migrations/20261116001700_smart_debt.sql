@@ -1109,17 +1109,42 @@ $$;
 -- ---------------------------------------------------------------------
 -- 11. grants for the browser API (signed-in members only)
 -- ---------------------------------------------------------------------
-do $$ declare f text; begin
-  foreach f in array array['get_my_debt_access()', 'export_my_debt()', 'debt_save_card(jsonb)', 'debt_set_card_status(uuid, text, bigint)',
-                           'debt_delete_card(uuid)', 'debt_save_installment(jsonb)', 'debt_set_installment_status(uuid, text, bigint, date)',
-                           'debt_delete_installment(uuid)', 'debt_confirm_schedule(bigint, bigint)', 'debt_record_payment(jsonb)',
-                           'debt_cancel_payment(uuid)', 'debt_save_transfer(jsonb)', 'debt_set_transfer_status(uuid, text, bigint)',
-                           'debt_delete_transfer(uuid)', 'debt_add_adjustment(jsonb)', 'debt_cancel_adjustment(uuid)',
-                           'debt_save_payoff_plan(jsonb)', 'debt_delete_payoff_plan(uuid)'] loop
-    execute format('revoke all on function public.%s from public, anon', f);
-    execute format('grant execute on function public.%s to authenticated', f);
-  end loop;
-end $$;
+revoke all on function public.get_my_debt_access() from public, anon;
+grant execute on function public.get_my_debt_access() to authenticated;
+revoke all on function public.export_my_debt() from public, anon;
+grant execute on function public.export_my_debt() to authenticated;
+revoke all on function public.debt_save_card(jsonb) from public, anon;
+grant execute on function public.debt_save_card(jsonb) to authenticated;
+revoke all on function public.debt_set_card_status(uuid, text, bigint) from public, anon;
+grant execute on function public.debt_set_card_status(uuid, text, bigint) to authenticated;
+revoke all on function public.debt_delete_card(uuid) from public, anon;
+grant execute on function public.debt_delete_card(uuid) to authenticated;
+revoke all on function public.debt_save_installment(jsonb) from public, anon;
+grant execute on function public.debt_save_installment(jsonb) to authenticated;
+revoke all on function public.debt_set_installment_status(uuid, text, bigint, date) from public, anon;
+grant execute on function public.debt_set_installment_status(uuid, text, bigint, date) to authenticated;
+revoke all on function public.debt_delete_installment(uuid) from public, anon;
+grant execute on function public.debt_delete_installment(uuid) to authenticated;
+revoke all on function public.debt_confirm_schedule(bigint, bigint) from public, anon;
+grant execute on function public.debt_confirm_schedule(bigint, bigint) to authenticated;
+revoke all on function public.debt_record_payment(jsonb) from public, anon;
+grant execute on function public.debt_record_payment(jsonb) to authenticated;
+revoke all on function public.debt_cancel_payment(uuid) from public, anon;
+grant execute on function public.debt_cancel_payment(uuid) to authenticated;
+revoke all on function public.debt_save_transfer(jsonb) from public, anon;
+grant execute on function public.debt_save_transfer(jsonb) to authenticated;
+revoke all on function public.debt_set_transfer_status(uuid, text, bigint) from public, anon;
+grant execute on function public.debt_set_transfer_status(uuid, text, bigint) to authenticated;
+revoke all on function public.debt_delete_transfer(uuid) from public, anon;
+grant execute on function public.debt_delete_transfer(uuid) to authenticated;
+revoke all on function public.debt_add_adjustment(jsonb) from public, anon;
+grant execute on function public.debt_add_adjustment(jsonb) to authenticated;
+revoke all on function public.debt_cancel_adjustment(uuid) from public, anon;
+grant execute on function public.debt_cancel_adjustment(uuid) to authenticated;
+revoke all on function public.debt_save_payoff_plan(jsonb) from public, anon;
+grant execute on function public.debt_save_payoff_plan(jsonb) to authenticated;
+revoke all on function public.debt_delete_payoff_plan(uuid) from public, anon;
+grant execute on function public.debt_delete_payoff_plan(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------
 -- 12. security self-check: allowlist the new RPCs

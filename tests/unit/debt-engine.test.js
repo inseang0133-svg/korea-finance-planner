@@ -124,6 +124,8 @@ test('summary, calendar, trend', () => {
   assert.ok(ev.some(e => e.type === 'card_due' && e.date === '2026-11-14'));
   assert.ok(ev.some(e => e.type === 'installment' && e.date === '2026-11-01'));
   assert.ok(ev.some(e => e.type === 'installment_card' && e.date === '2026-11-14'));
+  d.installment_plans.forEach(p => { p.purchase_date = '2026-09-20'; });
+  assert.equal(D.summary(d, 'KRW', '2026-08-31').totalDebt, 0, 'nothing owed before the purchase / opening dates');
   const t = D.trend(d, 'KRW', 3, '2026-11-20');
   assert.deepEqual(t.map(x => x.month), ['2026-09', '2026-10', '2026-11']);
 });

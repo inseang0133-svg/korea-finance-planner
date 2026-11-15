@@ -75,7 +75,8 @@ html[data-feat-planning="0"] [data-feature~="planning"],
 html[data-feat-monthly_digest="0"] [data-feature~="monthly_digest"],
 html[data-feat-export="0"] [data-feature~="export"],
 html[data-feat-cloud_sync="0"] [data-feature~="cloud_sync"],
-html[data-feat-gold_portfolio="0"] [data-feature~="gold_portfolio"]{display:none!important}
+html[data-feat-gold_portfolio="0"] [data-feature~="gold_portfolio"],
+html[data-feat-credit_debt="0"] [data-feature~="credit_debt"]{display:none!important}
 /* data-feature-off = แสดงเฉพาะตอนไม่มีสิทธิ์ (ข้อความชวนอัปเกรด) */
 [data-feature-off]{display:none!important}
 html[data-feat-salary="0"] [data-feature-off~="salary"],
@@ -161,3 +162,21 @@ html[data-plan-state="loading"] body:has(#kfpGoldUpsell) .kfp-fab{display:none!i
 
 /* country decides the page (kfp-country.js): no ₩/฿ switch once a country is set */
 html[data-country] #modeSwitch{display:none!important}
+
+/* Smart Credit & Debt entry (index card + profile link) — Phase 16 */
+.kfp-debt-entry{display:flex;align-items:center;gap:12px;margin:12px 0 0;padding:12px 14px;border-radius:16px;text-decoration:none;color:#f5f2ea;min-height:56px;
+  background:linear-gradient(135deg,rgba(232,190,70,.16),rgba(74,163,255,.08) 60%,rgba(20,21,28,.9));border:1px solid rgba(232,190,70,.4);transition:transform .18s cubic-bezier(.22,1,.36,1),border-color .2s}
+.kfp-debt-entry:hover{border-color:#e8be46}
+.kfp-debt-entry:active{transform:scale(.98)}
+.kfp-debt-entry:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
+.kfp-debt-entry .kde-ico{font-size:24px;width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:rgba(0,0,0,.28);flex:0 0 auto}
+.kfp-debt-entry .kde-txt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.kfp-debt-entry .kde-txt b{font-size:15px}
+.kfp-debt-entry .kde-txt small{color:#a6a296;font-size:12px}
+.kfp-debt-entry .kde-tag{font-size:10.5px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:99px;color:#1b1406;background:linear-gradient(135deg,#ffe08a,#e8be46);flex:0 0 auto}
+html[data-feat-credit_debt="1"] .kfp-debt-entry .kde-tag{display:none}
+html:not([data-feat-credit_debt="1"]) .kfp-debt-entry .kde-go{display:none}
+.kfp-debt-entry .kde-go{color:#e8be46;font-size:18px}
+#kfpDebtLink{display:flex;align-items:center;gap:8px;margin-top:10px;padding:10px 12px;min-height:44px;border-radius:12px;text-decoration:none;color:#ffe08a;
+  border:1px solid rgba(232,190,70,.35);background:rgba(232,190,70,.08);font-size:14px}
+#kfpDebtLink small{color:#a6a296;margin-left:auto;font-size:11px}

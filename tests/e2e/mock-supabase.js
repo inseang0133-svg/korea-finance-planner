@@ -23,13 +23,13 @@
 
   var PLANS = [
     { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน", sort: 0,
-      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, planning: false, monthly_digest: false, export: false, cloud_sync: false, gold_portfolio: false },
+      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, planning: false, monthly_digest: false, export: false, cloud_sync: false, gold_portfolio: false, credit_debt: false },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: 3, expense_items_max: 10, grace_days: 0 } },
     { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync", sort: 1,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: false, export: true, cloud_sync: true, gold_portfolio: false },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: false, export: true, cloud_sync: true, gold_portfolio: false, credit_debt: false },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } },
     { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด", sort: 2,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: true, export: true, cloud_sync: true, gold_portfolio: true },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: true, export: true, cloud_sync: true, gold_portfolio: true, credit_debt: true },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } }
   ];
   var PRICES = [
@@ -179,6 +179,7 @@
           var out = Promise.resolve({ data: ent, error: null });
           return mode === "slow" ? new Promise(function (r) { setTimeout(function () { r({ data: ent, error: null }); }, 2500); }) : out;
         }
+        if (fn === "get_my_debt_access" || fn === "export_my_debt" || fn.indexOf("debt_") === 0) return Promise.resolve(window.__mockDebt(fn, args || {}, session));
         if (fn === "is_admin" || fn.indexOf("admin_") === 0) return Promise.resolve(window.__mockAdmin(fn, args || {}, session));
         if (fn === "export_my_gold") {
           if (!session) return Promise.resolve({ data: null, error: err("42501", "not authenticated") });
@@ -326,4 +327,132 @@
       { id: 1, action: "price.set", reason: "new KRW yearly", at: iso(-3), admin: "owner@mail.test", target_user_id: null, before: null, after: { amount_minor: 59000 } }] });
     return no("unknown admin rpc " + fn, "PGRST202");
   };
+
+  /* ---------- Smart Credit & Debt (Phase 16) · state: sessionStorage __mock_debt_<uid> · plan: __mock_plan_<uid> (premium = write)
+   * controls: __mock_debt_mode = offline | suspended ---------- */
+  window.__mockDebt = function (fn, a, session) {
+    var no = function (m, c) { return { data: null, error: { code: c || "P0001", message: m } }; }, ok = function (d) { return { data: JSON.parse(JSON.stringify(d)), error: null }; };
+    if (!session) return no("not_authenticated", "28000");
+    if (sessionStorage.getItem("__mock_debt_mode") === "offline") return { data: null, error: { code: "", message: "TypeError: Failed to fetch" } };
+    var uid = session.user.id, key = "__mock_debt_" + uid, K = window.KfpDebt;
+    var st = JSON.parse(sessionStorage.getItem(key) || "null") || { credit_cards: [], installment_plans: [], installment_schedules: [], debt_transfers: [], debt_payments: [], debt_adjustments: [], debt_payoff_plans: [], seq: 1 };
+    var save = function () { sessionStorage.setItem(key, JSON.stringify(st)); };
+    var full = (sessionStorage.getItem("__mock_plan_" + uid) || "premium") === "premium" && sessionStorage.getItem("__mock_debt_mode") !== "suspended";
+    var has = st.credit_cards.length + st.installment_plans.length + st.debt_transfers.length + st.debt_payments.length + st.debt_payoff_plans.length > 0;
+    var now = new Date().toISOString(), id = function () { return "00000000-0000-4000-9000-" + String(st.seq++).padStart(12, "0"); };
+    if (fn === "get_my_debt_access") return ok({ mode: full ? "full" : has ? "read_only" : "locked", has_data: has, plan: sessionStorage.getItem("__mock_plan_" + uid) || "premium",
+      cancel_at_period_end: sessionStorage.getItem("__mock_debt_cancel") === "1", current_period_end: sessionStorage.getItem("__mock_debt_cancel") === "1" ? "2026-12-13T00:00:00Z" : null,
+      suspended: sessionStorage.getItem("__mock_debt_mode") === "suspended" });
+    if (fn === "export_my_debt") { var x = Object.assign({}, st); delete x.seq; return ok(x); }
+    if (!full) return no("premium_required", "42501");
+    var p = a.p || {}, find = function (t, i) { return st[t].filter(function (r) { return r.id === i; })[0]; };
+    var byReq = function (t) { return p.client_request_id ? st[t].filter(function (r) { return r.client_request_id === p.client_request_id; })[0] : null; };
+    var card = function (i) { var c = find("credit_cards", i); if (!c) throw "card_not_found"; return c; };
+    function writeSched(pl, custom) {
+      var rows = K.buildSchedule(pl.financed_minor, pl.rate_bp, pl.method, pl.months, pl.first_due_date, custom);
+      rows.forEach(function (r) { st.installment_schedules.push({ id: st.seq++, user_id: uid, plan_id: pl.id, revision: pl.revision, seq: r.seq, due_date: r.due_date, principal_minor: r.principal,
+        interest_minor: r.interest, fee_minor: 0, amount_minor: r.amount, actual_amount_minor: null, confirmed_at: null, superseded_at: null }); });
+      var t = K.scheduleTotals(rows); pl.months = rows.length; pl.total_payable_minor = t.amount; pl.monthly_minor = t.monthly;
+    }
+    function planJson(pl) { return Object.assign({}, pl, { schedule: K.liveRows(st, pl.id) }); }
+    function confirmTransfer(t) {
+      t.status = "confirmed"; t.confirmed_at = now; t.version++;
+      if (t.installments > 0) {
+        var pl = { id: id(), user_id: uid, card_id: t.to_card_id, transfer_id: t.id, currency: t.dest_currency, product: "โอนหนี้ (Balance transfer)", category: "โอนหนี้", merchant: "",
+          purchase_date: t.effective_date, original_minor: t.dest_amount_minor, down_minor: 0, financed_minor: t.dest_amount_minor, rate_bp: t.rate_bp, method: t.rate_bp ? "fixed" : "zero",
+          months: t.installments, first_due_date: K.addMonths(t.effective_date, 1), status: "active", status_date: null, revision: 1, notes: "", version: 1, created_at: now, updated_at: now };
+        st.installment_plans.push(pl); writeSched(pl, null);
+      }
+    }
+    try {
+      var r;
+      switch (fn) {
+        case "debt_save_card":
+          if (!p.id) { r = byReq("credit_cards"); if (r) return ok(r);
+            r = Object.assign({ id: id(), user_id: uid, bank: "", country: null, last4: null, credit_limit_minor: 0, opening_balance_minor: 0, opening_date: K.today(), statement_day: null, due_day: null,
+              apr_bp: 0, installment_mode: "per_period", color: "#d4af37", icon: "💳", notes: "", status: "active", version: 1, created_at: now, updated_at: now }, p);
+            ["credit_limit_minor", "opening_balance_minor", "apr_bp", "statement_day", "due_day"].forEach(function (k) { if (r[k] !== null && r[k] !== undefined && r[k] !== "") r[k] = Number(r[k]); else if (k.indexOf("_day") < 0) r[k] = 0; else r[k] = null; });
+            delete r.base_version; st.credit_cards.push(r); save(); return ok(r); }
+          r = card(p.id); if (p.base_version !== r.version) throw "conflict";
+          Object.assign(r, p, { version: r.version + 1, updated_at: now }); delete r.base_version;
+          ["credit_limit_minor", "opening_balance_minor", "apr_bp"].forEach(function (k) { r[k] = Number(r[k] || 0); }); ["statement_day", "due_day"].forEach(function (k) { r[k] = r[k] ? Number(r[k]) : null; });
+          save(); return ok(r);
+        case "debt_set_card_status": r = card(a.p_id); if (a.p_base_version !== r.version) throw "conflict"; r.status = a.p_status; r.version++; save(); return ok(r);
+        case "debt_delete_card": r = card(a.p_id);
+          if (st.installment_plans.some(function (x) { return x.card_id === r.id; }) || st.debt_payments.some(function (x) { return x.card_id === r.id; }) ||
+              st.debt_transfers.some(function (x) { return x.from_card_id === r.id || x.to_card_id === r.id; }) || st.debt_adjustments.some(function (x) { return x.card_id === r.id; })) throw "card_has_history";
+          st.credit_cards = st.credit_cards.filter(function (x) { return x.id !== r.id; }); save(); return ok({ deleted: r.id });
+        case "debt_save_installment":
+          if (!p.id) { r = byReq("installment_plans"); if (r) return ok(planJson(r)); }
+          var c = p.card_id ? card(p.card_id) : null, cur = c ? c.currency : p.currency;
+          if (c && c.status === "archived" && !p.id) throw "card_archived";
+          var orig = Number(p.original_minor), dn = Number(p.down_minor || 0); if (!(orig > 0) || dn < 0 || dn >= orig) throw "invalid_amount";
+          var mo = p.method === "custom" ? p.custom.length : Number(p.months), fd = p.method === "custom" ? p.custom[0].due_date : p.first_due_date;
+          var fields = { card_id: p.card_id || null, currency: cur, product: p.product, category: p.category || "", merchant: p.merchant || "", purchase_date: p.purchase_date, original_minor: orig, down_minor: dn,
+            financed_minor: orig - dn, rate_bp: Number(p.rate_bp || 0), method: p.method, months: mo, first_due_date: fd, notes: p.notes || "" };
+          if (!p.id) { r = Object.assign({ id: id(), user_id: uid, client_request_id: p.client_request_id, transfer_id: null, status: "active", status_date: null, revision: 1, version: 1, created_at: now, updated_at: now }, fields);
+            K.buildSchedule(r.financed_minor, r.rate_bp, r.method, r.months, r.first_due_date, p.custom); st.installment_plans.push(r); writeSched(r, p.custom); save(); return ok(planJson(r)); }
+          r = find("installment_plans", p.id); if (!r) throw "plan_not_found"; if (p.base_version !== r.version) throw "conflict";
+          var money = ["card_id", "original_minor", "down_minor", "rate_bp", "method", "months", "first_due_date", "purchase_date"].some(function (k) { return String(r[k] || "") !== String(fields[k] || ""); }) || p.method === "custom";
+          if (money && (r.status === "settled" || r.status === "cancelled")) throw "plan_closed";
+          if (money && r.transfer_id) throw "plan_from_transfer";
+          if (money) { st.installment_schedules.forEach(function (s) { if (s.plan_id === r.id && s.revision === r.revision) s.superseded_at = now; }); Object.assign(r, fields); r.revision++; writeSched(r, p.custom); }
+          else Object.assign(r, { product: fields.product, category: fields.category, merchant: fields.merchant, notes: fields.notes });
+          r.version++; save(); return ok(planJson(r));
+        case "debt_set_installment_status": r = find("installment_plans", a.p_id); if (!r) throw "plan_not_found"; if (a.p_base_version !== r.version) throw "conflict";
+          r.status = a.p_status; r.status_date = a.p_status === "active" ? null : (a.p_date || K.today()); r.version++; save(); return ok(planJson(r));
+        case "debt_delete_installment": r = find("installment_plans", a.p_id); if (!r) throw "plan_not_found"; if (r.transfer_id) throw "plan_from_transfer";
+          if (st.debt_payments.some(function (x) { return x.plan_id === r.id; })) throw "plan_has_payments";
+          st.installment_plans = st.installment_plans.filter(function (x) { return x.id !== r.id; }); st.installment_schedules = st.installment_schedules.filter(function (x) { return x.plan_id !== r.id; }); save(); return ok({ deleted: r.id });
+        case "debt_confirm_schedule": r = st.installment_schedules.filter(function (s) { return String(s.id) === String(a.p_row) && !s.superseded_at; })[0]; if (!r) throw "row_not_found";
+          r.actual_amount_minor = a.p_amount; r.confirmed_at = a.p_amount === null ? null : now; save(); return ok(r);
+        case "debt_record_payment":
+          r = byReq("debt_payments"); if (r) return ok(r);
+          var pc = p.card_id ? card(p.card_id) : null, pp = p.plan_id ? find("installment_plans", p.plan_id) : null;
+          if (p.plan_id && !pp) throw "plan_not_found"; if (pp && (pp.card_id || pc)) throw "plan_on_card"; if (!pc && !pp) throw "target_required";
+          r = { id: id(), user_id: uid, client_request_id: p.client_request_id, card_id: p.card_id || null, plan_id: p.plan_id || null, schedule_id: null, transfer_id: null, kind: p.kind,
+                currency: pc ? pc.currency : pp.currency, amount_minor: Number(p.amount_minor), principal_minor: Number(p.principal_minor || 0), interest_minor: Number(p.interest_minor || 0),
+                fee_minor: Number(p.fee_minor || 0), paid_on: p.paid_on, method: p.method || "bank_transfer", status: "confirmed", notes: p.notes || "", created_at: now, updated_at: now };
+          st.debt_payments.push(r); if (p.kind === "settlement" && pp) { pp.status = "settled"; pp.status_date = p.paid_on; pp.version++; } save(); return ok(r);
+        case "debt_cancel_payment": r = find("debt_payments", a.p_id); if (!r) throw "payment_not_found"; r.status = "cancelled"; save(); return ok(r);
+        case "debt_save_transfer":
+          if (!p.id) { r = byReq("debt_transfers"); if (r) return ok(r); }
+          var tc = card(p.to_card_id), fc = p.type === "cash_advance" ? null : card(p.from_card_id);
+          if (fc && fc.id === tc.id && p.type !== "restructure") throw "same_card";
+          var tcur = fc ? fc.currency : tc.currency, dest = tcur === tc.currency ? Number(p.amount_minor) : Number(p.dest_amount_minor);
+          if (tcur !== tc.currency && (!dest || !p.fx_rate || !p.fx_date)) throw "fx_required";
+          var tf = { type: p.type, from_card_id: fc ? fc.id : null, to_card_id: tc.id, currency: tcur, amount_minor: Number(p.amount_minor), fee_minor: Number(p.fee_minor || 0), rate_bp: Number(p.rate_bp || 0),
+            installments: Number(p.installments || 0), transfer_date: p.transfer_date, effective_date: p.effective_date || p.transfer_date, fx_rate: tcur === tc.currency ? null : p.fx_rate,
+            fx_source: tcur === tc.currency ? null : "manual", fx_date: tcur === tc.currency ? null : p.fx_date, dest_currency: tc.currency, dest_amount_minor: dest, related_ref: p.related_ref || "", notes: p.notes || "" };
+          if (!p.id) { r = Object.assign({ id: id(), user_id: uid, client_request_id: p.client_request_id, status: p.status === "confirmed" ? "pending" : (p.status || "draft"), confirmed_at: null, version: 1, created_at: now, updated_at: now }, tf); st.debt_transfers.push(r); }
+          else { r = find("debt_transfers", p.id); if (!r) throw "transfer_not_found"; if (p.base_version !== r.version) throw "conflict"; if (r.status !== "draft" && r.status !== "pending") throw "transfer_locked";
+                 Object.assign(r, tf, { status: p.status === "confirmed" ? "pending" : p.status }); r.version++; }
+          if (p.status === "confirmed") confirmTransfer(r);
+          save(); return ok(r);
+        case "debt_set_transfer_status": r = find("debt_transfers", a.p_id); if (!r) throw "transfer_not_found"; if (a.p_base_version !== r.version) throw "conflict";
+          var okT = { draft: ["pending", "confirmed", "cancelled"], pending: ["draft", "confirmed", "failed", "cancelled"], confirmed: ["cancelled"] }[r.status] || [];
+          if (okT.indexOf(a.p_status) < 0) throw "invalid_transition";
+          if (a.p_status === "confirmed") confirmTransfer(r);
+          else { if (r.status === "confirmed") st.installment_plans.forEach(function (x) { if (x.transfer_id === r.id && x.status !== "cancelled") { x.status = "cancelled"; x.status_date = K.addDays(x.purchase_date, -1); x.version++; } });
+                 r.status = a.p_status; r.version++; }
+          save(); return ok(r);
+        case "debt_delete_transfer": r = find("debt_transfers", a.p_id); if (!r) throw "transfer_not_found"; if (r.status !== "draft") throw "transfer_locked";
+          st.debt_transfers = st.debt_transfers.filter(function (x) { return x.id !== r.id; }); save(); return ok({ deleted: r.id });
+        case "debt_add_adjustment": r = byReq("debt_adjustments"); if (r) return ok(r);
+          var ac = card(p.card_id), amt = Number(p.amount_minor);
+          if (["purchase", "interest", "fee"].indexOf(p.kind) >= 0) amt = Math.abs(amt); if (p.kind === "refund") amt = -Math.abs(amt);
+          if (p.kind === "reconcile" && (p.statement_balance_minor === null || p.statement_balance_minor === undefined)) throw "statement_balance_required";
+          r = { id: id(), user_id: uid, client_request_id: p.client_request_id, card_id: ac.id, kind: p.kind, currency: ac.currency, amount_minor: amt, effective_date: p.effective_date,
+                statement_balance_minor: p.kind === "reconcile" ? Number(p.statement_balance_minor) : null, status: "active", notes: p.notes || "", created_at: now, updated_at: now };
+          st.debt_adjustments.push(r); save(); return ok(r);
+        case "debt_cancel_adjustment": r = find("debt_adjustments", a.p_id); if (!r) throw "adjustment_not_found"; r.status = "cancelled"; save(); return ok(r);
+        case "debt_save_payoff_plan": r = byReq("debt_payoff_plans"); if (r) return ok(r);
+          r = Object.assign({ id: id(), user_id: uid, version: 1, created_at: now, updated_at: now }, p); st.debt_payoff_plans.push(r); save(); return ok(r);
+        case "debt_delete_payoff_plan": r = find("debt_payoff_plans", a.p_id); if (!r) throw "payoff_not_found";
+          st.debt_payoff_plans = st.debt_payoff_plans.filter(function (x) { return x.id !== r.id; }); save(); return ok({ deleted: r.id });
+      }
+      return no("unknown debt rpc " + fn, "PGRST202");
+    } catch (e) { return no(typeof e === "string" ? e : (e && e.message) || "error", "P0001"); }
+  };
 })();
+

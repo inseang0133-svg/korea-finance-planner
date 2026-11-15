@@ -324,6 +324,7 @@
     if (info.plan !== "premium") { const a = document.createElement("a"); a.href = "pricing.html"; a.textContent = "อัปเกรด"; el.appendChild(a); }
     if (info.state === "ready" || info.state === "offline") { const m = document.createElement("a"); m.href = "account.html"; m.id = "kfpBillingLink"; m.textContent = "แพ็กเกจและใบเสร็จ"; el.appendChild(m); }
     el.hidden = false;
+    renderDebtLink(info, el);
     renderAdminButton(info, el);
   }
   window.addEventListener("kfp:plan", e => renderPlanLine(e.detail));
@@ -336,6 +337,14 @@
   };
   const ICON_SHIELD = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 2.5 4.5 5.4v5.7c0 4.7 3.2 8.8 7.5 10.4 4.3-1.6 7.5-5.7 7.5-10.4V5.4L12 2.5z" fill="currentColor" opacity=".22"/><path d="M12 2.5 4.5 5.4v5.7c0 4.7 3.2 8.8 7.5 10.4 4.3-1.6 7.5-5.7 7.5-10.4V5.4L12 2.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8.6 12.1 2.3 2.3 4.5-4.7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const ICON_ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  // Smart Credit & Debt (Premium; read-only after expiry) — navigation only, the page asks the server for the mode
+  function renderDebtLink(info, el) {
+    let a = document.getElementById("kfpDebtLink");
+    if (!info || (info.state !== "ready" && info.state !== "offline") || !currentUser) { if (a) a.remove(); return; }
+    if (!a) { a = document.createElement("a"); a.id = "kfpDebtLink"; a.href = "credit-debt.html"; el.insertAdjacentElement("afterend", a); }
+    const has = !!(info.features && info.features.credit_debt);
+    a.innerHTML = '<span aria-hidden="true">💳</span><span>Smart Credit &amp; Debt · บัตรเครดิตและหนี้</span><small>' + (has ? "เปิด ›" : "PREMIUM") + "</small>";
+  }
   let adminCheck = null;
   function renderAdminButton(info, el) {
     const old = document.getElementById("kfpAdminLink");

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script src="kfp-guard.js?v=20261115-saas17"></script>
+<meta name="theme-color" content="#06070a">
+<meta name="description" content="Smart Credit & Debt — จัดการบัตรเครดิต หนี้ผ่อน การโอนหนี้ และแผนปลดหนี้ ทั้งเงินบาทและวอน">
+<title>Smart Credit & Debt · บัตรเครดิตและหนี้</title>
+<link rel="manifest" href="manifest.json">
+<!-- storage isolation must run before every other script -->
+<script src="supabase-config.js?v=20261114-saas13"></script>
+<script src="kfp-demo-data.js?v=20261113-saas5"></script>
+<script src="kfp-storage.js?v=20261114-saas13"></script>
+<link rel="stylesheet" href="kfp-access.css?v=20261116-saas19">
+<link rel="stylesheet" href="kfp-badge.css?v=20261115-saas18">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="credit-debt.css?v=20261116-saas19">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script src="pwa-persistence.js?v=20261113-saas5"></script>
+<script src="auth.js?v=20261116-saas19"></script>
+</head>
+<body>
+<main class="cd-wrap">
+  <header class="cd-hero">
+    <div class="cd-eyebrow">SMART CREDIT &amp; DEBT · PREMIUM</div>
+    <h1>💳 บัตรเครดิตและหนี้</h1>
+    <p>บัตร · หนี้ผ่อน · โอนหนี้ · ปฏิทินครบกำหนด · แผนปลดหนี้ — ใช้ได้ทั้งเงินบาท (฿) และวอน (₩)</p>
+  </header>
+  <div id="debtApp" class="cd-app" aria-live="polite" data-mode="loading">
+    <div class="cd-skel" aria-busy="true" aria-label="กำลังโหลด"><i></i><i></i><i></i></div>
+  </div>
+  <noscript><p class="cd-help">หน้านี้ต้องเปิด JavaScript</p></noscript>
+</main>
+<div id="cdModal" class="cd-modal-root" hidden></div>
+<div id="cdToast" class="cd-toast" role="status" aria-live="polite"></div>
+
+<script src="debt-engine.js?v=20261116-saas19"></script>
+<script src="debt-api.js?v=20261116-saas19"></script>
+<script src="debt-ui.js?v=20261116-saas19"></script>
+<script src="kfp-access.js?v=20261116-saas19"></script>
+<script src="kfp-badge.js?v=20261115-saas18"></script>
+<script src="floating-nav.js?v=20261113-saas5" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js?v=20261116-saas19', { updateViaCache: 'none' }).then(function (r) { r.update(); }).catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -84,6 +84,15 @@
   let supabase = null;
   let currentUser = null;
   let currentProfile = null;
+  // ประเทศ = โหมดหน้าเว็บ (TH → บาทล้วน · KR → วอน + บาท) · บังคับเลือกตอนสมัครและในโปรไฟล์
+  const COUNTRY_RE = /^(TH|KR)$/;
+  const COUNTRY_NAME = { TH: "ไทย", KR: "เกาหลีใต้" };
+  function profileCountry() { const c = currentProfile && currentProfile.country; return COUNTRY_RE.test(c || "") ? c : ""; }
+  function needsCountry() { return !!(currentUser && currentProfile && currentProfile.user_id && !profileCountry()); }
+  function applyCountry() {
+    const c = profileCountry();
+    try { if (typeof window.kfpApplyCountry === "function") window.kfpApplyCountry(c || null); } catch (e) { console.warn("KFP country:", e); }
+  }
   let applyingCloud = false;
   let initialized = false;
   let uploadBusy = false;
@@ -244,6 +253,17 @@
     if (r && r.isConnected && typeof r.focus === "function") { try { r.focus({ preventScroll: true }); } catch (_) {} }
   }
 
+  // ปิดหน้าต่างโดยผู้ใช้ (ปุ่ม ×, พื้นหลัง, Esc): ถ้ายังไม่ได้เลือกประเทศ ให้เลือกก่อน
+  function userCloseAuthPanel() {
+    if (needsCountry() && currentView() === "account") { nudgeCountry(); return; }
+    hideAuthPanel();
+  }
+  function nudgeCountry() {
+    const box = $("kfpCountryReq"), sel = $("kfpCountry");
+    if (box) { box.hidden = false; box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake"); }
+    if (sel) { sel.classList.add("kfp-need"); try { sel.focus({ preventScroll: false }); sel.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
+  }
+
   function setAuthStatus(text, type="") {
     const el = $("kfpAuthStatus");
     if (!el) return;
@@ -279,7 +299,10 @@
       $("kfpChangeEmailBtn").textContent = legacy ? "🔗 เชื่อมอีเมลจริงตอนนี้" : "✉️ เปลี่ยนอีเมล";
       if (legacy && $("kfpChangeEmailForm").hidden) $("kfpChangeEmailForm").hidden = false;
       if ($("kfpNickname") && document.activeElement !== $("kfpNickname")) $("kfpNickname").value = currentProfile?.nickname || "";
-      if ($("kfpCountry") && document.activeElement !== $("kfpCountry")) $("kfpCountry").value = currentProfile?.country || "";
+      if ($("kfpCountry") && document.activeElement !== $("kfpCountry")) $("kfpCountry").value = profileCountry();
+      const need = needsCountry();
+      if ($("kfpCountryReq")) $("kfpCountryReq").hidden = !need;
+      if ($("kfpCountry")) $("kfpCountry").classList.toggle("kfp-need", need);
       renderDeviceDataBox();
     }
   }
@@ -582,6 +605,12 @@
       .kfp-auth-mail{display:flex;gap:10px;line-height:1.6}
       .kfp-req{color:#ff8c8c}
       .kfp-plan-line{margin:10px 0 0;padding:12px 14px;border-radius:14px;text-align:left;font-size:13.5px;line-height:1.6;color:#cfc9b8;background:rgba(255,255,255,.035);border:1px solid rgba(232,190,70,.3)}
+      .kfp-country-req{margin:12px 0 4px;padding:10px 12px;border-radius:14px;font-size:13.5px;line-height:1.5;color:#ffe9b0;background:rgba(255,196,64,.10);border:1px solid rgba(255,196,64,.5)}
+      .kfp-country-req.shake{animation:kfp-shake .45s cubic-bezier(.36,.07,.19,.97)}
+      #kfpCountry.kfp-need{border-color:#ffc440!important;box-shadow:0 0 0 3px rgba(255,196,64,.22)!important}
+      .kfp-auth-hint{margin:6px 2px 0;font-size:12px;line-height:1.5;color:#a9a294}
+      @keyframes kfp-shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+      @media(prefers-reduced-motion:reduce){.kfp-country-req.shake{animation:none}}
       .kfp-plan-line b{color:#ffe08a}.kfp-plan-line a{color:#ffe08a;font-weight:600;margin-left:6px}
       /* Admin Console button (staff only) */
       .kfp-admin-btn{--kab:#e8be46;--kab-hi:#fff2b8;position:relative;isolation:isolate;display:flex;align-items:center;gap:12px;margin:10px 0 0;padding:12px 14px;min-height:64px;border-radius:18px;text-decoration:none;text-align:left;overflow:hidden;
@@ -644,6 +673,8 @@
             <label for="kfpNewPassword">Password <span class="kfp-req">*</span></label><input id="kfpNewPassword" type="password" autocomplete="new-password" placeholder="อย่างน้อย 8 ตัว มีตัวอักษรและตัวเลข">
             <label for="kfpNewPassword2">Confirm Password <span class="kfp-req">*</span></label><input id="kfpNewPassword2" type="password" autocomplete="new-password" placeholder="พิมพ์รหัสผ่านอีกครั้ง">
             <label for="kfpNewNickname">ชื่อที่แสดง (ไม่บังคับ)</label><input id="kfpNewNickname" maxlength="60" placeholder="ชื่อที่จะแสดงบนเว็บ">
+            <label for="kfpNewCountry">ประเทศที่ทำงาน/อยู่ <span class="kfp-req">*</span></label><select id="kfpNewCountry" required><option value="" disabled selected>— เลือกประเทศ —</option><option value="TH">🇹🇭 ไทย (แสดงเป็นเงินบาท)</option><option value="KR">🇰🇷 เกาหลีใต้ (แสดงเป็นเงินวอน)</option></select>
+            <p class="kfp-auth-hint">ใช้กำหนดหน้าเว็บ: ไทย = เงินบาทล้วน · เกาหลีใต้ = เงินวอน + บาท (เปลี่ยนภายหลังได้ในโปรไฟล์)</p>
             <div class="kfp-auth-row"><button id="kfpCreateBtn" type="button">✨ สร้างบัญชี</button><button id="kfpBackLoginBtn" class="kfp-auth-secondary" type="button">มีบัญชีแล้ว</button></div>
           </div>
 
@@ -671,10 +702,10 @@
               <div class="kfp-auth-row"><button id="kfpImportDeviceBtn" type="button">📥 นำเข้าบัญชีนี้</button><button id="kfpDiscardDeviceBtn" class="kfp-auth-secondary" type="button">ลบทิ้ง</button></div>
             </div>
             <label for="kfpNickname">ชื่อที่แสดง</label><input id="kfpNickname" maxlength="60" placeholder="ชื่อที่จะแสดง">
-            <label for="kfpCountry">ประเทศที่ทำงาน/อยู่ (ไม่บังคับ)</label>
-            <select id="kfpCountry"><option value="">— ไม่ระบุ —</option><option value="KR">เกาหลีใต้</option><option value="TH">ไทย</option><option value="JP">ญี่ปุ่น</option>
-              <option value="TW">ไต้หวัน</option><option value="IL">อิสราเอล</option><option value="AU">ออสเตรเลีย</option><option value="SG">สิงคโปร์</option>
-              <option value="MY">มาเลเซีย</option><option value="AE">สหรัฐอาหรับเอมิเรตส์</option><option value="US">สหรัฐอเมริกา</option></select>
+            <div id="kfpCountryReq" class="kfp-country-req" role="alert" hidden>📍 <b>กรุณาเลือกประเทศที่ทำงาน/อยู่</b> แล้วกดบันทึกโปรไฟล์ · หน้าเว็บจะแสดงตามประเทศที่เลือก</div>
+            <label for="kfpCountry">ประเทศที่ทำงาน/อยู่ <span class="kfp-req">*</span></label>
+            <select id="kfpCountry" required><option value="" disabled>— เลือกประเทศ —</option><option value="TH">🇹🇭 ไทย (แสดงเป็นเงินบาท)</option><option value="KR">🇰🇷 เกาหลีใต้ (แสดงเป็นเงินวอน)</option></select>
+            <p class="kfp-auth-hint">ไทย = หน้าเว็บเป็นเงินบาทล้วน · เกาหลีใต้ = เงินวอน + บาท · เปลี่ยนแล้วข้อมูลเดิมจะถูกแปลงสกุลเงินให้</p>
             <div class="kfp-auth-row"><button id="kfpSaveProfileBtn" type="button">💾 บันทึกโปรไฟล์</button><button id="kfpChangePassBtn" class="kfp-auth-secondary" type="button">🔑 เปลี่ยนรหัส</button></div>
 
             <div id="kfpChangePassForm" class="kfp-auth-sub" hidden>
@@ -710,8 +741,8 @@
       if (!VALID_CONFIG) setAuthStatus("ยังไม่ได้ตั้งค่า Supabase ใน supabase-config.js", "error");
     };
     attachLiquidSpring($("kfpAuthButton"), openAuth);
-    $("kfpCloseBtn").onclick = hideAuthPanel;
-    $("kfpAuthX").onclick = hideAuthPanel;
+    $("kfpCloseBtn").onclick = userCloseAuthPanel;
+    $("kfpAuthX").onclick = userCloseAuthPanel;
     $("kfpOpenAddBtn").onclick = () => showView("register");
     $("kfpBackLoginBtn").onclick = () => showView("login");
     $("kfpOpenForgotBtn").onclick = () => { showView("forgot"); const v = $("kfpUsername").value.trim(); if (v.includes("@")) $("kfpForgotEmail").value = v; };
@@ -730,14 +761,14 @@
     $("kfpLogoutBtn").onclick = logout;
     $("kfpLogoutWipeBtn").onclick = logoutAndWipe;
     $("kfpAuthPanel").addEventListener("click", e => {
-      if (e.target.id === "kfpAuthPanel") return hideAuthPanel();
+      if (e.target.id === "kfpAuthPanel") return userCloseAuthPanel();
       const go = e.target.closest && e.target.closest("[data-goto]");
       if (go) return showView(go.dataset.goto);
       const tg = e.target.closest && e.target.closest("[data-toggle]");
       if (tg) toggleSub(tg.dataset.toggle, false);
     });
     $("kfpAuthPanel").addEventListener("keydown", e => {
-      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); hideAuthPanel(); return; }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); userCloseAuthPanel(); return; }
       if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
       const view = e.target.closest("[data-view]"); if (!view) return;
       e.preventDefault();
@@ -778,6 +809,7 @@
     localStorage.setItem(AUTH_USER_KEY, user.id);
     renderAuthButton();
     renderAccountArea();
+    applyCountry();
     // Phase 5: kfp-access.js loads entitlements from the database once the session is ready.
     try { window.dispatchEvent(new CustomEvent("kfp:auth-ready", { detail: { userId: user.id } })); } catch (_) {}
 
@@ -836,6 +868,8 @@
           setAuthStatus("☁️ บัญชีนี้ยังไม่มีข้อมูล Cloud · ข้อมูลในเครื่องยังอยู่", "");
         }
       }
+      // ประเทศของโปรไฟล์กำหนดโหมดหน้าเว็บ (หลังข้อมูล Cloud ลงเครื่องแล้ว เพื่อแปลงสกุลเงินชุดล่าสุด)
+      applyCountry();
     } catch (e) {
       console.warn("KFP cloud hydration:", e);
       renderAuthButton();
@@ -964,6 +998,7 @@
     const password = $("kfpNewPassword").value;
     const password2 = $("kfpNewPassword2").value;
     const nickname = $("kfpNewNickname").value.trim() || username;
+    const country = (($("kfpNewCountry") || {}).value || "");
 
     if (!EMAIL_RE.test(email)) return setAuthStatus("กรุณากรอกอีเมลให้ถูกต้อง", "error");
     if (isLegacyEmail(email)) return setAuthStatus("กรุณาใช้อีเมลจริง", "error");
@@ -971,6 +1006,7 @@
     const pwErr = passwordProblem(password);
     if (pwErr) return setAuthStatus(pwErr, "error");
     if (password !== password2) return setAuthStatus("Confirm Password ไม่ตรงกัน", "error");
+    if (!COUNTRY_RE.test(country)) { const c = $("kfpNewCountry"); if (c) c.focus(); return setAuthStatus("กรุณาเลือกประเทศที่ทำงาน/อยู่ (ไทย หรือ เกาหลีใต้)", "error"); }
 
     const btn = $("kfpCreateBtn");
     busy(btn, true, "⏳ กำลังสร้างบัญชี...");
@@ -980,7 +1016,7 @@
       if (free === false) throw new Error("Username นี้มีคนใช้แล้ว");
       const { data, error } = await withTimeout(supabase.auth.signUp({
         email, password,
-        options: { data: { username, display_name: nickname }, emailRedirectTo: CALLBACK_URL }
+        options: { data: { username, display_name: nickname, country }, emailRedirectTo: CALLBACK_URL }
       }), AUTH_TIMEOUT_MS, "Supabase ตอบช้าเกินไป กรุณาลองใหม่");
       if (error) throw error;
 
@@ -990,7 +1026,7 @@
         localStorage.setItem(AUTH_USER_KEY, data.user.id);
         renderAuthButton(); renderAccountArea(); hideAuthPanel();
         if (switchMode("signup")) return;
-        loadCloudForUser(data.user, { captureGuestBackup:true, knownProfile:{ user_id:data.user.id, username, nickname } }).catch(() => {});
+        loadCloudForUser(data.user, { captureGuestBackup:true, knownProfile:{ user_id:data.user.id, username, nickname, country } }).catch(() => {});
         return;
       }
       // Normal path: confirmation e-mail sent. (Supabase deliberately gives the
@@ -1058,7 +1094,13 @@
     const nickname = ($("kfpNickname").value.trim() || currentProfile?.username || "ผู้ใช้").slice(0, 60);
     // Only "nickname" and "country" may be sent: the browser has no UPDATE right on other columns
     // (updated_at is set by the database trigger). Phase 12 fix.
-    const country = /^[A-Z]{2}$/.test(($("kfpCountry") && $("kfpCountry").value) || "") ? $("kfpCountry").value : null;
+    const country = ($("kfpCountry") && $("kfpCountry").value) || "";
+    if (!COUNTRY_RE.test(country)) { nudgeCountry(); return setAuthStatus("กรุณาเลือกประเทศที่ทำงาน/อยู่ (ไทย หรือ เกาหลีใต้)", "error"); }
+    const before = profileCountry();
+    if (before && before !== country && !window.confirm(
+      "เปลี่ยนประเทศเป็น " + COUNTRY_NAME[country] + "?\n\n" + (country === "KR"
+        ? "หน้าเว็บจะแสดงเป็นเงินวอน (KRW) และแปลงเงินเดือน/รายจ่ายที่บันทึกเป็นบาท → วอน ด้วยเรตปัจจุบัน"
+        : "หน้าเว็บจะแสดงเป็นเงินบาทล้วน และใช้ยอดบาทโดยประมาณของเงินเดือน/รายจ่ายที่บันทึกเป็นวอน"))) return;
     let { error } = await supabase
       .from("profiles")
       .update({ nickname, country })
@@ -1066,10 +1108,13 @@
     if (error && /country/i.test(error.message || "")) {          // database without migration 0100: name only
       ({ error } = await supabase.from("profiles").update({ nickname }).eq("user_id", currentUser.id));
     }
-    if (error) return setAuthStatus(`บันทึกชื่อเล่นไม่สำเร็จ: ${error.message}`, "error");
+    if (error) return setAuthStatus(`บันทึกโปรไฟล์ไม่สำเร็จ: ${error.message}`, "error");
     currentProfile = { ...currentProfile, nickname, country };
+    cacheProfile(currentProfile);
     renderAuthButton();
-    setAuthStatus("บันทึกโปรไฟล์แล้ว", "ok");
+    renderAccountArea();
+    applyCountry();
+    setAuthStatus(before && before !== country ? "บันทึกแล้ว · หน้าเว็บเปลี่ยนเป็นแบบ" + COUNTRY_NAME[country] + " และแปลงข้อมูลให้แล้ว" : "บันทึกโปรไฟล์แล้ว", "ok");
   }
 
   async function changePassword(){

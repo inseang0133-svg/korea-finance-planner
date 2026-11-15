@@ -121,18 +121,20 @@ const one = (q: string) => sql(q);
 /* ----------------------------------------------------------------- setup */
 const U = { buyer: "f0000000-0000-0000-0000-000000000001", legacy: "f0000000-0000-0000-0000-000000000002",
             unver: "f0000000-0000-0000-0000-000000000003", krw: "f0000000-0000-0000-0000-000000000004", susp: "f0000000-0000-0000-0000-000000000005",
-            orphan: "f0000000-0000-0000-0000-000000000006", admin: "f0000000-0000-0000-0000-000000000007", viewer: "f0000000-0000-0000-0000-000000000008" };
+            orphan: "f0000000-0000-0000-0000-000000000006", admin: "f0000000-0000-0000-0000-000000000007", viewer: "f0000000-0000-0000-0000-000000000008",
+            addon: "f0000000-0000-0000-0000-000000000009", plusx: "f0000000-0000-0000-0000-00000000000a" };
 sql(`delete from auth.users where id::text like 'f0000000-%'`);
 sql(`delete from public.stripe_webhook_events where event_id like 'evt_%' or event_id like 'evtfix_%'`);
 sql(`delete from public.rate_limits where key ~ '^(checkout|portal|subaction|admin):f0000000-'`);
 sql(`insert into auth.users (id, email, email_confirmed_at) values
   ('${U.buyer}','buyer.p7@x.com',now()), ('${U.legacy}','oldie@kfp.example.com',now()), ('${U.unver}','new.p7@x.com',null),
   ('${U.krw}','krw.p7@x.com',now()), ('${U.susp}','susp.p7@x.com',now()), ('${U.orphan}','orphan.p7@x.com',now()),
-  ('${U.admin}','admin.p10@x.com',now()), ('${U.viewer}','viewer.p10@x.com',now())`);
+  ('${U.admin}','admin.p10@x.com',now()), ('${U.viewer}','viewer.p10@x.com',now()),
+  ('${U.addon}','addon.p15@x.com',now()), ('${U.plusx}','plusx.p15@x.com',now())`);
 sql(`insert into public.admin_roles (user_id, role) values ('${U.admin}','admin'), ('${U.viewer}','viewer')`);
 sql(`update public.profiles set suspended_at = now() where user_id = '${U.susp}'`);
 // Fresh active prices WITHOUT Stripe ids, so checkout must create them (lazy sync).
-sql(`update public.plan_prices set provider_price_id = null where active and plan_id in ('plus','premium')`);
+sql(`update public.plan_prices set provider_price_id = null where active and (plan_id in ('plus','premium') or plan_id like 'addon_%')`);
 
 (async () => {
   console.log("C1 checkout validation");
@@ -392,6 +394,45 @@ sql(`update public.plan_prices set provider_price_id = null where active and pla
   sql(`update public.profiles set suspended_at = now() where user_id = '${U.admin}'`);
   r = await ac(U.admin, U.krw);
   ok(r.status === 403, "suspended admin → 403");
+
+  console.log("D1 add-ons: own subscription next to (or without) a plan");
+  const feat = (u: string, k: string) => one(`select public.kfp_has_feature('${u}', '${k}')`) === "t";
+  r = await createCheckout({ userId: U.addon, plan: "addon_gold", interval: "year", currency: "THB" }, deps);
+  ok(r.status === 400, "add-ons are monthly only");
+  r = await createCheckout({ userId: U.addon, plan: "addon_nope", interval: "month", currency: "THB" }, deps);
+  ok(r.status === 404, "unknown add-on → price_not_available");
+  S.calls.length = 0;
+  r = await createCheckout({ userId: U.addon, plan: "addon_gold", interval: "month", currency: "THB" }, deps);
+  const prc = S.calls.find((c) => c[0] === "prices.create"), prod = S.calls.find((c) => c[0] === "products.create");
+  ok(r.status === 200 && prod && prod[1].id === "kfp_addon_gold" && prc && prc[1].unit_amount === 6900 && prc[1].currency === "thb" && prc[1].metadata.kfp_plan === "addon_gold",
+     "checkout creates product kfp_addon_gold + ฿69/month price");
+  const cusA = one(`select provider_customer_id from public.billing_customers where user_id='${U.addon}'`);
+  const goldPrice = one(`select provider_price_id from public.plan_prices where active and plan_id='addon_gold' and currency='THB'`);
+  const goldSub = makeSub(cusA, goldPrice, "active", { metadata: { user_id: U.addon } });
+  await deliver(evt("customer.subscription.created", { id: goldSub.id, object: "subscription" }));
+  ok(plan(U.addon) === "free" && feat(U.addon, "gold_portfolio") && !feat(U.addon, "cloud_sync"), "webhook → still Free, gold_portfolio on");
+  r = await createCheckout({ userId: U.addon, plan: "addon_gold", interval: "month", currency: "THB" }, deps);
+  ok(r.status === 409 && r.body.error === "already_subscribed", "same add-on twice → 409");
+  r = await createCheckout({ userId: U.addon, plan: "addon_work", interval: "month", currency: "KRW" }, deps);
+  ok(r.status === 404 && r.body.error === "price_not_available", "no KRW price yet → not sold in KRW");
+  r = await createCheckout({ userId: U.addon, plan: "plus", interval: "month", currency: "THB" }, deps);
+  ok(r.status === 200, "an add-on does not block buying a plan");
+  r = await subscriptionAction({ userId: U.addon, action: "cancel" }, deps);
+  ok(r.status === 404 && r.body.error === "no_subscription", "plan cancel ignores add-ons");
+  S.calls.length = 0;
+  r = await subscriptionAction({ userId: U.addon, action: "cancel", addon: "addon_gold" }, deps);
+  const upd2 = S.calls.find((c) => c[0] === "subscriptions.update");
+  ok(r.status === 200 && r.body.cancel_at_period_end === true && upd2 && upd2[1] === goldSub.id, "cancel the add-on's own subscription at period end");
+  ok(feat(U.addon, "gold_portfolio"), "access stays until the period ends");
+  r = await subscriptionAction({ userId: U.addon, action: "resume", addon: "addon_gold" }, deps);
+  ok(r.status === 200 && r.body.cancel_at_period_end === false, "resume the add-on");
+  r = await subscriptionAction({ userId: U.addon, action: "cancel", addon: "gold" }, deps);
+  ok(r.status === 400, "bad add-on id → 400");
+  sql(`insert into public.user_entitlements (user_id, plan_id, reason) values ('${U.plusx}', 'plus', 'admin_grant')`);
+  r = await createCheckout({ userId: U.plusx, plan: "addon_work", interval: "month", currency: "THB" }, deps);
+  ok(r.status === 409 && r.body.error === "addon_included", "Plus already includes work records → 409");
+  r = await createCheckout({ userId: U.plusx, plan: "addon_gold", interval: "month", currency: "THB" }, deps);
+  ok(r.status === 200, "Plus can add the gold portfolio");
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

@@ -1,4 +1,4 @@
-// billing-action · POST { action: "cancel"|"resume", feedback?, comment? }
+// billing-action · POST { action: "cancel"|"resume", feedback?, comment?, addon? }  (addon = "addon_…" → that add-on's own subscription)
 // Authorization: Bearer <user access token>
 //   cancel  stop auto-renew at the end of the paid period (access stays until then)
 //   resume  turn auto-renew back on before that date
@@ -22,7 +22,8 @@ Deno.serve(async (req: Request) => {
     try { body = await req.json(); } catch { return json(req, 400, { error: "invalid_request" }); }
     const res = await subscriptionAction(
       { userId: user.id, action: String(body.action ?? ""),
-        feedback: body.feedback ? String(body.feedback) : undefined, comment: body.comment ? String(body.comment) : undefined },
+        feedback: body.feedback ? String(body.feedback) : undefined, comment: body.comment ? String(body.comment) : undefined,
+        addon: body.addon ? String(body.addon) : undefined },
       { stripe: stripeClient(), rpc: rpcVia(db), siteUrl: siteUrl(), log: console.log });
     return json(req, res.status, res.body);
   } catch (e) {

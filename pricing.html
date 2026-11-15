@@ -11,10 +11,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kfp-access.css?v=20261115-saas17">
+<link rel="stylesheet" href="kfp-access.css?v=20261115-saas18">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-<script src="auth.js?v=20261115-saas17"></script>
+<script src="auth.js?v=20261115-saas18"></script>
 <style>
 :root{--bg:#06070a;--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--green:#3ddc97;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
 *{box-sizing:border-box}
@@ -73,6 +73,27 @@ a.cta{display:grid;place-items:center;text-decoration:none}
 .spin{display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:50%;border:2px solid rgba(232,190,70,.25);border-top-color:var(--gold);animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .cta.busy{opacity:.75;cursor:wait}
+/* add-ons */
+.addons{margin-top:44px}
+.addons-head{text-align:center;margin-bottom:18px}
+.addons-head h2{margin:10px 0 6px;font-size:clamp(21px,3.6vw,27px);color:var(--gold-l)}
+.addons-head p{margin:0 auto;max-width:620px;color:var(--muted);font-size:14px;line-height:1.7}
+.agrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:860px){.agrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.agrid{grid-template-columns:1fr}}
+.addon{position:relative;display:flex;flex-direction:column;gap:6px;padding:18px 16px 16px;border-radius:22px;
+  background:linear-gradient(160deg,rgba(30,32,42,.86),rgba(12,13,18,.92));border:1px solid rgba(255,255,255,.09);
+  animation:in .55s var(--ease) both;transition:transform .3s var(--spring),border-color .25s}
+.addon:hover{transform:translateY(-3px);border-color:rgba(232,190,70,.45)}
+.addon.on{border-color:rgba(61,220,151,.6)}
+.addon .ai{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:19px;background:rgba(232,190,70,.12);border:1px solid rgba(232,190,70,.3)}
+.addon h3{margin:6px 0 0;font-size:16px;line-height:1.4}
+.addon p{margin:0;color:var(--muted);font-size:13px;line-height:1.6;flex:1}
+.addon .ap{display:flex;align-items:baseline;gap:5px;margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.addon .ap b{font-size:24px;color:var(--gold-l)}.addon .ap span{font-size:13px;color:var(--muted)}
+.addon .anote{font-size:12px;color:#c9a35a}
+.addon .cta{min-height:44px;font-size:14px;margin-top:8px}
+.tag-on{position:absolute;top:12px;right:12px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;color:#06210f;background:var(--green)}
 @keyframes in{from{opacity:0;transform:translateY(14px)}}
 @media(prefers-reduced-motion:reduce){.plan,.hero{animation:none}.plan:hover{transform:none}}
 </style>
@@ -100,10 +121,19 @@ a.cta{display:grid;place-items:center;text-decoration:none}
 
   <div id="coStatus" class="co-status" role="status" aria-live="polite" hidden></div>
   <section class="grid" id="plans" aria-live="polite"></section>
+  <section class="addons" id="addons" aria-labelledby="addonsTitle">
+    <div class="addons-head">
+      <span class="eyebrow">ADD-ON</span>
+      <h2 id="addonsTitle">เลือกเฉพาะฟีเจอร์ที่ต้องการ</h2>
+      <p>ซื้อแยกเป็นรายเดือนได้ทั้งแพ็กเกจ Free และ Finance Plus · ยกเลิกทีละตัวได้ทุกเมื่อ · <b style="color:var(--gold-l)">แจ้งเตือนสรุปรายเดือนแบบป๊อปอัพมีเฉพาะ Finance Premium</b></p>
+    </div>
+    <div class="agrid" id="addonGrid" aria-live="polite"></div>
+  </section>
 
   <div class="note">
     <b>เงื่อนไข</b> · แพ็กเกจรายเดือน/รายปีต่ออายุอัตโนมัติจนกว่าจะยกเลิก · ยกเลิกแล้วใช้ได้ถึงวันสิ้นสุดรอบบิล ·
     หมดอายุแล้วกลับเป็น Free โดย<b>ข้อมูลทั้งหมดยังอยู่</b> · ราคาเป็นค่าเริ่มต้นและอาจเปลี่ยนแปลงได้ (แจ้งล่วงหน้า) ·
+    Add-on เป็นรายเดือน ตัดเงินแยกจากแพ็กเกจ · <b>แจ้งเตือนสรุปรายเดือนแบบป๊อปอัพ (รายได้งาน + รายจ่าย) มีเฉพาะ Finance Premium</b> ·
     ชำระผ่าน Stripe (บัตรเครดิต/เดบิต) · เปลี่ยนแพ็กเกจ ยกเลิก หรือดูใบเสร็จได้ที่ <a href="account.html" style="color:var(--gold-l)">แพ็กเกจและการชำระเงิน</a>
   </div>
 </main>
@@ -115,7 +145,9 @@ a.cta{display:grid;place-items:center;text-decoration:none}
   // which admins change with admin_set_price() — see docs/SETUP.md.
   var PRICES = {
     plus:    { month: { THB: 129, KRW: 5900 }, year: { THB: 1290, KRW: null } },
-    premium: { month: { THB: 199, KRW: 8900 }, year: { THB: 1990, KRW: null } }
+    premium: { month: { THB: 199, KRW: 8900 }, year: { THB: 1990, KRW: null } },
+    addon_salary: { month: { THB: 59, KRW: null } }, addon_expense: { month: { THB: 59, KRW: null } }, addon_work: { month: { THB: 69, KRW: null } },
+    addon_planning: { month: { THB: 49, KRW: null } }, addon_cloud: { month: { THB: 69, KRW: null } }, addon_gold: { month: { THB: 69, KRW: null } }
   };
   var FALLBACK_PLANS = [
     { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน",
@@ -123,8 +155,18 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync",
       features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true }, limits: {} },
     { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด",
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: true }, limits: {} }
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: true, export: true, cloud_sync: true, gold_portfolio: true }, limits: {} }
   ];
+  var FALLBACK_ADDONS = [
+    { id: "addon_salary", name: "บันทึกเงินเดือนไม่จำกัด + สถิติ", description: "บันทึกเงินเดือนรายเดือนไม่จำกัด · สถิติการเงิน + กราฟ · Export Excel", features: { salary_history: true, advanced_statistics: true, export: true } },
+    { id: "addon_expense", name: "รายจ่ายไม่จำกัด", description: "บันทึกรายจ่าย วอน/บาท ไม่จำกัด (ไม่รวมแจ้งเตือนสรุปรายเดือน)", features: { expenses: true } },
+    { id: "addon_work", name: "บันทึกการเข้างาน", description: "บันทึกการเข้างาน + สรุปรายได้ OT (ไม่รวมแจ้งเตือนสรุปรายเดือน)", features: { work_records: true } },
+    { id: "addon_planning", name: "สัญญาจ้าง + เป้าหมายเงินเก็บ", description: "สัญญาจ้างเกาหลี + เป้าหมายเงินเก็บ", features: { planning: true } },
+    { id: "addon_cloud", name: "Cloud Sync ข้ามเครื่อง", description: "ซิงก์ข้อมูลข้ามเครื่องผ่าน Cloud", features: { cloud_sync: true } },
+    { id: "addon_gold", name: "พอร์ตทอง", description: "พอร์ตทอง: ต้นทุน กำไร/ขาดทุน ราคาเรียลไทม์", features: { gold_portfolio: true } }
+  ];
+  var ADDON_ICON = { addon_salary: "📈", addon_expense: "💸", addon_work: "🏭", addon_planning: "🎯", addon_cloud: "☁️", addon_gold: "🥇" };
+  var ADDON_NOTE = { addon_expense: "ไม่รวมการแจ้งเตือนแบบป๊อปอัพรายเดือน", addon_work: "ไม่รวมการแจ้งเตือนแบบป๊อปอัพรายเดือน" };
   var ROWS = [
     ["salary", "เครื่องคิดเงินเดือน + แบ่งเงินเดือน"],
     ["salary_history", "บันทึกเงินเดือนรายเดือน", "salary_records_max", "เดือน"],
@@ -132,12 +174,13 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     ["work_records", "บันทึกการเข้างาน + สรุปรายได้ OT"],
     ["advanced_statistics", "สถิติการเงิน + กราฟ"],
     ["planning", "สัญญาจ้างเกาหลี + เป้าหมายเงินเก็บ"],
+    ["monthly_digest", "แจ้งเตือนสรุปรายเดือนแบบป๊อปอัพ (รายได้งาน + รายจ่าย)"],
     ["export", "Export Excel"],
     ["cloud_sync", "Cloud Sync ข้ามเครื่อง"],
     ["gold_portfolio", "พอร์ตทอง: ต้นทุน กำไร/ขาดทุน ราคาเรียลไทม์"]
   ];
   var RANKS = { free: 0, plus: 1, premium: 2 };
-  var state = { interval: "month", currency: "THB", plans: FALLBACK_PLANS, current: null, source: null, validUntil: null };
+  var state = { interval: "month", currency: "THB", plans: FALLBACK_PLANS, addons: FALLBACK_ADDONS, current: null, source: null, validUntil: null, mine: [], planFeatures: null };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]; }); };
   var money = function (n, cur) { return cur === "KRW" ? "₩" + Number(n).toLocaleString("en-US") : "฿" + Number(n).toLocaleString("en-US"); };
 
@@ -180,6 +223,29 @@ a.cta{display:grid;place-items:center;text-decoration:none}
         '<div class="price">' + priceHtml + '</div><div class="sub">' + esc(sub) + '</div>' +
         '<ul class="feats">' + feats + '</ul>' + cta + '</article>';
     }).join("");
+    renderAddons();
+  }
+
+  function renderAddons() {
+    var grid = document.getElementById("addonGrid"); if (!grid) return;
+    grid.innerHTML = state.addons.map(function (a, i) {
+      var pr = PRICES[a.id], amount = pr && pr.month && pr.month[state.currency];
+      var mine = state.mine.some(function (x) { return x.id === a.id; });
+      // included = the plan already has the add-on's features AND has no limit where the add-on lifts one (Free has limits)
+      var pf = state.planFeatures || {}, lifts = a.limits ? Object.keys(a.limits).length > 0 : /^addon_(salary|expense)$/.test(a.id);
+      var inPlan = !!state.current && Object.keys(a.features || {}).every(function (k) { return !a.features[k] || pf[k]; }) && !(lifts && state.current === "free");
+      var cta;
+      if (mine) cta = '<a class="cta ghost" href="account.html#addons">✓ ใช้งานอยู่ · จัดการ</a>';
+      else if (inPlan) cta = '<button class="cta ghost" type="button" disabled>รวมในแพ็กเกจของคุณแล้ว</button>';
+      else if (!amount) cta = '<button class="cta" type="button" disabled>' + (state.currency === "KRW" ? "ยังไม่เปิดขายเป็นเงินวอน" : "ยังไม่เปิดขาย") + '</button>';
+      else cta = '<button class="cta" type="button" data-checkout="' + a.id + ':month:' + state.currency + '">＋ เพิ่ม Add-on</button>';
+      return '<article class="addon' + (mine ? " on" : "") + '" id="' + esc(a.id) + '" style="animation-delay:' + (i * 0.05) + 's">' +
+        (mine ? '<span class="tag-on">ใช้งานอยู่</span>' : "") +
+        '<span class="ai" aria-hidden="true">' + (ADDON_ICON[a.id] || "✨") + '</span><h3>' + esc(a.name) + '</h3><p>' + esc(a.description) + '</p>' +
+        '<div class="ap">' + (amount ? '<b>' + money(amount, state.currency) + '</b><span>/ เดือน</span>' : '<b>—</b><span>/ เดือน</span>') + '</div>' +
+        (ADDON_NOTE[a.id] ? '<div class="anote">⚠️ ' + ADDON_NOTE[a.id] + '</div>' : "") +
+        (state.interval === "year" ? '<div class="anote">Add-on มีเฉพาะรายเดือน</div>' : "") + cta + '</article>';
+    }).join("");
   }
 
   function seg(id, key) {
@@ -199,6 +265,9 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     var d = e.detail || {};
     state.current = d.state === "ready" || d.state === "offline" ? d.plan : null;
     state.source = d.source || null; state.validUntil = d.validUntil || null;
+    var P = window.kfpPlan && window.kfpPlan.info ? window.kfpPlan.info() : {};
+    state.mine = state.current && Array.isArray(P.addons) ? P.addons : [];
+    state.planFeatures = state.current ? (P.planFeatures || null) : null;
     render();
   });
 
@@ -220,7 +289,8 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     resume_first: "แพ็กเกจของคุณตั้งยกเลิกไว้ · กดต่ออายุอัตโนมัติก่อนจึงเปลี่ยนแพ็กเกจได้",
     not_switchable: "มียอดค้างชำระ · กรุณาชำระเงินก่อนเปลี่ยนแพ็กเกจ",
     same_plan: "นี่คือแพ็กเกจปัจจุบันของคุณอยู่แล้ว",
-    unauthorized: "กรุณาเข้าสู่ระบบอีกครั้ง"
+    unauthorized: "กรุณาเข้าสู่ระบบอีกครั้ง",
+    addon_included: "Add-on นี้รวมอยู่ในแพ็กเกจของคุณแล้ว ไม่ต้องซื้อเพิ่ม"
   };
   // Phase 12: only ever follow a Stripe page (or this site) returned by our Edge Functions
   function goStripe(u) {
@@ -270,6 +340,10 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     var r = await callFn("create-checkout", { plan: parts[0], interval: parts[1], currency: parts[2] });
     if (r.status === 200 && r.body.url && goStripe(r.body.url)) return;   // Stripe Checkout
     busy(btn, false);
+    if (r.status === 409 && r.body.error === "already_subscribed" && /^addon_/.test(parts[0])) {
+      status("คุณมี Add-on นี้อยู่แล้ว · จัดการได้ในหน้าแพ็กเกจของฉัน", "", ["⚙️ ไปหน้าแพ็กเกจของฉัน", function () { location.href = "account.html#addons"; }]);
+      return;
+    }
     if (r.status === 409 && r.body.error === "already_subscribed") {
       status("คุณมีแพ็กเกจที่ชำระเงินอยู่แล้ว · เปลี่ยน/อัปเกรดแพ็กเกจได้ในหน้าแพ็กเกจของฉัน", "", ["⚙️ ไปหน้าแพ็กเกจของฉัน", function () { location.href = "account.html"; }]);
       return;
@@ -277,6 +351,9 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     if (r.body.error === "legacy_email") { status(ERR.legacy_email, "err", ["🔗 เชื่อมอีเมลตอนนี้", function () { window.kfpAuth.open("account"); }]); return; }
     status(failMsg(r), "err");
   }
+  document.getElementById("addonGrid").addEventListener("click", function (e) {
+    var c = e.target.closest("[data-checkout]"); if (c && !c.disabled) startCheckout(c, c.getAttribute("data-checkout"));
+  });
   document.getElementById("plans").addEventListener("click", function (e) {
     var c = e.target.closest("[data-checkout]"); if (c && !c.disabled) { startCheckout(c, c.getAttribute("data-checkout")); return; }
     var sw = e.target.closest("[data-switch]"); if (sw && !sw.disabled) { var q = sw.getAttribute("data-switch").split(":"); openPortal(sw, { flow: "switch", plan: q[0], interval: q[1] }); return; }
@@ -286,7 +363,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
   // Back from Stripe. The redirect proves nothing — access appears only when the webhook
   // has updated the database, so we poll the server-side entitlements.
   (function handleReturn() {
-    var q = new URLSearchParams(location.search), co = q.get("checkout"), portal = q.get("portal");
+    var q = new URLSearchParams(location.search), co = q.get("checkout"), portal = q.get("portal"), addonId = q.get("addon") || "";
     if (!co && !portal) return;
     history.replaceState(null, "", location.pathname + location.hash);
     if (co === "cancel") { status("ยกเลิกการชำระเงินแล้ว · <b>ไม่มีการตัดเงิน</b>", ""); return; }
@@ -298,8 +375,9 @@ a.cta{display:grid;place-items:center;text-decoration:none}
       var P = window.kfpPlan;
       if (P) P.refresh();
       var info = P ? P.info() : {};
-      var paid = String(info.source || "").indexOf("subscription") === 0 && info.plan && info.plan !== "free";
-      if (paid) { clearInterval(timer); status("🎉 <b>ชำระเงินสำเร็จ!</b> ตอนนี้คุณใช้ " + (info.planName || info.plan) + " แล้ว · <a href=\"index.html\" style=\"color:inherit\">กลับไปใช้งาน</a>", "ok"); }
+      var got = /^addon_[a-z]+$/.test(addonId) ? (info.addons || []).filter(function (a) { return a.id === addonId; })[0] : null;
+      var paid = addonId ? !!got : String(info.source || "").indexOf("subscription") === 0 && info.plan && info.plan !== "free";
+      if (paid) { clearInterval(timer); status("🎉 <b>ชำระเงินสำเร็จ!</b> ตอนนี้คุณใช้ " + esc(got ? "Add-on " + got.name : (info.planName || info.plan)) + " แล้ว · <a href=\"index.html\" style=\"color:inherit\">กลับไปใช้งาน</a>", "ok"); }
       else if (Date.now() - start > 60000) { clearInterval(timer); status("ได้รับการชำระเงินแล้ว ระบบกำลังอัปเดตสิทธิ์ (อาจใช้เวลา 1–2 นาที) · ลองรีเฟรชหน้านี้อีกครั้ง", ""); }
     }, 3000);
   })();
@@ -309,8 +387,13 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     var cfg = window.KFP_SUPABASE_CONFIG || {};
     if (window.supabase && cfg.SUPABASE_URL) {
       var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false, storage: window.__kfpRealLocalStorage } });
-      Promise.resolve(sb.from("plans").select("id,name,description,features,limits,sort").order("sort")).then(function (r) {
-        if (r && !r.error && Array.isArray(r.data) && r.data.length) { state.plans = r.data; render(); }
+      Promise.resolve(sb.from("plans").select("id,name,description,features,limits,sort,kind").order("sort")).then(function (r) {
+        if (!r || r.error || !Array.isArray(r.data) || !r.data.length) return;
+        var isAddon = function (p) { return p.kind === "addon" || /^addon_/.test(p.id); };
+        var plans = r.data.filter(function (p) { return !isAddon(p); }), adds = r.data.filter(isAddon);
+        if (plans.length) state.plans = plans;
+        if (adds.length) state.addons = adds;
+        render();
       }, function () {});
       Promise.resolve(sb.from("plan_prices").select("plan_id,billing_interval,currency,amount_minor").eq("active", true)).then(function (r) {
         if (!r || r.error || !Array.isArray(r.data) || !r.data.length) return;
@@ -318,6 +401,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
         r.data.forEach(function (row) {
           var exp = row.currency === "KRW" ? 0 : 2;                     // KRW is zero-decimal
           next[row.plan_id] = next[row.plan_id] || { month: { THB: null, KRW: null }, year: { THB: null, KRW: null } };
+          if (!next[row.plan_id][row.billing_interval]) return;
           next[row.plan_id][row.billing_interval][row.currency] = Number(row.amount_minor) / Math.pow(10, exp);
         });
         PRICES = next; state.pricesFrom = "db"; render();
@@ -328,7 +412,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
   render();
 })();
 </script>
-<script src="kfp-access.js?v=20261115-saas17"></script>
+<script src="kfp-access.js?v=20261115-saas18"></script>
 <style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>

@@ -31,7 +31,14 @@ export interface Result { status: number; body: Record<string, unknown> }
 
 /* ---------------------------------------------------------------- helpers */
 export const PLANS = ["plus", "premium"] as const;
-const PLAN_NAMES: Record<string, string> = { plus: "Finance Plus", premium: "Finance Premium" };
+// Add-ons (plans.kind = 'addon'): monthly, one Stripe subscription each, next to (or without) a plan.
+export const ADDON_RE = /^addon_[a-z]{2,20}$/;
+const PLAN_NAMES: Record<string, string> = {
+  plus: "Finance Plus", premium: "Finance Premium",
+  addon_salary: "Add-on: บันทึกเงินเดือนไม่จำกัด + สถิติ", addon_expense: "Add-on: รายจ่ายไม่จำกัด",
+  addon_work: "Add-on: บันทึกการเข้างาน", addon_planning: "Add-on: สัญญาจ้าง + เป้าหมายเงินเก็บ",
+  addon_cloud: "Add-on: Cloud Sync ข้ามเครื่อง", addon_gold: "Add-on: พอร์ตทอง",
+};
 const iso = (t?: number | null) => (t ? new Date(t * 1000).toISOString() : null);
 const idOf = (x: Any): string | null => (typeof x === "string" ? x : x?.id ?? null);
 const lc = (s: string) => String(s || "").toLowerCase();
@@ -230,7 +237,9 @@ async function ensureStripePrice(price: Any, deps: Deps): Promise<string> {
 
 export async function createCheckout(input: { userId: string; plan: string; interval: string; currency: string }, deps: Deps): Promise<Result> {
   const plan = String(input.plan || ""), interval = String(input.interval || ""), currency = String(input.currency || "").toUpperCase();
-  if (!(PLANS as readonly string[]).includes(plan) || !["month", "year"].includes(interval) || !["THB", "KRW"].includes(currency)) {
+  const isAddon = ADDON_RE.test(plan);
+  if ((!(PLANS as readonly string[]).includes(plan) && !isAddon) || !["month", "year"].includes(interval) || !["THB", "KRW"].includes(currency)
+      || (isAddon && interval !== "month")) {
     return { status: 400, body: { error: "invalid_request" } };
   }
   const allowed = await deps.rpc("kfp_rate_hit", { p_key: `checkout:${input.userId}`, p_max: 10, p_window_seconds: 3600 });
@@ -241,7 +250,11 @@ export async function createCheckout(input: { userId: string; plan: string; inte
   if (!ctx.verified) return { status: 403, body: { error: "email_not_verified" } };
   if (ctx.legacy) return { status: 403, body: { error: "legacy_email" } };
   if (ctx.suspended) return { status: 403, body: { error: "suspended" } };
-  if (ctx.active_subscription) {
+  if (isAddon) {
+    if (ctx.kind !== "addon") return { status: 404, body: { error: "price_not_available" } };
+    if (ctx.active_addon) return { status: 409, body: { error: "already_subscribed", plan: ctx.active_addon.plan, status: ctx.active_addon.status } };
+    if (ctx.addon_included) return { status: 409, body: { error: "addon_included" } };
+  } else if (ctx.active_subscription) {
     // Upgrades / downgrades / renewals of an existing subscription go through the Customer Portal.
     return { status: 409, body: { error: "already_subscribed", plan: ctx.active_subscription.plan, status: ctx.active_subscription.status } };
   }
@@ -265,13 +278,13 @@ export async function createCheckout(input: { userId: string; plan: string; inte
     customer: customerId,
     client_reference_id: input.userId,
     line_items: [{ price: priceId, quantity: 1 }],
-    metadata: { user_id: input.userId, plan_id: plan },
-    subscription_data: { metadata: { user_id: input.userId, plan_id: plan } },
+    metadata: { user_id: input.userId, plan_id: plan, kind: isAddon ? "addon" : "plan" },
+    subscription_data: { metadata: { user_id: input.userId, plan_id: plan, kind: isAddon ? "addon" : "plan" } },
     allow_promotion_codes: true,
     locale: "th",
     ...(deps.requireTos ? { consent_collection: { terms_of_service: "required" } } : {}),
     // The success URL is only a "thank you" page — access is granted by the webhook, never by this redirect.
-    success_url: `${site}/pricing.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${site}/pricing.html?checkout=success${isAddon ? `&addon=${plan}` : ""}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${site}/pricing.html?checkout=cancel`,
   }, { idempotencyKey: `kfp-checkout-${input.userId}-${priceId}-${minute}` });   // double-click → same session
 
@@ -342,19 +355,19 @@ export async function createPortal(
 const CANCEL_FEEDBACK = ["too_expensive", "missing_features", "unused", "switched_service", "too_complex", "low_quality", "customer_service", "other"];
 
 export async function subscriptionAction(
-  input: { userId: string; action: string; feedback?: string; comment?: string },
+  input: { userId: string; action: string; feedback?: string; comment?: string; addon?: string },
   deps: Deps,
 ): Promise<Result> {
-  const action = String(input.action || "");
-  if (!["cancel", "resume"].includes(action)) return { status: 400, body: { error: "invalid_request" } };
+  const action = String(input.action || ""), addon = input.addon ? String(input.addon) : "";
+  if (!["cancel", "resume"].includes(action) || (addon && !ADDON_RE.test(addon))) return { status: 400, body: { error: "invalid_request" } };
   if (input.feedback && !CANCEL_FEEDBACK.includes(String(input.feedback))) return { status: 400, body: { error: "invalid_request" } };
   const allowed = await deps.rpc("kfp_rate_hit", { p_key: `subaction:${input.userId}`, p_max: 10, p_window_seconds: 3600 });
   if (allowed === false) return { status: 429, body: { error: "rate_limited" } };
 
-  const ctx = await deps.rpc("kfp_checkout_context", { p: { user_id: input.userId, plan: "plus", interval: "month", currency: "THB" } });
+  const ctx = await deps.rpc("kfp_checkout_context", { p: { user_id: input.userId, plan: addon || "plus", interval: "month", currency: "THB" } });
   if (!ctx) return { status: 404, body: { error: "user_not_found" } };
   if (ctx.suspended) return { status: 403, body: { error: "suspended" } };
-  const sub = ctx.active_subscription;
+  const sub = addon ? ctx.active_addon : ctx.active_subscription;   // an add-on is its own subscription
   if (!sub) return { status: 404, body: { error: "no_subscription" } };
 
   // Stripe is the source of truth: read it, check ownership, act only if something changes.
@@ -384,7 +397,7 @@ export async function subscriptionAction(
   }
   const updated = await deps.stripe.subscriptions.update(sub.id, update);
   const p = await apply(updated);
-  deps.log?.("subscription", action, sub.id, input.userId);
+  deps.log?.("subscription", action, addon || "plan", sub.id, input.userId);
   return { status: 200, body: { changed: true, status: p.status, cancel_at_period_end: p.cancel_at_period_end, current_period_end: p.current_period_end } };
 }
 

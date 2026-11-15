@@ -14,7 +14,10 @@
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]; }); };
   var safeUrl = function (u) { return /^https:\/\//i.test(String(u || "")) ? String(u) : null; };
   var ME = { id: null, email: "", role: null, canWrite: false, isOwner: false };
-  var PLAN = { free: "Free", plus: "Finance Plus", premium: "Finance Premium" };
+  var PLAN = { free: "Free", plus: "Finance Plus", premium: "Finance Premium",
+    addon_salary: "Add-on เงินเดือน+สถิติ", addon_expense: "Add-on รายจ่าย", addon_work: "Add-on บันทึกงาน",
+    addon_planning: "Add-on สัญญาจ้าง+เป้าหมาย", addon_cloud: "Add-on Cloud Sync", addon_gold: "Add-on พอร์ตทอง" };
+  var ADDONS = ["addon_salary", "addon_expense", "addon_work", "addon_planning", "addon_cloud", "addon_gold"];
   var SUB_ST = { active: ["ok", "ใช้งานอยู่"], trialing: ["info", "ทดลองใช้"], past_due: ["bad", "ค้างชำระ"], unpaid: ["bad", "ค้างชำระ (ระงับ)"],
                  canceled: ["", "สิ้นสุดแล้ว"], incomplete: ["warn", "ไม่สมบูรณ์"], incomplete_expired: ["", "หมดอายุ"], paused: ["warn", "พัก"] };
   var ACT = { active: "Active", recent: "Recent", inactive: "Inactive", dormant: "Dormant", never: "ยังไม่เคยใช้" };
@@ -43,7 +46,7 @@
     return d(iso);
   }
   var pill = function (cls, t) { return '<span class="pill ' + esc(cls) + '">' + esc(t) + "</span>"; };
-  var planPill = function (p) { return pill(p || "free", PLAN[p] || p || "Free"); };
+  var planPill = function (p) { return pill(/^addon_/.test(p || "") ? "addon" : (p || "free"), PLAN[p] || p || "Free"); };
   function subPill(st, cancelling) {
     if (!st) return '<span class="muted">—</span>';
     if (cancelling && (st === "active" || st === "trialing")) return pill("warn", "ตั้งยกเลิก");
@@ -600,6 +603,7 @@
       PRICES = await rpc("admin_list_prices") || [];
       var slots = [];
       ["plus", "premium"].forEach(function (p) { ["month", "year"].forEach(function (iv) { ["THB", "KRW"].forEach(function (c) { slots.push([p, iv, c]); }); }); });
+      ADDONS.forEach(function (p) { ["THB", "KRW"].forEach(function (c) { slots.push([p, "month", c]); }); });   // add-ons: monthly only
       var rows = slots.map(function (s) {
         var act = PRICES.filter(function (x) { return x.active && x.plan_id === s[0] && x.billing_interval === s[1] && x.currency === s[2]; })[0];
         return '<tr><td data-l="แพ็กเกจ">' + planPill(s[0]) + '</td><td data-l="รอบบิล">' + (s[1] === "year" ? "รายปี" : "รายเดือน") + '</td><td data-l="สกุลเงิน">' + esc(s[2]) +

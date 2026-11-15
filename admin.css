@@ -65,6 +65,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .pill.free{color:var(--muted)}
 .pill.plus{color:var(--blue);border-color:rgba(124,184,255,.45);background:rgba(124,184,255,.08)}
 .pill.premium{color:var(--gold-l);border-color:rgba(232,190,70,.55);background:rgba(232,190,70,.1)}
+.pill.addon{color:#c9b6ff;border-color:rgba(170,140,255,.45);background:rgba(170,140,255,.08)}
 .pill.ok{color:var(--green);border-color:rgba(61,220,151,.45)}
 .pill.warn{color:var(--amber);border-color:rgba(255,181,71,.45)}
 .pill.bad{color:var(--red);border-color:rgba(255,107,122,.45)}

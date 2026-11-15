@@ -193,6 +193,7 @@ function calculate(){
         : Number(document.getElementById("rate").value);
 
     saveData();
+    window.__kfpCalculated = amount > 0;
 
     // การ์ด/ชื่อ/% มาจากหน้า “จัดการ” (ค่าเริ่มต้น 45/15/25/10/5)
     kfpFillResults(amount, rate, mode);
@@ -1157,6 +1158,15 @@ function calculateRemit(){
 function renderPieChart(){
     const canvas = document.getElementById("pieChart");
     if(!canvas) return;
+
+    // การ์ด “สัดส่วนการเงิน” แสดงเฉพาะหลังกด “คำนวณ” (ทั้งโหมดไทยและเกาหลี)
+    const pieCard = document.getElementById("pieCard");
+    const pieAmount = kfpGetMode() === "THB"
+        ? (Number(document.getElementById("salaryThb").value) || 0)
+        : (Number(document.getElementById("salary").value) || 0);
+    const pieOn = !!window.__kfpCalculated && pieAmount > 0;
+    if(pieCard) pieCard.classList.toggle("kfp-pie-off", !pieOn);
+    if(!pieOn){ if(pieChart){ pieChart.destroy(); pieChart = null; } return; }
 
     if(!kfpChartReady()){
         kfpEnsureChartLib(renderPieChart);

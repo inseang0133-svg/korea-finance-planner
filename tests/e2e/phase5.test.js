@@ -63,7 +63,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     await seed(page, {});
     await open(page);
     ok(await attr(page, "data-plan-state") === "preview", "plan state = preview");
-    ok(await vis(page, ".tool-work") && await vis(page, 'button[onclick^="exportExcel("]') && await vis(page, '.card[data-feature="advanced_statistics"]') && await vis(page, ".kfp-fab"), "work, export, charts, gold nav all visible");
+    ok(await vis(page, ".tool-work") && await vis(page, 'button[onclick^="exportExcel("]') && await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)') && await vis(page, ".kfp-fab"), "work, export, charts, gold nav all visible");
     ok(!(await vis(page, '.kfp-locked-note[data-feature-off="advanced_statistics"]')), "no upgrade notes in preview");
     await open(page, "gold.html");
     ok(await vis(page, ".gold-hero") && !(await vis(page, "#kfpGoldUpsell")), "gold preview content (no upsell)");
@@ -78,7 +78,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     const tw = await page.$eval(".tool-exp", e => e.getBoundingClientRect().width), rw = await page.$eval(".tool-row", e => e.getBoundingClientRect().width);
     ok(tw > rw * 0.9, "expense button takes the full row");
     ok(!(await vis(page, 'button[onclick^="exportExcel("]')), "Export Excel hidden");
-    ok(!(await vis(page, '.card[data-feature="advanced_statistics"]')) && !(await vis(page, "#salaryChart")) && !(await vis(page, "#savingChartBlock")), "charts hidden");
+    ok(!(await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)')) && !(await vis(page, "#salaryChart")) && !(await vis(page, "#savingChartBlock")), "charts hidden");
     ok(await vis(page, '.kfp-locked-card[data-feature-off="advanced_statistics"]'), "upgrade note in their place");
     ok(!(await vis(page, "#statsGrid")), "statistics card hidden on Free");
     ok(!(await vis(page, ".kfp-fab")), "floating gold button hidden");
@@ -116,7 +116,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     ok(await vis(page, ".tool-work"), "work records visible");
     ok(await vis(page, 'button[onclick^="exportExcel("]'), "Export visible");
     // (canvases themselves stay blank here: Chart.js CDN is blocked in tests → check the plan-gated containers)
-    ok(await vis(page, '.card[data-feature="advanced_statistics"]') && await vis(page, '[data-feature="advanced_statistics"] .chart-box'), "chart cards visible");
+    ok(await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)') && await vis(page, '[data-feature="advanced_statistics"] .chart-box'), "chart cards visible");
     ok(!(await vis(page, ".kfp-fab")), "gold button hidden");
     await page.selectOption("#filterYear", String(new Date().getFullYear() - 1)); await page.waitForTimeout(200);
     ok(!(await page.textContent("#salaryHistory")).includes("ซ่อนประวัติ") && (await page.$$("#salaryHistory .history-item")).length > 0, "full salary history");

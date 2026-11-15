@@ -151,6 +151,7 @@
   };
 
   window.kfpResetResults = function () {
+    window.__kfpCalculated = false;
     document.querySelectorAll("[data-cat-val]").forEach(function (el) { el.textContent = "-"; });
   };
 

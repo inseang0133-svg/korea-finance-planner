@@ -77,11 +77,11 @@ async function shot(page, name) { if (OUT) await page.screenshot({ path: path.jo
     ok((await status(page)).includes("ตัวเลข"), "requires letters + digits");
     await page.fill("#kfpNewPassword", "Passw0rd1"); await page.fill("#kfpNewPassword2", "Passw0rd2"); await page.click("#kfpCreateBtn");
     ok((await status(page)).includes("ไม่ตรงกัน"), "confirm password mismatch");
-    await page.fill("#kfpNewPassword2", "Passw0rd1"); await page.fill("#kfpNewNickname", "นิวบี้");
+    await page.fill("#kfpNewPassword2", "Passw0rd1"); await page.fill("#kfpNewNickname", "นิวบี้"); await page.selectOption("#kfpNewCountry", "TH");
     await page.click("#kfpCreateBtn"); await page.waitForTimeout(300);
     const su = (await calls(page, "signUp"))[0];
     ok(su && su.args.email === "new@gmail.com", "signUp with real e-mail");
-    ok(su && su.args.options.data.username === "newbie" && su.args.options.data.display_name === "นิวบี้", "username + display name sent as metadata");
+    ok(su && su.args.options.data.username === "newbie" && su.args.options.data.display_name === "นิวบี้" && su.args.options.data.country === "TH", "username + display name + country sent as metadata");
     ok(su && /\/auth-callback\.html$/.test(su.args.options.emailRedirectTo), "emailRedirectTo = auth-callback.html");
     ok(await visibleView(page) === "verify", "verify-email notice shown");
     ok((await page.textContent("#kfpVerifyEmail")) === "new@gmail.com", "notice names the address");

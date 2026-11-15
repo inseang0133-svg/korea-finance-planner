@@ -53,7 +53,7 @@
     try { if (typeof kfpClearDeleted === "function") kfpClearDeleted(key); } catch (_) {}
     try { if (typeof kfpPersistNow === "function") kfpPersistNow(); } catch (_) {}
   }
-  function settings() { var s = load(K_SET, null) || {}; return { wage: num(s.wage) > 0 ? num(s.wage) : DEFAULT_SET.wage, normal: s.normal > 0 ? +s.normal : DEFAULT_SET.normal, ot: s.ot > 0 ? +s.ot : DEFAULT_SET.ot, weekend: s.weekend > 0 ? +s.weekend : DEFAULT_SET.weekend, holiday: s.holiday > 0 ? +s.holiday : DEFAULT_SET.holiday }; }
+  function settings() { var s = load(K_SET, null) || {}; var nd = Math.round(num(s.notifyDay)); return { wage: num(s.wage) > 0 ? num(s.wage) : DEFAULT_SET.wage, normal: s.normal > 0 ? +s.normal : DEFAULT_SET.normal, ot: s.ot > 0 ? +s.ot : DEFAULT_SET.ot, weekend: s.weekend > 0 ? +s.weekend : DEFAULT_SET.weekend, holiday: s.holiday > 0 ? +s.holiday : DEFAULT_SET.holiday, notifyDay: nd >= 1 && nd <= 31 ? nd : 0 }; }
   function records() { var r = load(K_REC, []); return Array.isArray(r) ? r : []; }
   function deductions() { var r = load(K_DED, []); return Array.isArray(r) ? r : []; }
   function expenses() { var r = load(K_EXP, []); return Array.isArray(r) ? r : []; }
@@ -379,6 +379,9 @@
       f("sWage", "💵", "ค่าแรง / ชั่วโมง", s.wage, 1, "₩") + f("sNormal", "⏱", "Normal multiplier", s.normal, 0.05, "×") +
       f("sOt", "⏰", "OT multiplier", s.ot, 0.05, "×") + f("sWeekend", "🗓", "Weekend multiplier", s.weekend, 0.05, "×") +
       f("sHoliday", "🎌", "Holiday multiplier", s.holiday, 0.05, "×") +
+      '<div data-feature="monthly_digest"><label class="tl-field"><span>🔔 วันที่แจ้งเตือนสรุปรายได้ประจำเดือน</span><div class="tl-inp"><input id="sNotify" type="number" inputmode="numeric" step="1" min="1" max="31" placeholder="เช่น 10 · เว้นว่าง = ไม่แจ้งเตือน" value="' + (s.notifyDay || "") + '"><em>ของเดือน</em></div></label>' +
+      '<p class="tl-hint left">วันนั้น (หรือวันแรกที่เปิดเว็บหลังจากนั้น) จะเด้งสรุปรายได้ ชั่วโมง วันทำงาน OT เสาร์-อาทิตย์ และวันหยุดของ<b>เดือนที่แล้วทั้งเดือน</b> · เดือนละครั้ง</p></div>' +
+      '<p class="tl-hint left" data-feature-off="monthly_digest">🔔 แจ้งเตือนสรุปรายได้ประจำเดือนแบบป๊อปอัพ มีใน <a href="pricing.html#premium">Finance Premium</a></p>' +
       '<div class="tl-actions"><button type="button" class="tl-primary" data-act="set-save">💾 บันทึกการตั้งค่า</button><button type="button" class="tl-ghost" data-act="set-reset">↺ ค่าเริ่มต้น</button></div></form>';
   }
 
@@ -576,9 +579,12 @@
       case "set-save": {
         var ns = { wage: Math.round(num($("sWage").value)), normal: num($("sNormal").value), ot: num($("sOt").value), weekend: num($("sWeekend").value), holiday: num($("sHoliday").value) };
         if (!(ns.wage > 0) || !(ns.normal > 0) || !(ns.ot > 0) || !(ns.weekend > 0) || !(ns.holiday > 0)) { toast("⚠️ ทุกช่องต้องมากกว่า 0", "warn"); break; }
+        var nIn = $("sNotify"), nRaw = nIn ? String(nIn.value || "").trim() : "";
+        if (nRaw && !(/^\d{1,2}$/.test(nRaw) && +nRaw >= 1 && +nRaw <= 31)) { toast("⚠️ วันที่แจ้งเตือนต้องเป็น 1–31", "warn"); break; }
+        ns.notifyDay = nIn ? (nRaw ? +nRaw : 0) : settings().notifyDay;
         store(K_SET, ns); toast("✅ บันทึกการตั้งค่าแล้ว"); go("wmenu"); break;
       }
-      case "set-reset": store(K_SET, DEFAULT_SET); toast("↺ คืนค่าเริ่มต้นแล้ว"); render(); break;
+      case "set-reset": store(K_SET, Object.assign({}, DEFAULT_SET, { notifyDay: settings().notifyDay })); toast("↺ คืนค่าเริ่มต้นแล้ว"); render(); break;
       /* รายจ่าย */
       case "ex-tab": S.ex.tab = v; S.ex.delId = null; renderExpenseList(); break;
       case "exm-prev": if (t.disabled) break; S.ex.month = addMonth(S.ex.month, -1); S.ex.delId = null; renderExpenseList(); break;

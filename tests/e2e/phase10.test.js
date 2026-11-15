@@ -145,7 +145,7 @@ const ROW = (i) => `[data-user="00000000-0000-4000-8000-${String(i).padStart(12,
     ok((await page.$$(".bar")).length === 3 && (await txt(page, "#revFailed")).includes("Card declined") && (await txt(page, "#revRefunds")).includes("in_TEST1"), "monthly bars, failed payments, refunds");
     await shot(page, "p10_revenue", true);
     await page.click("#tab-prices"); await page.waitForTimeout(600);
-    ok((await page.$$("#priceTable tbody tr")).length === 8 && (await txt(page, "#priceTable")).includes("ยังไม่เปิดขาย"), "8 price slots, missing ones flagged");
+    ok((await page.$$("#priceTable tbody tr")).length === 20 && (await txt(page, "#priceTable")).includes("ยังไม่เปิดขาย") && (await txt(page, "#priceTable")).includes("Add-on พอร์ตทอง"), "8 plan + 12 add-on price slots, missing ones flagged");
     await page.click('[data-price="plus:year:KRW"]'); await page.waitForTimeout(250);
     await page.fill("#cfAmt", "59000"); await page.fill("#cfReason", "launch KRW yearly"); await page.click("#cfOk"); await page.waitForTimeout(600);
     let pr = (await calls(page, "rpc:admin_set_price")).pop();

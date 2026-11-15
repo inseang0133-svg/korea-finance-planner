@@ -72,6 +72,7 @@ html[data-feat-expenses="0"] [data-feature~="expenses"],
 html[data-feat-work_records="0"] [data-feature~="work_records"],
 html[data-feat-advanced_statistics="0"] [data-feature~="advanced_statistics"],
 html[data-feat-planning="0"] [data-feature~="planning"],
+html[data-feat-monthly_digest="0"] [data-feature~="monthly_digest"],
 html[data-feat-export="0"] [data-feature~="export"],
 html[data-feat-cloud_sync="0"] [data-feature~="cloud_sync"],
 html[data-feat-gold_portfolio="0"] [data-feature~="gold_portfolio"]{display:none!important}
@@ -83,6 +84,7 @@ html[data-feat-expenses="0"] [data-feature-off~="expenses"],
 html[data-feat-work_records="0"] [data-feature-off~="work_records"],
 html[data-feat-advanced_statistics="0"] [data-feature-off~="advanced_statistics"],
 html[data-feat-planning="0"] [data-feature-off~="planning"],
+html[data-feat-monthly_digest="0"] [data-feature-off~="monthly_digest"],
 html[data-feat-export="0"] [data-feature-off~="export"],
 html[data-feat-cloud_sync="0"] [data-feature-off~="cloud_sync"],
 html[data-feat-gold_portfolio="0"] [data-feature-off~="gold_portfolio"]{display:block!important}
@@ -153,3 +155,9 @@ html[data-plan-state="loading"] body:has(#kfpGoldUpsell) .kfp-fab{display:none!i
 .kfp-gc-btn:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
 .kfp-gc-btn:disabled{opacity:.6;cursor:wait}
 @media(max-width:380px){.kfp-gc-opts{grid-template-columns:1fr}}
+
+/* "สัดส่วนการเงิน" stays hidden until the user presses คำนวณ */
+.kfp-pie-off{display:none!important}
+
+/* country decides the page (kfp-country.js): no ₩/฿ switch once a country is set */
+html[data-country] #modeSwitch{display:none!important}

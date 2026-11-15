@@ -12,10 +12,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kfp-access.css?v=20261115-saas17">
+<link rel="stylesheet" href="kfp-access.css?v=20261115-saas18">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-<script src="auth.js?v=20261115-saas17"></script>
+<script src="auth.js?v=20261115-saas18"></script>
 <style>
 :root{--bg:#06070a;--card:rgba(20,21,29,.92);--line:rgba(255,255,255,.09);--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--dim:#77746b;
   --green:#3ddc97;--red:#ff6b7a;--amber:#ffb547;--blue:#7cb8ff;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
@@ -101,6 +101,10 @@ h1{margin:12px 0 4px;font-size:clamp(24px,5vw,32px);line-height:1.25;color:var(-
 .divider{height:1px;margin:18px 0;background:var(--line)}
 /* history */
 .pays{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.adl{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:10px}
+.adl li{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.adl .an{flex:1 1 200px;min-width:0}.adl .an b{display:block;font-size:15px}.adl .an small{color:var(--muted);font-size:12.5px}
+.adl .btn{min-height:42px;padding:8px 14px;font-size:13.5px}
 .pay{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
 .pay .d{font-weight:600;font-size:14.5px}
 .pay .s{font-size:12.5px;color:var(--muted)}
@@ -158,6 +162,11 @@ dialog[open]{animation:pop .35s var(--spring)}
   <section class="card" id="manageCard" aria-labelledby="manageH" hidden>
     <h2 id="manageH">⚙️ จัดการแพ็กเกจ</h2>
     <div id="manageBody"></div>
+  </section>
+
+  <section class="card" id="addonCard" aria-labelledby="addons" hidden>
+    <h2 id="addons">🧩 Add-on ของฉัน</h2>
+    <div id="addonBody"></div>
   </section>
 
   <section class="card" id="historyCard" aria-labelledby="historyH" hidden>
@@ -455,7 +464,29 @@ dialog[open]{animation:pop .35s var(--spring)}
     }).join("");
     $("moreBox").hidden = st.pays.length >= total;
   }
-  function renderAll() { renderPlan(); renderAlerts(); renderManage(); renderHistory(); $("dataCard").hidden = false; }
+  function renderAddons() {
+    var list = (st.billing && st.billing.addons) || [], LIVE = ["active", "trialing", "past_due", "unpaid"];
+    var h = "";
+    if (list.length) {
+      h += '<ul class="adl" id="addonList">' + list.map(function (a) {
+        var live = LIVE.indexOf(a.status) >= 0, pill, act = "";
+        if (!live) pill = '<span class="pill mute">สิ้นสุดแล้ว</span>';
+        else if (a.status === "past_due" || a.status === "unpaid") pill = '<span class="pill bad">ชำระเงินไม่สำเร็จ</span>';
+        else if (a.cancel_at_period_end) pill = '<span class="pill warn">สิ้นสุด ' + esc(day(a.current_period_end)) + '</span>';
+        else pill = '<span class="pill ok">ใช้งานอยู่</span>';
+        if (live && a.cancel_at_period_end) act = '<button class="btn" type="button" data-addon-act="resume" data-addon="' + esc(a.plan_id) + '">↺ ต่ออายุอีกครั้ง</button>';
+        else if (live) act = '<button class="btn danger" type="button" data-addon-act="cancel" data-addon="' + esc(a.plan_id) + '">ยกเลิก Add-on</button>';
+        var sub = live ? (a.cancel_at_period_end ? "ใช้ได้ถึง " + day(a.current_period_end) + " · ไม่ตัดเงินอีก" : "ต่ออายุ " + day(a.current_period_end))
+                       : "สิ้นสุด " + day(a.ended_at || a.current_period_end);
+        return '<li data-addon-row="' + esc(a.plan_id) + '"><div class="an"><b>' + esc(a.plan_name || a.plan_id) + '</b><small>' +
+          (a.unit_amount_minor ? esc(money(a.unit_amount_minor, a.currency)) + " / เดือน · " : "") + esc(sub) + '</small></div>' + pill + act + '</li>';
+      }).join("") + '</ul>';
+    } else h += '<p class="hint" id="addonEmpty">ยังไม่มี Add-on · เพิ่มเฉพาะฟีเจอร์ที่ต้องการได้ในราคาเริ่มต้น ฿49 / เดือน</p>';
+    h += '<div class="row"><a class="btn" href="pricing.html#addons">🧩 ดู Add-on ทั้งหมด</a></div>';
+    $("addonBody").innerHTML = h;
+    $("addonCard").hidden = false;
+  }
+  function renderAll() { renderPlan(); renderAlerts(); renderManage(); renderAddons(); renderHistory(); $("dataCard").hidden = false; }
 
   // PART 7: data stays after expiry and the member can always take it with them.
   async function exportMyData(btn) {
@@ -524,8 +555,16 @@ dialog[open]{animation:pop .35s var(--spring)}
     if (dlg.showModal) dlg.showModal(); else if (window.confirm("ยกเลิกการต่ออายุอัตโนมัติ?")) runAction(btn, "cancel");
   }
   document.addEventListener("click", function (e) {
-    var t = e.target.closest && e.target.closest("[data-action],[data-portal-flow],[data-switch],#moreBtn,#linkEmailBtn,#retryBtn,#loginBtn,#exportMyData");
+    var t = e.target.closest && e.target.closest("[data-action],[data-addon-act],[data-portal-flow],[data-switch],#moreBtn,#linkEmailBtn,#retryBtn,#loginBtn,#exportMyData");
     if (!t || t.disabled) return;
+    if (t.dataset.addonAct) {
+      var aid = t.dataset.addon, act = t.dataset.addonAct;
+      if (act === "cancel") {
+        var row = ((st.billing && st.billing.addons) || []).filter(function (x) { return x.plan_id === aid; })[0] || {};
+        if (!window.confirm("ยกเลิก Add-on “" + (row.plan_name || aid) + "”?\n\nใช้ได้ถึง " + day(row.current_period_end) + " แล้วไม่ตัดเงินอีก · เปลี่ยนใจได้ก่อนวันนั้น")) return;
+      }
+      return runAction(t, act, { addon: aid });
+    }
     if (t.id === "exportMyData") return exportMyData(t);
     if (t.id === "moreBtn") return loadMore(t);
     if (t.id === "linkEmailBtn" && window.kfpAuth) return window.kfpAuth.open("account");
@@ -591,7 +630,7 @@ dialog[open]{animation:pop .35s var(--spring)}
   }
 })();
 </script>
-<script src="kfp-access.js?v=20261115-saas17"></script>
+<script src="kfp-access.js?v=20261115-saas18"></script>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>
 </body>

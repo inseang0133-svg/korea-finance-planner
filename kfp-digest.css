@@ -1,0 +1,58 @@
+/* kfp-digest.css — monthly summary pop-ups (Finance Premium) + celebration fireworks.
+   Dark/gold glass card, count-up hero number, stat tiles, canvas fireworks + confetti behind the card.
+   Everything animated is switched off under prefers-reduced-motion. */
+.kdg-ov{position:fixed;inset:0;z-index:99990;display:grid;place-items:center;padding:18px;
+  background:radial-gradient(70% 55% at 50% 40%,rgba(232,190,70,.14),rgba(5,6,10,.86) 70%);
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:kdg-fade .35s ease both}
+.kdg-ov[hidden]{display:none!important}
+.kdg-fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.kdg-card{position:relative;z-index:1;width:min(440px,100%);max-height:calc(100dvh - 36px);overflow:auto;overscroll-behavior:contain;
+  padding:26px 20px 18px;border-radius:28px;color:#f5f2ea;text-align:center;
+  font-family:"Prompt","Noto Sans Thai",system-ui,-apple-system,Arial,sans-serif;
+  background:linear-gradient(165deg,rgba(40,38,30,.96),rgba(16,17,23,.97) 55%,rgba(10,11,15,.98));
+  border:1px solid rgba(232,190,70,.55);
+  box-shadow:0 0 0 1px rgba(255,236,170,.08) inset,0 40px 90px -30px rgba(0,0,0,.95),0 0 60px -20px rgba(232,190,70,.55);
+  animation:kdg-pop .6s cubic-bezier(.34,1.56,.64,1) .08s both}
+.kdg-card::before{content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(105deg,transparent 35%,rgba(255,240,190,.20) 50%,transparent 65%);background-size:250% 100%;animation:kdg-sweep 3.6s ease-in-out .7s infinite}
+.kdg-medal{width:66px;height:66px;margin:-4px auto 10px;border-radius:22px;display:grid;place-items:center;font-size:32px;
+  background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.35),rgba(255,255,255,0) 55%),linear-gradient(140deg,#ffe9a3,#e8be46 55%,#b98a22);
+  box-shadow:0 12px 30px -10px rgba(232,190,70,.9),0 0 0 1px rgba(255,255,255,.35) inset;animation:kdg-medal .9s cubic-bezier(.34,1.56,.64,1) .25s both}
+.kdg-eyebrow{display:inline-block;padding:3px 11px;border-radius:99px;font-size:11px;font-weight:800;letter-spacing:1.4px;color:#1a1300;background:linear-gradient(120deg,#fff2b8,#e8be46)}
+.kdg-card h2{margin:10px 0 2px;font-size:21px;line-height:1.35;color:#ffe08a}
+.kdg-month{margin:0 0 14px;color:#b9b3a3;font-size:13.5px}
+.kdg-hero{margin:4px 0 6px}
+.kdg-hero small{display:block;color:#b9b3a3;font-size:12.5px;margin-bottom:2px}
+.kdg-hero b{display:block;font-size:clamp(30px,8vw,38px);line-height:1.15;font-variant-numeric:tabular-nums;
+  background:linear-gradient(100deg,#fff6d6 0%,#ffd66b 35%,#fff6d6 55%,#e8be46 100%);background-size:220% 100%;
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:kdg-shine 4.5s linear infinite}
+.kdg-hero em{display:block;font-style:normal;color:#3ddc97;font-size:14px;margin-top:2px;font-variant-numeric:tabular-nums}
+.kdg-cmp{display:inline-flex;align-items:center;gap:6px;margin:8px auto 4px;padding:7px 12px;border-radius:14px;font-size:13.5px;font-weight:600;line-height:1.45}
+.kdg-cmp.good{color:#3ddc97;background:rgba(61,220,151,.12);border:1px solid rgba(61,220,151,.45)}
+.kdg-cmp.bad{color:#ff9aa6;background:rgba(255,107,122,.10);border:1px solid rgba(255,107,122,.45)}
+.kdg-cmp.flat{color:#cfc9b8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)}
+.kdg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0 6px;text-align:left}
+.kdg-tile{padding:11px 12px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  animation:kdg-rise .5s cubic-bezier(.22,1,.36,1) both}
+.kdg-tile span{display:block;color:#a9a294;font-size:12px;line-height:1.4}
+.kdg-tile b{display:block;margin-top:2px;font-size:17px;font-variant-numeric:tabular-nums;color:#f5f2ea}
+.kdg-tile.wide{grid-column:1/-1}
+.kdg-tile.wide b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kdg-foot{margin:8px 0 0;color:#8f8a7e;font-size:11.5px;line-height:1.5}
+.kdg-actions{display:flex;gap:10px;margin-top:14px}
+.kdg-actions button{flex:1;min-height:48px;border-radius:16px;font:700 15px "Prompt","Noto Sans Thai",sans-serif;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;transition:transform .2s}
+.kdg-actions button:active{transform:scale(.97)}
+.kdg-actions button:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
+.kdg-go{color:#f5f2ea;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.16)}
+.kdg-ok{border:0;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 12px 26px -12px rgba(232,190,70,.9)}
+@keyframes kdg-fade{from{opacity:0}}
+@keyframes kdg-pop{from{opacity:0;transform:translateY(24px) scale(.9)}}
+@keyframes kdg-medal{from{opacity:0;transform:scale(.3) rotate(-25deg)}}
+@keyframes kdg-rise{from{opacity:0;transform:translateY(10px)}}
+@keyframes kdg-sweep{0%{background-position:150% 0}100%{background-position:-150% 0}}
+@keyframes kdg-shine{to{background-position:-220% 0}}
+@media(prefers-reduced-motion:reduce){
+  .kdg-ov,.kdg-card,.kdg-card::before,.kdg-medal,.kdg-hero b,.kdg-tile{animation:none!important}
+  .kdg-fx{display:none}
+}

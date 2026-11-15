@@ -23,13 +23,13 @@
 
   var PLANS = [
     { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน", sort: 0,
-      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, planning: false, export: false, cloud_sync: false, gold_portfolio: false },
+      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, planning: false, monthly_digest: false, export: false, cloud_sync: false, gold_portfolio: false },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: 3, expense_items_max: 10, grace_days: 0 } },
     { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync", sort: 1,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: false },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: false, export: true, cloud_sync: true, gold_portfolio: false },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } },
     { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด", sort: 2,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: true },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: true, export: true, cloud_sync: true, gold_portfolio: true },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } }
   ];
   var PRICES = [
@@ -38,7 +38,13 @@
     { plan_id: "plus", billing_interval: "month", currency: "KRW", amount_minor: 5900 },
     { plan_id: "premium", billing_interval: "month", currency: "THB", amount_minor: 19900 },
     { plan_id: "premium", billing_interval: "year", currency: "THB", amount_minor: 199000 },
-    { plan_id: "premium", billing_interval: "month", currency: "KRW", amount_minor: 8900 }
+    { plan_id: "premium", billing_interval: "month", currency: "KRW", amount_minor: 8900 },
+    { plan_id: "addon_salary", billing_interval: "month", currency: "THB", amount_minor: 5900 },
+    { plan_id: "addon_expense", billing_interval: "month", currency: "THB", amount_minor: 5900 },
+    { plan_id: "addon_work", billing_interval: "month", currency: "THB", amount_minor: 6900 },
+    { plan_id: "addon_planning", billing_interval: "month", currency: "THB", amount_minor: 4900 },
+    { plan_id: "addon_cloud", billing_interval: "month", currency: "THB", amount_minor: 6900 },
+    { plan_id: "addon_gold", billing_interval: "month", currency: "THB", amount_minor: 6900 }
   ];
   function createClient() {
     var listeners = [];
@@ -125,11 +131,14 @@
         }
         if (table === "profiles") {
           var email = Object.keys(S.users).find(function (e) { return S.users[e].id === q._f.user_id; });
-          return Promise.resolve({ data: email ? { user_id: q._f.user_id, username: S.users[email].username, nickname: S.users[email].username } : null, error: null });
+          // test control: sessionStorage __mock_country = TH | KR | none (default KR; "none" = old account without a country)
+          var mc = sessionStorage.getItem("__mock_country") || "KR";
+          return Promise.resolve({ data: email ? { user_id: q._f.user_id, username: S.users[email].username, nickname: S.users[email].username, country: mc === "none" ? null : mc } : null, error: null });
         }
         return Promise.resolve({ data: null, error: null });
       };
       q.then = function (res, rej) {
+        if (table === "profiles" && q._u && q._u.country) sessionStorage.setItem("__mock_country", q._u.country);
         if (table === "plans") return Promise.resolve({ data: PLANS, error: null }).then(res, rej);
         if (table === "plan_prices") {
           var override = sessionStorage.getItem("__mock_prices");
@@ -165,7 +174,8 @@
           var pl = PLANS.filter(function (p) { return p.id === pid; })[0];
           var src = sessionStorage.getItem("__mock_source") || (pid === "free" ? "default" : "subscription:stripe");
           var ent = { user_id: uid, plan: pl.id, plan_name: pl.name, source: src, status: pid === "free" ? "none" : "active",
-                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: pl.features, limits: Object.assign({}, pl.limits, JSON.parse(sessionStorage.getItem("__mock_limits") || "{}")), admin_role: sessionStorage.getItem("__mock_admin_role") || null, checked_at: new Date().toISOString() };
+                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: Object.assign({}, pl.features, JSON.parse(sessionStorage.getItem("__mock_addon_features") || "{}")), plan_features: pl.features,
+                      addons: JSON.parse(sessionStorage.getItem("__mock_addons") || "[]"), limits: Object.assign({}, pl.limits, JSON.parse(sessionStorage.getItem("__mock_limits") || "{}")), admin_role: sessionStorage.getItem("__mock_admin_role") || null, checked_at: new Date().toISOString() };
           var out = Promise.resolve({ data: ent, error: null });
           return mode === "slow" ? new Promise(function (r) { setTimeout(function () { r({ data: ent, error: null }); }, 2500); }) : out;
         }

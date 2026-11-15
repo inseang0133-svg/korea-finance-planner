@@ -187,12 +187,12 @@
   /* =========================================================
      PLAN VISIBILITY (Phase 5)
      ========================================================= */
-  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "planning", "export", "cloud_sync", "gold_portfolio"];
+  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "planning", "monthly_digest", "export", "cloud_sync", "gold_portfolio"];
   var FEATURE_LABEL = {
-    work_records: "บันทึกการเข้างาน", advanced_statistics: "สถิติการเงินและกราฟ", planning: "สัญญาจ้างเกาหลีและเป้าหมายเงินเก็บ", export: "Export ข้อมูล",
+    work_records: "บันทึกการเข้างาน", advanced_statistics: "สถิติการเงินและกราฟ", planning: "สัญญาจ้างเกาหลีและเป้าหมายเงินเก็บ", monthly_digest: "แจ้งเตือนสรุปรายเดือนแบบป๊อปอัพ", export: "Export ข้อมูล",
     cloud_sync: "Cloud Sync", gold_portfolio: "พอร์ตทอง", salary_history: "ประวัติเงินเดือนทั้งหมด", expenses: "ประวัติรายจ่ายทั้งหมด"
   };
-  var FEATURE_PLAN = { work_records: "Finance Plus", advanced_statistics: "Finance Plus", planning: "Finance Plus", export: "Finance Plus", cloud_sync: "Finance Plus",
+  var FEATURE_PLAN = { work_records: "Finance Plus", advanced_statistics: "Finance Plus", planning: "Finance Plus", monthly_digest: "Finance Premium", export: "Finance Plus", cloud_sync: "Finance Plus",
                        salary_history: "Finance Plus", expenses: "Finance Plus", gold_portfolio: "Finance Premium" };
   var ENT_CACHE_KEY = "__kfp_ent_cache_v1";          // per-account (namespaced by kfp-storage.js)
   var ENT_TIMEOUT_MS = 8000;
@@ -230,7 +230,9 @@
     return { state: PLAN.state, plan: PLAN.ent ? PLAN.ent.plan : null, planName: PLAN.ent ? PLAN.ent.plan_name : null,
              source: PLAN.ent ? PLAN.ent.source : null, status: PLAN.ent ? PLAN.ent.status : null,
              validUntil: PLAN.ent ? PLAN.ent.valid_until : null, features: PLAN.ent ? PLAN.ent.features : null, limits: PLAN.ent ? PLAN.ent.limits : null,
-             adminRole: PLAN.ent && /^(owner|admin|viewer)$/.test(PLAN.ent.admin_role || "") ? PLAN.ent.admin_role : null };
+             adminRole: PLAN.ent && /^(owner|admin|viewer)$/.test(PLAN.ent.admin_role || "") ? PLAN.ent.admin_role : null,
+             planFeatures: PLAN.ent ? (PLAN.ent.plan_features || PLAN.ent.features) : null,
+             addons: PLAN.ent && Array.isArray(PLAN.ent.addons) ? PLAN.ent.addons : [] };
   }
 
   function readCache() {

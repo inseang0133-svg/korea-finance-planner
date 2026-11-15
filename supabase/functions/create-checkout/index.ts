@@ -1,7 +1,7 @@
-// create-checkout · POST { plan: "plus"|"premium", interval: "month"|"year", currency: "THB"|"KRW" }
+// create-checkout · POST { plan: "plus"|"premium"|"addon_…", interval: "month"|"year", currency: "THB"|"KRW" }
 // Authorization: Bearer <user access token>  →  200 { url } (Stripe Checkout)
 // Errors: 400 invalid_request · 401 unauthorized · 403 email_not_verified | legacy_email | suspended
-//         404 price_not_available · 409 already_subscribed (use the portal) · 429 rate_limited
+//         404 price_not_available · 409 already_subscribed (use the portal) | addon_included · 429 rate_limited
 // Deploy: supabase functions deploy create-checkout
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { createCheckout } from "../_shared/billing.ts";

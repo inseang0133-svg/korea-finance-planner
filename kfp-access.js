@@ -187,12 +187,12 @@
   /* =========================================================
      PLAN VISIBILITY (Phase 5)
      ========================================================= */
-  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "export", "cloud_sync", "gold_portfolio"];
+  var FEATURES = ["salary", "salary_history", "expenses", "work_records", "advanced_statistics", "planning", "export", "cloud_sync", "gold_portfolio"];
   var FEATURE_LABEL = {
-    work_records: "บันทึกการเข้างาน", advanced_statistics: "สถิติขั้นสูงและกราฟ", export: "Export ข้อมูล",
+    work_records: "บันทึกการเข้างาน", advanced_statistics: "สถิติการเงินและกราฟ", planning: "สัญญาจ้างเกาหลีและเป้าหมายเงินเก็บ", export: "Export ข้อมูล",
     cloud_sync: "Cloud Sync", gold_portfolio: "พอร์ตทอง", salary_history: "ประวัติเงินเดือนทั้งหมด", expenses: "ประวัติรายจ่ายทั้งหมด"
   };
-  var FEATURE_PLAN = { work_records: "Finance Plus", advanced_statistics: "Finance Plus", export: "Finance Plus", cloud_sync: "Finance Plus",
+  var FEATURE_PLAN = { work_records: "Finance Plus", advanced_statistics: "Finance Plus", planning: "Finance Plus", export: "Finance Plus", cloud_sync: "Finance Plus",
                        salary_history: "Finance Plus", expenses: "Finance Plus", gold_portfolio: "Finance Premium" };
   var ENT_CACHE_KEY = "__kfp_ent_cache_v1";          // per-account (namespaced by kfp-storage.js)
   var ENT_TIMEOUT_MS = 8000;
@@ -273,7 +273,7 @@
     if (PLAN.state === "ready") return;
     var c = readCache();
     if (reason) console.warn("kfp: entitlements unavailable (" + reason + ")" + (c ? " — using last server answer" : " — Free until online"));
-    renderFeaturesByPlan(c || { plan: "free", plan_name: "Free", source: "offline", features: { salary: true, salary_history: true, expenses: true }, limits: {} }, "offline");
+    renderFeaturesByPlan(c || { plan: "free", plan_name: "Free", source: "offline", features: { salary: true, salary_history: true, expenses: true }, limits: { salary_records_max: 3, expense_items_max: 10 } }, "offline");
   }
 
   // ---- upgrade prompt (members without a feature) ----
@@ -285,7 +285,7 @@
     showUpsell(key);
     return false;
   }
-  function showUpsell(key) {
+  function showUpsell(key, title, detail, href) {
     var d = document.getElementById("kfpUpsell");
     if (!d) {
       d = document.createElement("div");
@@ -299,12 +299,34 @@
       d.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); d.hidden = true; } });
       document.body.appendChild(d);
     }
-    d.querySelector("b").textContent = (FEATURE_LABEL[key] || "ฟีเจอร์นี้") + " มีในแพ็กเกจ " + (FEATURE_PLAN[key] || "ที่สูงกว่า");
-    d.querySelector("small").textContent = "อัปเกรดเพื่อปลดล็อก · ข้อมูลเดิมของคุณยังอยู่ครบ";
-    d.querySelector("[data-up=go]").setAttribute("href", upgradeUrl(key));
+    d.querySelector("b").textContent = title || (FEATURE_LABEL[key] || "ฟีเจอร์นี้") + " มีในแพ็กเกจ " + (FEATURE_PLAN[key] || "ที่สูงกว่า");
+    d.querySelector("small").textContent = detail || "อัปเกรดเพื่อปลดล็อก · ข้อมูลเดิมของคุณยังอยู่ครบ";
+    d.querySelector("[data-up=go]").setAttribute("href", href || upgradeUrl(key));
     d.hidden = false;
     var c = d.querySelector("[data-up=close]"); if (c) c.focus();
   }
+
+  // ---- Free count limits (plans.limits.salary_records_max / expense_items_max) ----
+  // Call before adding ONE new item. true = allowed. At the limit: explains how to continue and returns false.
+  // Free data never syncs to the cloud, so this is a plan rule on this device, not a security boundary.
+  var LIMIT_TEXT = {
+    salary_records_max:  ["บันทึกเงินเดือนได้สูงสุด {n} เดือน", "เดือน"],
+    expense_items_max:   ["บันทึกรายจ่ายได้สูงสุด {n} รายการ", "รายการ"]
+  };
+  function allowAdd(limitKey, count) {
+    var n = planLimit(limitKey);
+    if (!n || count < n) return true;
+    var t = LIMIT_TEXT[limitKey] || ["ถึงจำนวนสูงสุดของแพ็กเกจแล้ว ({n})", "รายการ"];
+    showUpsell(null, "แพ็กเกจ " + ((PLAN.ent && PLAN.ent.plan_name) || "Free") + " " + t[0].replace("{n}", n),
+      "ลบ" + t[1] + "เก่าออกก่อนเพื่อบันทึกใหม่ หรืออัปเกรดเป็น Finance Plus เพื่อบันทึกได้ไม่จำกัด", "pricing.html#plus");
+    return false;
+  }
+  window.kfpAllowAdd = allowAdd;
+  window.kfpLimitUsage = function (limitKey, count) {
+    var n = planLimit(limitKey); if (!n) return "";
+    var t = LIMIT_TEXT[limitKey] || ["", "รายการ"];
+    return "ใช้ไป " + Math.min(count, 999) + "/" + n + " " + t[1];
+  };
 
   // ---- Free "Limited History": salary list on index.html (data is never deleted) ----
   function cutoffMonth(months) {
@@ -315,7 +337,16 @@
   window.kfpHistoryCutoff = function (limitKey) { var n = planLimit(limitKey); return n ? cutoffMonth(n) : null; };
   function limitSalaryHistory() {
     var box = document.getElementById("salaryHistory"); if (!box) return;
-    var old = box.querySelector(".kfp-limit-note"); if (old) old.remove();
+    [].forEach.call(box.querySelectorAll(".kfp-limit-note"), function (o) { o.remove(); });
+    var max = planLimit("salary_records_max");
+    if (max) {
+      var cnt = 0; try { cnt = (JSON.parse(localStorage.getItem("salaryRecords") || "[]") || []).length; } catch (_) {}
+      var u = document.createElement("div");
+      u.className = "kfp-limit-note" + (cnt >= max ? " full" : "");
+      u.innerHTML = "<span>" + (cnt >= max ? "🔒 " : "📅 ") + "แพ็กเกจ Free · ใช้ไป " + Math.min(cnt, 999) + "/" + max + " เดือน" +
+        (cnt >= max ? " · ลบเดือนเก่าเพื่อบันทึกใหม่" : "") + '</span><a href="pricing.html#plus">บันทึกไม่จำกัดด้วย Finance Plus</a>';
+      box.appendChild(u);
+    }
     var cut = window.kfpHistoryCutoff("salary_history_months"); if (!cut) return;
     var hidden = 0;
     [].forEach.call(box.querySelectorAll(".history-item"), function (it) {

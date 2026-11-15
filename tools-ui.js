@@ -410,8 +410,9 @@
       '<label class="tl-field"><span>📝 ชื่อรายการ</span><input id="exName" type="text" maxlength="60" placeholder="เช่น ค่าอาหาร / ค่าเดินทาง" value="' + (e ? esc(e.name) : "") + '"></label>' +
       '<label class="tl-field"><span>' + (isK ? "₩ จำนวนเงิน (วอน)" : "฿ จำนวนเงิน (บาท)") + '</span><div class="tl-inp"><input id="exAmt" type="number" inputmode="decimal" min="0" step="' + (isK ? "1" : "0.01") + '" placeholder="' + (isK ? "เช่น 15000" : "เช่น 250") + '" value="' + (e ? esc(e.amt) : "") + '"><em>' + (isK ? "₩" : "฿") + "</em></div></label>" +
       (isK ? '<div class="tl-approx" id="exApprox">≈ 0.00 ฿ <small>(เรต ' + curRate().toFixed(4) + ")</small></div>" : "") +
-      '<label class="tl-field"><span>🔗 หักจากการ์ดใน “📊 สถิติการเงิน”</span><select id="exCat">' + catOptions(e ? e.cat : "") + "</select></label>" +
-      '<p class="tl-hint left" id="exCatHint"></p>' +
+      '<div data-feature="advanced_statistics"><label class="tl-field"><span>🔗 หักจากการ์ดใน “📊 สถิติการเงิน”</span><select id="exCat">' + catOptions(e ? e.cat : "") + "</select></label>" +
+      '<p class="tl-hint left" id="exCatHint"></p></div>' +
+      (!e && window.kfpLimitUsage ? (function (u) { return u ? '<p class="tl-hint left kfp-ex-usage">💸 แพ็กเกจ Free · ' + u + "</p>" : ""; })(window.kfpLimitUsage("expense_items_max", expenses().length)) : "") +
       '<div class="tl-actions' + (e ? "" : " one") + '"><button type="button" class="tl-primary" data-act="ex-save">' + (e ? "💾 บันทึกการแก้ไข" : "➕ บันทึกรายจ่าย") + "</button>" +
       (e ? '<button type="button" class="tl-ghost" data-act="ex-cancel">ยกเลิกแก้ไข</button>' : "") + "</div>";
     updateApprox();
@@ -448,7 +449,7 @@
       var byCat = {}; list.forEach(function (e) { if (e.cat) byCat[e.cat] = (byCat[e.cat] || 0) + (isK ? num(e.krw) : num(e.thb)); });
       var cats = typeof kfpLoadAlloc === "function" ? kfpLoadAlloc() : [], lines = "";
       cats.forEach(function (c, i) { if (byCat[c.id]) lines += '<div class="tl-catrow" style="--ac:' + kfpCatRgb(i) + '"><i></i><span>' + esc(c.emoji + " " + c.name) + "</span><b>− " + (isK ? fmt(byCat[c.id]) + " ₩" : fmt2(byCat[c.id]) + " ฿") + "</b></div>"; });
-      if (lines) h += '<div class="tl-sec"><h3>🔗 หักจากสถิติการเงินแล้ว</h3>' + lines + "</div>";
+      if (lines) h += '<div class="tl-sec" data-feature="advanced_statistics"><h3>🔗 หักจากสถิติการเงินแล้ว</h3>' + lines + "</div>";
       if (!list.length) h += '<p class="tl-empty">ยังไม่มีรายจ่ายใน' + ymLabel(ex.month) + "</p>";
     } else {
       if (!list.length) h += '<p class="tl-empty">ยังไม่มีรายจ่ายใน' + ymLabel(ex.month) + "</p>";
@@ -485,6 +486,7 @@
       if (num(rec.amt) !== amt || !(rec.rate > 0)) rec.rate = rate;
       rec.name = name; rec.cat = cat;
     } else {
+      if (typeof window.kfpAllowAdd === "function" && !window.kfpAllowAdd("expense_items_max", all.length)) return;
       rec = { id: uid(), ts: Date.now(), cur: S.cur, name: name, cat: cat, date: todayStr(), rate: rate };
       all.push(rec);
     }

@@ -210,3 +210,11 @@ details summary{cursor:pointer;color:var(--gold-l);min-height:32px;display:inlin
 .btn.role{border-color:rgba(232,190,70,.5);color:var(--gold-l)}
 .btn.role:hover{background:rgba(232,190,70,.12)}
 .kfa-role.viewer{color:#20232b!important;border:0!important;background:linear-gradient(120deg,#ffffff,#c9ced8 55%,#8e95a3)!important}
+
+/* reset password (drawer) */
+.btn.pw{border-color:rgba(255,120,120,.45)}
+.kfa-reset-note{margin:10px 0 0;font:600 13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2px;animation:kfa-reset-in .4s cubic-bezier(.34,1.56,.64,1) both}
+.kfa-reset-note .r{color:#ff6b6b}
+.kfa-reset-note .g{color:#3ddc97;user-select:all}
+@keyframes kfa-reset-in{from{opacity:0;transform:translateY(-4px)}}
+@media(prefers-reduced-motion:reduce){.kfa-reset-note{animation:none}}

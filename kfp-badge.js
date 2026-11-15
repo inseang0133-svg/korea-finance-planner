@@ -1,4 +1,5 @@
 /* kfp-badge.js — role + plan badge (top-left) on index.html and gold.html.
+ * Staff (owner/admin/viewer): role pill only → admin.html. Members: plan → pricing.html.
  * Reads kfpPlan.info() (kfp-access.js) and listens to "kfp:plan", so it follows the member's
  * real plan from get_my_entitlements(). Hidden for guests (preview) and while loading.
  * Display only: the role / plan shown here never grants anything. */
@@ -32,9 +33,10 @@
     var b = ensureBox();
     if (!show) { b.hidden = true; b.innerHTML = ""; return; }
     var r = ROLE[info.adminRole], p = PLAN[info.plan];
-    b.innerHTML =
-      (r ? '<span class="kfb-pill ' + r[1] + '" role="img" aria-label="บทบาท ' + r[0] + '"><span>' + r[0] + "</span></span>" : "") +
-      '<a class="kfb-plan" href="pricing.html" aria-label="แพ็กเกจปัจจุบัน ' + p.name + ' · ดูหรืออัปเกรดแพ็กเกจ">' + p.html + "</a>";
+    // staff: only the role pill (their plan is always unlimited Premium) → opens the admin console
+    b.innerHTML = r
+      ? '<a class="kfb-plan kfb-role" href="admin.html" aria-label="บทบาท ' + r[0] + ' · เปิดหน้า Admin"><span class="kfb-pill ' + r[1] + '"><span>' + r[0] + "</span></span></a>"
+      : '<a class="kfb-plan" href="pricing.html" aria-label="แพ็กเกจปัจจุบัน ' + p.name + ' · ดูหรืออัปเกรดแพ็กเกจ">' + p.html + "</a>";
     b.hidden = false;
     b.style.animation = "none"; void b.offsetWidth; b.style.animation = "";   // replay the entrance when it changes
   }

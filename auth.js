@@ -289,7 +289,8 @@
     const el = $("kfpPlanLine"); if (!el) return;
     if (!info || !info.plan) { el.hidden = true; return; }
     const src = String(info.source || "");
-    const why = src === "legacy_launch" ? "สิทธิ์สมาชิกเดิม (ฟรีช่วงเปิดระบบ)"
+    const why = src === "staff" ? "ทีมงาน · ไม่จำกัดเวลา"
+      : src === "legacy_launch" ? "สิทธิ์สมาชิกเดิม (ฟรีช่วงเปิดระบบ)"
       : src === "admin_grant" ? "ได้รับจากผู้ดูแลระบบ"
       : src.startsWith("subscription") ? (info.status === "past_due" ? "⚠️ ชำระเงินไม่สำเร็จ · กรุณาอัปเดตการชำระเงิน" : info.status === "trialing" ? "ช่วงทดลองใช้" : "สมาชิกแบบชำระเงิน")
       : src === "offline" ? "ออฟไลน์ · ใช้ข้อมูลสิทธิ์ล่าสุด" : "";
@@ -299,18 +300,39 @@
     if (why || until) el.appendChild(document.createTextNode(" · " + [why, until ? "ถึง " + until : ""].filter(Boolean).join(" · ")));
     if (info.plan !== "premium") { const a = document.createElement("a"); a.href = "pricing.html"; a.textContent = "อัปเกรด"; el.appendChild(a); }
     if (info.state === "ready" || info.state === "offline") { const m = document.createElement("a"); m.href = "account.html"; m.id = "kfpBillingLink"; m.textContent = "แพ็กเกจและใบเสร็จ"; el.appendChild(m); }
-    if (info.state === "ready" && supabase && currentUser) showAdminLink(el);
     el.hidden = false;
+    renderAdminButton(info, el);
   }
   window.addEventListener("kfp:plan", e => renderPlanLine(e.detail));
-  // Phase 10: link to the Admin Console for admins only (the console itself re-checks the role on every call).
+  // Admin Console button (owner / admin / viewer only). The role comes from get_my_entitlements();
+  // the console itself re-checks it on every call, so this is navigation only.
+  const ADMIN_ROLE = {
+    owner:  { label: "OWNER",  tone: "gold",   sub: "สมาชิก · แพ็กเกจ · ราคา · รายได้" },
+    admin:  { label: "ADMIN",  tone: "gold",   sub: "สมาชิก · แพ็กเกจ · รายได้" },
+    viewer: { label: "VIEWER", tone: "silver", sub: "ดูข้อมูลระบบ · อ่านอย่างเดียว" }
+  };
+  const ICON_SHIELD = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M12 2.5 4.5 5.4v5.7c0 4.7 3.2 8.8 7.5 10.4 4.3-1.6 7.5-5.7 7.5-10.4V5.4L12 2.5z" fill="currentColor" opacity=".22"/><path d="M12 2.5 4.5 5.4v5.7c0 4.7 3.2 8.8 7.5 10.4 4.3-1.6 7.5-5.7 7.5-10.4V5.4L12 2.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m8.6 12.1 2.3 2.3 4.5-4.7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const ICON_ARROW = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   let adminCheck = null;
-  function showAdminLink(el) {
+  function renderAdminButton(info, el) {
+    const old = document.getElementById("kfpAdminLink");
+    const draw = role => {
+      const r = ADMIN_ROLE[role], cur = document.getElementById("kfpAdminLink");
+      if (!r || !currentUser) { if (cur) cur.remove(); return; }
+      if (cur && cur.dataset.role === role) return;
+      const a = cur || document.createElement("a");
+      a.id = "kfpAdminLink"; a.href = "admin.html"; a.className = "kfp-admin-btn " + r.tone; a.dataset.role = role;
+      a.setAttribute("aria-label", "เปิดหน้า Admin Console · บทบาท " + r.label);
+      a.innerHTML = '<span class="kab-ico">' + ICON_SHIELD + '</span><span class="kab-txt"><span class="kab-top"><b>Admin Console</b><span class="kab-role">' + r.label +
+        '</span></span><small>' + r.sub + '</small></span><span class="kab-go">' + ICON_ARROW + "</span>";
+      if (!cur) el.insertAdjacentElement("afterend", a);
+    };
+    if (!info || (info.state !== "ready" && info.state !== "offline")) { if (old) old.remove(); return; }
+    if (info.adminRole) { draw(info.adminRole); return; }
+    // older database (no admin_role in get_my_entitlements yet): ask is_admin once
+    if (info.state !== "ready" || !supabase) { if (old) old.remove(); return; }
     if (!adminCheck) adminCheck = Promise.resolve(supabase.rpc("is_admin", { p_min_role: "viewer" })).then(r => !!(r && r.data === true), () => false);
-    adminCheck.then(ok => {
-      if (!ok || document.getElementById("kfpAdminLink")) return;
-      const a = document.createElement("a"); a.href = "admin.html"; a.id = "kfpAdminLink"; a.textContent = "🛡️ Admin"; el.appendChild(a);
-    });
+    adminCheck.then(ok => draw(ok ? "admin" : null));
   }
 
   /* ---------- ข้อมูลเดิมในเครื่อง (ก่อนมีระบบสมาชิก) ---------- */
@@ -561,6 +583,36 @@
       .kfp-req{color:#ff8c8c}
       .kfp-plan-line{margin:10px 0 0;padding:12px 14px;border-radius:14px;text-align:left;font-size:13.5px;line-height:1.6;color:#cfc9b8;background:rgba(255,255,255,.035);border:1px solid rgba(232,190,70,.3)}
       .kfp-plan-line b{color:#ffe08a}.kfp-plan-line a{color:#ffe08a;font-weight:600;margin-left:6px}
+      /* Admin Console button (staff only) */
+      .kfp-admin-btn{--kab:#e8be46;--kab-hi:#fff2b8;position:relative;isolation:isolate;display:flex;align-items:center;gap:12px;margin:10px 0 0;padding:12px 14px;min-height:64px;border-radius:18px;text-decoration:none;text-align:left;overflow:hidden;
+        color:#f5f2ea;background:linear-gradient(150deg,rgba(255,236,170,.13),rgba(212,175,55,.05) 55%,rgba(255,255,255,.02));border:1px solid rgba(232,190,70,.45);
+        box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 10px 26px -18px rgba(0,0,0,.9);-webkit-tap-highlight-color:transparent;
+        transition:transform .35s cubic-bezier(.34,1.56,.64,1),border-color .25s,background .25s;animation:kab-in .55s cubic-bezier(.22,1,.36,1) both}
+      .kfp-admin-btn.silver{--kab:#c9cfda;--kab-hi:#ffffff;border-color:rgba(214,220,232,.42);background:linear-gradient(150deg,rgba(255,255,255,.10),rgba(200,206,218,.04) 55%,rgba(255,255,255,.02))}
+      .kfp-admin-btn::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;transform:translateX(-120%);
+        background:linear-gradient(105deg,transparent 35%,rgba(255,240,190,.16) 50%,transparent 65%);animation:kab-sweep 4.2s ease-in-out 1.2s infinite}
+      .kfp-admin-btn .kab-ico{flex:0 0 auto;display:grid;place-items:center;width:42px;height:42px;border-radius:13px;color:var(--kab-hi);
+        background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.22),rgba(255,255,255,0) 60%),linear-gradient(140deg,var(--kab),rgba(0,0,0,.25));
+        box-shadow:0 0 0 1px rgba(255,255,255,.18) inset}
+      .kfp-admin-btn .kab-ico svg{color:#1a1300;filter:drop-shadow(0 1px 0 rgba(255,255,255,.35))}
+      .kfp-admin-btn.silver .kab-ico svg{color:#1d2028}
+      .kfp-admin-btn .kab-txt{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}
+      .kfp-admin-btn .kab-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+      .kfp-admin-btn .kab-txt b{white-space:nowrap;font-size:15.5px;font-weight:700;letter-spacing:.2px;background:linear-gradient(100deg,var(--kab-hi) 0%,var(--kab) 35%,var(--kab-hi) 55%,var(--kab) 100%);background-size:220% 100%;
+        -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:kab-shine 5s linear infinite}
+      .kfp-admin-btn .kab-txt small{font-size:12.5px;line-height:1.45;color:#b9b3a3}
+      .kfp-admin-btn .kab-role{flex:0 0 auto;padding:3px 8px;border-radius:99px;font-size:10.5px;font-weight:800;letter-spacing:1.1px;color:#1a1300;
+        background:linear-gradient(120deg,#fff2b8,#e8be46 50%,#c9962b);box-shadow:0 0 0 1px rgba(255,232,160,.55) inset}
+      .kfp-admin-btn.silver .kab-role{color:#1d2028;background:linear-gradient(120deg,#ffffff,#d5dae3 45%,#9aa1ae)}
+      .kfp-admin-btn .kab-go{flex:0 0 auto;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:var(--kab);background:rgba(255,255,255,.05);
+        transition:transform .35s cubic-bezier(.34,1.56,.64,1),background .25s}
+      .kfp-admin-btn:active{transform:scale(.97)}
+      .kfp-admin-btn:focus-visible{outline:2px solid #ffe08a;outline-offset:3px}
+      @media(hover:hover){.kfp-admin-btn:hover{transform:translateY(-2px);border-color:var(--kab)}.kfp-admin-btn:hover .kab-go{transform:translateX(3px);background:rgba(255,255,255,.1)}}
+      @keyframes kab-in{from{opacity:0;transform:translateY(8px) scale(.98)}}
+      @keyframes kab-sweep{to{transform:translateX(120%)}}
+      @keyframes kab-shine{to{background-position:-220% 0}}
+      @media(prefers-reduced-motion:reduce){.kfp-admin-btn,.kfp-admin-btn::before,.kfp-admin-btn .kab-txt b{animation:none!important}.kfp-admin-btn,.kfp-admin-btn .kab-go{transition:none}}
       .kfp-hint{margin:6px 2px 0!important;min-height:16px}.kfp-hint.ok{color:#37d478!important}.kfp-hint.bad{color:#ff8c8c!important}
       @media(max-width:600px){#kfpAuthRoot{top:max(8px,env(safe-area-inset-top));right:8px}.kfp-auth-modal{padding:20px}}
     `;

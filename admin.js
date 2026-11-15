@@ -22,7 +22,7 @@
                  void: ["", "ยกเลิก"], uncollectible: ["bad", "เรียกเก็บไม่ได้"], refunded: ["info", "คืนเงินแล้ว"], partially_refunded: ["info", "คืนบางส่วน"] };
   var ACTION_LABEL = { "plan.grant": "ให้สิทธิ์แพ็กเกจ", "plan.revoke_all": "เปลี่ยนเป็น Free", "plan.extend": "ขยายสิทธิ์", "plan.revoke": "ยกเลิกสิทธิ์ที่ให้",
     "user.suspend": "ระงับบัญชี", "user.reactivate": "เปิดบัญชีคืน", "subscription.cancel": "ยกเลิก subscription (สิ้นรอบ)",
-    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา", "role.set": "เปลี่ยนบทบาท" };
+    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา", "role.set": "เปลี่ยนบทบาท", "user.password_reset": "Reset password" };
   var ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Viewer" };
 
   /* ---------------------------------------------------------- format */
@@ -74,7 +74,8 @@
     reason_required: "กรุณาใส่เหตุผลอย่างน้อย 3 ตัวอักษร", invalid_expiry: "วันหมดอายุต้องเป็นวันในอนาคต", invalid_days: "จำนวนวันต้องอยู่ระหว่าง 1–3650",
     nothing_to_extend: "สมาชิกนี้ไม่มีสิทธิ์ที่จะขยาย (เป็น Free)", no_expiry: "สิทธิ์ปัจจุบันไม่มีวันหมดอายุ", no_subscription: "ไม่มี subscription ที่ใช้งานอยู่",
     user_not_found: "ไม่พบสมาชิก", rate_limited: "ทำรายการบ่อยเกินไป รอสักครู่", customer_mismatch: "ข้อมูล Stripe ไม่ตรงกัน ตรวจสอบใน Stripe Dashboard",
-    network: "เชื่อมต่อไม่ได้", unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"
+    network: "เชื่อมต่อไม่ได้", unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
+    weak_password: "ระบบ Auth ไม่ยอมรับรหัสเริ่มต้น (นโยบายรหัสผ่านของ Supabase)", auth_error: "ระบบ Auth ตอบกลับผิดพลาด ลองใหม่อีกครั้ง"
   };
   function errText(e) {
     var m = String((e && (e.message || e.error)) || e || "");
@@ -251,7 +252,7 @@
   });
 
   /* ---------------------------------------------------------- user detail */
-  var CUR = null;
+  var CUR = null, RESET_DONE = {};   // user_id → default password shown after a reset (this page only)
   function kv(pairs) { return '<dl class="kv">' + pairs.map(function (p) { return "<div><dt>" + esc(p[0]) + "</dt><dd>" + p[1] + "</dd></div>"; }).join("") + "</dl>"; }
   function canActOn(det) {
     if (!ME.canWrite) return "บทบาท viewer ดูได้อย่างเดียว";
@@ -284,7 +285,9 @@
         '<button class="btn sm danger" type="button" data-act="revoke"' + (hasGrant ? "" : " disabled") + ">ยกเลิกสิทธิ์ที่ให้</button>" +
         (u.suspended_at ? '<button class="btn sm" type="button" data-act="reactivate">เปิดบัญชีคืน</button>' : '<button class="btn sm danger" type="button" data-act="suspend">ระงับบัญชี</button>') +
         (live ? '<button class="btn sm danger" type="button" data-act="cancel_sub">ยกเลิก subscription</button>' : "") +
+        '<button class="btn sm pw" type="button" data-act="reset_pw">🔑 Reset password</button>' +
         (ME.isOwner && u.admin_role !== "owner" ? '<button class="btn sm role" type="button" data-act="set_role">🛡️ บทบาท: ' + esc(ROLE_LABEL[u.admin_role] || "สมาชิก") + "</button>" : "") + "</div>" +
+      (RESET_DONE[u.user_id] ? '<p class="kfa-reset-note" role="status"><span class="r">reset password</span> : <span class="g">' + esc(RESET_DONE[u.user_id]) + "</span></p>" : "") +
       '<p class="count" style="margin-top:8px">ทุกการกระทำต้องยืนยันและใส่เหตุผล · บันทึกใน Audit log</p>';
     var subs = (x.subscriptions || []).map(function (s) {
       return "<tr><td data-l=\"Subscription\" class=\"mono\">" + esc(s.provider_subscription_id || s.id) + "</td><td data-l=\"แพ็กเกจ\">" + planPill(s.plan_id) +
@@ -337,7 +340,7 @@
   /* ---------------------------------------------------------- actions (confirm + reason) */
   function plus(days) { var t = new Date(Date.now() + days * 86400000); return t.toISOString().slice(0, 10); }
   var SPEC = {
-    set_plan: { title: "เปลี่ยนแพ็กเกจ", text: "ให้สิทธิ์แพ็กเกจแบบไม่ผ่าน Stripe (สูงกว่า subscription ที่จ่ายอยู่จึงจะมีผล) · เลือก Free = ยกเลิกสิทธิ์ที่ให้ทั้งหมด (subscription ที่จ่ายเงินไม่ถูกยกเลิก)",
+    set_plan: { title: "เปลี่ยนแพ็กเกจ", text: "ตั้งแพ็กเกจนี้แทนสิทธิ์ที่ให้ไว้เดิมทั้งหมด (รวมสิทธิ์สมาชิกเดิม 90 วัน) แบบไม่ผ่าน Stripe · เลือก Free = ยกเลิกสิทธิ์ที่ให้ทั้งหมด · subscription ที่จ่ายเงินไม่ถูกยกเลิก ถ้าจ่ายแพ็กเกจที่สูงกว่าอยู่จะยังใช้แพ็กเกจนั้น",
       fields: '<label for="cfPlan">แพ็กเกจ</label><select class="sel" id="cfPlan"><option value="premium">Finance Premium</option><option value="plus">Finance Plus</option><option value="free">Free (ยกเลิกสิทธิ์ที่ให้)</option></select>' +
               '<label for="cfUntil">ใช้ได้ถึง (เว้นว่าง = ไม่มีกำหนด)</label><input class="inp" type="date" id="cfUntil">',
       danger: function () { return $("cfPlan").value === "free"; } },
@@ -351,6 +354,7 @@
     set_role: { title: "เปลี่ยนบทบาท", text: "Admin = จัดการสมาชิก/ราคาได้ · Viewer = เปิดหน้า Admin ได้แต่ดูอย่างเดียว · ทั้งสองบทบาทได้ Finance Premium แบบไม่จำกัดเวลา · เลือก “สมาชิกทั่วไป” = ถอดบทบาทและสิทธิ์ทีมงาน (สิทธิ์อื่น / subscription ที่จ่ายเงินยังอยู่) · เฉพาะ Owner",
       fields: '<label for="cfRole">บทบาท</label><select class="sel" id="cfRole"><option value="viewer">Viewer · ดูอย่างเดียว + Premium ไม่จำกัด</option><option value="admin">Admin · จัดการได้ + Premium ไม่จำกัด</option><option value="none">สมาชิกทั่วไป (ถอดบทบาท)</option></select>',
       danger: function () { return $("cfRole").value === "admin"; } },
+    reset_pw: { title: "Reset password", text: "ตั้งรหัสผ่านของสมาชิกนี้เป็นรหัสเริ่มต้น Aa123456 ทันที · แจ้งสมาชิกให้เข้าสู่ระบบแล้วเปลี่ยนรหัสใหม่" },
     cancel_sub: { title: "ยกเลิก subscription", text: "ยกเลิกใน Stripe จริง",
       fields: '<label for="cfMode">วิธียกเลิก</label><select class="sel" id="cfMode"><option value="period_end">เมื่อสิ้นรอบบิล (ใช้ได้จนถึงวันนั้น)</option><option value="now">ทันที (หมดสิทธิ์ตอนนี้ ไม่คืนเงินอัตโนมัติ)</option></select>',
       danger: true }
@@ -407,6 +411,11 @@
         var role = $("cfRole").value;
         await rpc("admin_set_role", { p_user: u.user_id, p_role: role, p_reason: reason });
         ok = role === "none" ? "ถอดบทบาทแล้ว" : "ตั้งเป็น " + ROLE_LABEL[role] + " แล้ว · Premium ไม่จำกัด";
+      } else if (k === "reset_pw") {
+        var rp = await callFn("admin-actions", { action: "reset_password", user_id: u.user_id, reason: reason });
+        if (rp.status !== 200) throw { message: rp.status === 404 && !rp.body.error ? "ยังไม่ได้ deploy admin-actions" : (rp.body.error || rp.status) };
+        RESET_DONE[u.user_id] = String(rp.body.password || "Aa123456");
+        ok = "Reset password แล้ว";
       } else if (k === "cancel_sub") {
         var r = await callFn("admin-actions", { action: "cancel_subscription", user_id: u.user_id, mode: $("cfMode").value, reason: reason });
         if (r.status !== 200) throw { message: r.status === 404 && !r.body.error ? "ยังไม่ได้ deploy admin-actions" : (r.body.error || r.status) };

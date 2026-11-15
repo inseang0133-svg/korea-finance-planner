@@ -71,6 +71,7 @@ html[data-feat-salary_history="0"] [data-feature~="salary_history"],
 html[data-feat-expenses="0"] [data-feature~="expenses"],
 html[data-feat-work_records="0"] [data-feature~="work_records"],
 html[data-feat-advanced_statistics="0"] [data-feature~="advanced_statistics"],
+html[data-feat-planning="0"] [data-feature~="planning"],
 html[data-feat-export="0"] [data-feature~="export"],
 html[data-feat-cloud_sync="0"] [data-feature~="cloud_sync"],
 html[data-feat-gold_portfolio="0"] [data-feature~="gold_portfolio"]{display:none!important}
@@ -81,6 +82,7 @@ html[data-feat-salary_history="0"] [data-feature-off~="salary_history"],
 html[data-feat-expenses="0"] [data-feature-off~="expenses"],
 html[data-feat-work_records="0"] [data-feature-off~="work_records"],
 html[data-feat-advanced_statistics="0"] [data-feature-off~="advanced_statistics"],
+html[data-feat-planning="0"] [data-feature-off~="planning"],
 html[data-feat-export="0"] [data-feature-off~="export"],
 html[data-feat-cloud_sync="0"] [data-feature-off~="cloud_sync"],
 html[data-feat-gold_portfolio="0"] [data-feature-off~="gold_portfolio"]{display:block!important}
@@ -97,6 +99,7 @@ a.kfp-btnlink{display:flex;align-items:center;justify-content:center;text-decora
 /* ประวัติที่ถูกจำกัดในแพ็กเกจ Free */
 .kfp-limit-note{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;margin-top:6px;padding:12px 14px;border-radius:14px;
   font-size:13px;color:#cfc9b8;background:rgba(232,190,70,.07);border:1px dashed rgba(232,190,70,.5)}
+.kfp-limit-note.full{border-color:rgba(255,120,120,.55);background:rgba(255,90,90,.07)}
 .kfp-limit-note a{color:#ffe08a;font-weight:600;text-decoration:underline;text-underline-offset:3px}
 
 /* ข้อความแทนที่ (เช่น Cloud Sync) */

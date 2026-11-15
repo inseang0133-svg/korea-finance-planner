@@ -23,14 +23,14 @@
 
   var PLANS = [
     { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน", sort: 0,
-      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, export: false, cloud_sync: false, gold_portfolio: false },
-      limits: { salary_history_months: 6, expense_history_months: 2, grace_days: 0 } },
+      features: { salary: true, salary_history: true, expenses: true, work_records: false, advanced_statistics: false, planning: false, export: false, cloud_sync: false, gold_portfolio: false },
+      limits: { salary_history_months: null, expense_history_months: null, salary_records_max: 3, expense_items_max: 10, grace_days: 0 } },
     { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync", sort: 1,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true, gold_portfolio: false },
-      limits: { salary_history_months: null, expense_history_months: null, grace_days: 7 } },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: false },
+      limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } },
     { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด", sort: 2,
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true, gold_portfolio: true },
-      limits: { salary_history_months: null, expense_history_months: null, grace_days: 7 } }
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: true },
+      limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } }
   ];
   var PRICES = [
     { plan_id: "plus", billing_interval: "month", currency: "THB", amount_minor: 12900 },
@@ -165,7 +165,7 @@
           var pl = PLANS.filter(function (p) { return p.id === pid; })[0];
           var src = sessionStorage.getItem("__mock_source") || (pid === "free" ? "default" : "subscription:stripe");
           var ent = { user_id: uid, plan: pl.id, plan_name: pl.name, source: src, status: pid === "free" ? "none" : "active",
-                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: pl.features, limits: pl.limits, admin_role: sessionStorage.getItem("__mock_admin_role") || null, checked_at: new Date().toISOString() };
+                      valid_until: pid === "free" ? null : "2026-12-13T00:00:00Z", features: pl.features, limits: Object.assign({}, pl.limits, JSON.parse(sessionStorage.getItem("__mock_limits") || "{}")), admin_role: sessionStorage.getItem("__mock_admin_role") || null, checked_at: new Date().toISOString() };
           var out = Promise.resolve({ data: ent, error: null });
           return mode === "slow" ? new Promise(function (r) { setTimeout(function () { r({ data: ent, error: null }); }, 2500); }) : out;
         }

@@ -70,7 +70,8 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
 
     console.log("V2 Free member: work, export, charts, gold, cloud hidden; history limited; data kept");
     page = await newPage(browser);
-    await seed(page, memberSeed(), { "__mock_plan_u-real": "free" });
+    // the month windows are still supported (admin-configurable); Free itself now uses count limits (phase 14)
+    await seed(page, memberSeed(), { "__mock_plan_u-real": "free", "__mock_limits": JSON.stringify({ salary_history_months: 6, expense_history_months: 2 }) });
     await open(page);
     ok(await attr(page, "data-plan-state") === "ready" && await attr(page, "data-plan") === "free", "entitlements loaded from server: free");
     ok(!(await vis(page, ".tool-work")) && await vis(page, ".tool-exp"), "บันทึกการเข้างาน hidden, รายจ่าย shown");
@@ -78,8 +79,8 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     ok(tw > rw * 0.9, "expense button takes the full row");
     ok(!(await vis(page, 'button[onclick^="exportExcel("]')), "Export Excel hidden");
     ok(!(await vis(page, '.card[data-feature="advanced_statistics"]')) && !(await vis(page, "#salaryChart")) && !(await vis(page, "#savingChartBlock")), "charts hidden");
-    ok(await vis(page, '.kfp-locked-note[data-feature-off="advanced_statistics"]'), "upgrade note in their place");
-    ok(await vis(page, "#statsGrid"), "basic statistics still shown");
+    ok(await vis(page, '.kfp-locked-card[data-feature-off="advanced_statistics"]'), "upgrade note in their place");
+    ok(!(await vis(page, "#statsGrid")), "statistics card hidden on Free");
     ok(!(await vis(page, ".kfp-fab")), "floating gold button hidden");
     await page.selectOption("#filterYear", String(new Date().getFullYear() - 1)); await page.waitForTimeout(200);
     const note1 = await page.textContent("#salaryHistory");
@@ -180,7 +181,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     page = await newPage(browser);
     await seed(page, memberSeed(), { "__mock_plan_u-real": "free" });
     await open(page);
-    await page.click('.kfp-locked-note[data-feature-off="advanced_statistics"] a'); await page.waitForSelector("#plans .plan"); await page.waitForTimeout(1000);
+    await page.click('.kfp-locked-card[data-feature-off="advanced_statistics"] a'); await page.waitForSelector("#plans .plan"); await page.waitForTimeout(1000);
     ok(page.url().endsWith("pricing.html#plus"), "upgrade link → pricing.html#plus");
     ok((await page.$$("#plans .plan")).length === 3, "3 plans from the plans table");
     ok((await page.textContent("#free")).includes("แพ็กเกจของคุณ"), "current plan (free) marked");

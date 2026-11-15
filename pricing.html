@@ -2,7 +2,8 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<script src="kfp-guard.js?v=20261115-saas17"></script>
 <meta name="theme-color" content="#0a0a0b">
 <title>แพ็กเกจสมาชิก · Korea Finance Planner</title>
 <script src="supabase-config.js?v=20261114-saas13"></script>
@@ -10,10 +11,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kfp-access.css?v=20261114-saas15">
+<link rel="stylesheet" href="kfp-access.css?v=20261115-saas17">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-<script src="auth.js?v=20261114-saas13"></script>
+<script src="auth.js?v=20261115-saas17"></script>
 <style>
 :root{--bg:#06070a;--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--green:#3ddc97;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
 *{box-sizing:border-box}
@@ -118,18 +119,19 @@ a.cta{display:grid;place-items:center;text-decoration:none}
   };
   var FALLBACK_PLANS = [
     { id: "free", name: "Free", description: "เครื่องคิดเงินเดือน แบ่งเงิน และรายจ่ายพื้นฐาน",
-      features: { salary: true, salary_history: true, expenses: true }, limits: { salary_history_months: 6, expense_history_months: 2 } },
+      features: { salary: true, salary_history: true, expenses: true }, limits: { salary_records_max: 3, expense_items_max: 10 } },
     { id: "plus", name: "Finance Plus", description: "ทุกอย่างใน Free + บันทึกงาน สถิติขั้นสูง Export และ Cloud Sync",
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true }, limits: {} },
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true }, limits: {} },
     { id: "premium", name: "Finance Premium", description: "ทุกอย่างใน Plus + พอร์ตทองครบชุด",
-      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, export: true, cloud_sync: true, gold_portfolio: true }, limits: {} }
+      features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, export: true, cloud_sync: true, gold_portfolio: true }, limits: {} }
   ];
   var ROWS = [
     ["salary", "เครื่องคิดเงินเดือน + แบ่งเงินเดือน"],
-    ["salary_history", "ประวัติเงินเดือน", "salary_history_months"],
-    ["expenses", "บันทึกรายจ่าย วอน/บาท", "expense_history_months"],
+    ["salary_history", "บันทึกเงินเดือนรายเดือน", "salary_records_max", "เดือน"],
+    ["expenses", "บันทึกรายจ่าย วอน/บาท", "expense_items_max", "รายการ"],
     ["work_records", "บันทึกการเข้างาน + สรุปรายได้ OT"],
-    ["advanced_statistics", "สถิติขั้นสูง + กราฟ"],
+    ["advanced_statistics", "สถิติการเงิน + กราฟ"],
+    ["planning", "สัญญาจ้างเกาหลี + เป้าหมายเงินเก็บ"],
     ["export", "Export Excel"],
     ["cloud_sync", "Cloud Sync ข้ามเครื่อง"],
     ["gold_portfolio", "พอร์ตทอง: ต้นทุน กำไร/ขาดทุน ราคาเรียลไทม์"]
@@ -155,7 +157,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
       var isCur = state.current === p.id, hl = p.id === "premium";
       var feats = ROWS.map(function (r) {
         var y = !!(p.features && p.features[r[0]]), lim = r[2] && p.limits && p.limits[r[2]];
-        var label = r[1] + (y && lim ? " (ย้อนหลัง " + lim + " เดือน)" : y && r[2] && p.id !== "free" ? " (ไม่จำกัด)" : "");
+        var label = r[1] + (y && lim ? " (สูงสุด " + lim + " " + r[3] + ")" : y && r[2] && p.id !== "free" ? " (ไม่จำกัด)" : "");
         return '<li class="' + (y ? "y" : "n") + '"><i aria-hidden="true">' + (y ? "✓" : "–") + '</i><span>' + esc(label) +
                '<span class="sr-only">' + (y ? " · มี" : " · ไม่มี") + '</span></span></li>';
       }).join("");
@@ -326,7 +328,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
   render();
 })();
 </script>
-<script src="kfp-access.js?v=20261115-saas16"></script>
+<script src="kfp-access.js?v=20261115-saas17"></script>
 <style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>

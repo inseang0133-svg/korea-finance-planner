@@ -2,7 +2,8 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<script src="kfp-guard.js?v=20261115-saas17"></script>
     <meta name="theme-color" content="#0a0a0b">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,12 +24,12 @@
     <script src="supabase-config.js?v=20261114-saas13"></script>
     <script src="kfp-demo-data.js?v=20261113-saas5"></script>
     <script src="kfp-storage.js?v=20261114-saas13"></script>
-    <link rel="stylesheet" href="kfp-access.css?v=20261114-saas15">
-    <link rel="stylesheet" href="kfp-badge.css?v=20261115-saas16">
+    <link rel="stylesheet" href="kfp-access.css?v=20261115-saas17">
+    <link rel="stylesheet" href="kfp-badge.css?v=20261115-saas17">
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-    <script src="auth.js?v=20261114-saas13"></script>
+    <script src="auth.js?v=20261115-saas17"></script>
     <script src="pwa-persistence.js?v=20261113-saas5"></script>
 </head>
 <body>
@@ -134,7 +135,11 @@
         <div id="salaryHistory" style="margin-top: 15px;"></div>
     </div>
 
-    <div class="card">
+    <div class="card kfp-locked-card" data-feature-off="advanced_statistics">
+        <div class="kfp-locked-note">📊 <b>สถิติการเงิน กราฟ สัญญาจ้างเกาหลี และเป้าหมายเงินเก็บ</b> มีในแพ็กเกจ Finance Plus · <a href="pricing.html#plus">ดูแพ็กเกจ</a></div>
+    </div>
+
+    <div class="card" data-feature="advanced_statistics">
         <h2>📊 สถิติการเงิน</h2>
         <button onclick="exportExcel()" style="margin-bottom: 20px;" data-feature="export">📁 Export Excel</button>
         
@@ -145,15 +150,13 @@
         <div class="chart-box"><canvas id="salaryChart"></canvas></div>
         </div>
 
-        <div class="kfp-locked-note" data-feature-off="advanced_statistics">📈 <b>กราฟรายได้ เงินเก็บสะสม และสัดส่วนการเงิน</b> มีในแพ็กเกจ Finance Plus · <a href="pricing.html#plus">ดูแพ็กเกจ</a></div>
-
         <div id="savingChartBlock" data-feature="advanced_statistics">
         <h3 class="chart-title" id="savingChartTitle">📈 เงินเก็บสะสม <small>(บาท)</small></h3>
         <div class="chart-box"><canvas id="savingChart"></canvas></div>
         </div>
     </div>
 
-    <div class="card" data-krw-only>
+    <div class="card" data-krw-only data-feature="planning">
     <h2>สัญญาทำงานเกาหลี</h2>
 
     <label>วันที่เริ่มงาน</label>
@@ -225,7 +228,7 @@
         <div id="remitResult">-</div>
     </div>
 
-    <div class="card">
+    <div class="card" data-feature="planning">
         <h2>🎯 เป้าหมายเงินเก็บ</h2>
         <label>เป้าหมาย (บาท)</label>
         <input type="number" id="goal" value="2000000">
@@ -244,13 +247,13 @@
 </div> <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="kfp-config.js?v=20261114-saas13"></script>
-<script src="script.js?v=20261109-fix2"></script>
+<script src="script.js?v=20261115-saas17"></script>
 <script src="alloc-ui.js?v=20261109-fix2"></script>
 <script src="ui-charts.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
-<script src="tools-ui.js?v=20261113-saas5"></script>
-<script src="kfp-access.js?v=20261115-saas16"></script>
-<script src="kfp-badge.js?v=20261115-saas16"></script>
+<script src="tools-ui.js?v=20261115-saas17"></script>
+<script src="kfp-access.js?v=20261115-saas17"></script>
+<script src="kfp-badge.js?v=20261115-saas17"></script>
 <script src="floating-nav.js?v=20261113-saas5" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง" data-feature="gold_portfolio"></script>
 <script>
 if ('serviceWorker' in navigator) {

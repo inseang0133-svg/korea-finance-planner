@@ -52,7 +52,7 @@ async function badge(page) {
   return page.evaluate(() => {
     const b = document.getElementById("kfpBadge");
     if (!b || b.hidden) return null;
-    const pill = b.querySelector(".kfb-pill:not(.kfb-plan .kfb-pill)"), plan = b.querySelector(".kfb-plan");
+    const pill = b.querySelector(".kfb-role .kfb-pill"), plan = b.querySelector(".kfb-plan");
     const r = b.getBoundingClientRect(), chip = document.getElementById("kfpAuthRoot");
     return { role: pill ? pill.textContent : "", roleCls: pill ? pill.className : "", plan: plan ? plan.textContent : "",
       planCls: plan ? plan.innerHTML : "", href: plan ? plan.getAttribute("href") : "", left: r.left, top: r.top, right: r.right,
@@ -103,6 +103,7 @@ async function badge(page) {
       ["owner", "premium", "OWNER", "gold", "PREMIUM"],
       ["viewer", "premium", "VIEWER", "silver", "PREMIUM"],
       ["", "plus", "", "", "PLUS"],
+      ["", "premium", "", "", "PREMIUM"],
       ["", "free", "", "", "FREE"],
       ["admin", "premium", "ADMIN", "gold", "PREMIUM"]
     ];
@@ -111,11 +112,13 @@ async function badge(page) {
       await seed(page, member(), { "__mock_admin_role": role, "__mock_plan_u-real": plan });
       await page.goto(`${BASE}/index.html`); await page.waitForTimeout(2200);
       const b = await badge(page);
-      ok(b && b.role === roleTxt && (!roleCls || b.roleCls.includes(roleCls)) && b.plan === planTxt && b.href === "pricing.html",
-         `${role || "member"}/${plan}: ${roleTxt || "(no role)"} ${planTxt} → pricing.html`);
+      if (role) ok(b && b.role === roleTxt && b.roleCls.includes(roleCls) && b.plan === roleTxt && b.href === "admin.html" && !b.planCls.includes("PREMIUM"),
+         `${role}: only the ${roleTxt} pill (no plan) → admin.html`);
+      else ok(b && b.role === "" && b.plan === planTxt && b.href === "pricing.html", `member/${plan}: ${planTxt} → pricing.html`);
       if (plan === "free") ok(b && b.planCls.includes("kfb-text free") && !b.planCls.includes("kfb-pill"), "FREE = green text, no pill");
       if (plan === "plus") ok(b && b.planCls.includes("kfb-text plus"), "PLUS = blue text");
-      if (plan === "premium") ok(b && b.planCls.includes("kfb-pill gold"), "PREMIUM = gold pill");
+      if (plan === "premium" && !role) ok(b && b.planCls.includes("kfb-pill gold"), "PREMIUM = gold pill");
+      if (role) ok(await page.$eval("#kfpBadge .kfb-pill", e => getComputedStyle(e).boxShadow.split("rgba").length <= 2 && getComputedStyle(e).animationName.indexOf("glow") < 0), "no glow behind the pill");
       ok(b && b.left >= 0 && b.top >= 0 && b.right < b.chipLeft && b.tap >= 44, "top-left, clear of the account chip, 44px tap target");
       if (role === "owner") await shot(page, "p13_badge_owner");
       if (plan === "free") {
@@ -127,7 +130,7 @@ async function badge(page) {
     await seed(page, member(), { "__mock_admin_role": "viewer", "__mock_plan_u-real": "premium" });
     await page.goto(`${BASE}/gold.html`); await page.waitForTimeout(1500);
     const g = await badge(page);
-    ok(g && g.role === "VIEWER" && g.plan === "PREMIUM", "gold.html shows the badge too");
+    ok(g && g.role === "VIEWER" && g.href === "admin.html", "gold.html shows the badge too (VIEWER → admin)");
     await shot(page, "p13_badge_gold");
 
     console.log("R4 guests (preview) see no badge");

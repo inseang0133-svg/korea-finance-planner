@@ -1484,6 +1484,7 @@ function addSalaryRecord() {
         alert("เดือนนี้มีข้อมูลแล้ว");
         return;
     }
+    if(typeof window.kfpAllowAdd === "function" && !window.kfpAllowAdd("salary_records_max", records.length)) return;
     
     // อัปเกรด: บันทึกค่าเงิน (rate) ล็อกพ่วงติดไปกับเดือนและเงินวอนเลย
     // โหมดบาท: เก็บเป็นยอดบาทตรงๆ (currency = "THB")
@@ -1535,6 +1536,10 @@ function saveThisMonthSalary(){
         const msg = "มีเดือนนี้ (" + monthLabel + ") อยู่แล้ว ถ้าต้องการบันทึกใหม่ให้ลบรายการเดือนนี้ในประวัติก่อน";
         setStatus("⚠️ " + msg, "warn");
         alert(msg);
+        return;
+    }
+    if(typeof window.kfpAllowAdd === "function" && !window.kfpAllowAdd("salary_records_max", records.length)){
+        setStatus("🔒 แพ็กเกจ Free บันทึกได้สูงสุด " + ((window.kfpPlan && window.kfpPlan.limit("salary_records_max")) || 3) + " เดือน", "warn");
         return;
     }
 

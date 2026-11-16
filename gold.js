@@ -691,6 +691,23 @@ async function fetchThaiGoldPrices(){
     return Number.isFinite(n)&&n>0?n:null;
   };
 
+  // 0) Our own Supabase Edge Function (reads the association's classic page server-side; no CORS proxy).
+  //    www.goldtraders.or.th became a client-rendered site in 2026, which broke the old public wrappers.
+  try{
+    const base=(window.KFP_SUPABASE_CONFIG&&window.KFP_SUPABASE_CONFIG.SUPABASE_URL)||"";
+    if(base){
+      const d=await fetchJSONOnce(`${base}/functions/v1/thai-gold-price`,9000);
+      if(d&&d.ok&&(d.barBuy||d.barSell||d.jewelrySell)){
+        const next={barBuy:clean(d.barBuy),barSell:clean(d.barSell),jewelryBuy:clean(d.jewelryBuy),jewelrySell:clean(d.jewelrySell),
+                    updatedAt:d.updatedAt||null,source:d.source+(d.stale?" · cached":"")};
+        state.thaiGold=next;
+        localStorage.setItem("kfp_gold_thai_prices_v1",JSON.stringify(next));
+        renderMarket();
+        return true;
+      }
+    }
+  }catch(_){ /* fall through to the public wrappers */ }
+
   // 1) Primary public wrapper
   try{
     const data=await fetchJSON(`https://api.chnwt.dev/thai-gold-api/latest?fresh=${Date.now()}`);

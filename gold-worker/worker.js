@@ -6,6 +6,9 @@
 // 3) GET /?url=<https...>   → พร็อกซี CORS (เฉพาะโดเมนที่อนุญาต) ใช้เป็น MARKET_PROXY_URL
 // 4) GET /                  → GOLD2go priceInfo แคช 5 วิ (ใช้เป็น GOLD2GO_WORKER_URL)
 // 5) GET /health            → ดูสถานะ (นาทีล่าสุดที่บันทึก)
+// 6) GET /thai              → ราคาสมาคมค้าทองคำ (ทองแท่ง/ทองรูปพรรณ 96.5%)
+//    Cron ไปอ่านหน้า classic.goldtraders.or.th เอง (ทุก 2 นาทีช่วง 08:30–18:00 น. เวลาไทย, นอกนั้นทุก 10 นาที)
+//    แล้วเก็บไว้ใน D1 → ผู้ใช้กี่คนก็อ่านจาก D1 ต้นทางโดนเรียกแค่จาก Cron นี้ที่เดียว
 
 const KEEP_MS = 35 * 86400000;
 const MAX_ROWS = 60000;
@@ -92,9 +95,99 @@ async function record(env) {
   }
 }
 
+// ---------- ราคาสมาคมค้าทองคำ (Thai Gold Traders Association) ----------
+// www.goldtraders.or.th เปลี่ยนเป็นเว็บที่โหลดราคาภายหลัง (Next.js) → อ่านจากหน้า classic ที่ยังเป็น HTML ปกติ
+const GTA_URL = "https://classic.goldtraders.or.th/default.aspx";
+const CHNWT_URL = "https://api.chnwt.dev/thai-gold-api/latest";
+const THAI_STALE_MS = 20 * 60000;  // เก่ากว่านี้ (cron ไม่ทำงาน) → ให้ /thai ดึงสดเองครั้งเดียว แล้วแคชในหน่วยความจำ
+let thaiMem = null, thaiInflight = null;
+
+export function toNum(v) {
+  const n = Number(String(v ?? "").replace(/,/g, "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) && n > 1000 && n < 10000000 ? n : null;
+}
+function spanText(html, id) {
+  const m = new RegExp(`id=["']${id}["'][^>]*>([\\s\\S]*?)</span>`, "i").exec(html);
+  return m ? (m[1].replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim() || null) : null;
+}
+// lblOMBuy = ทองรูปพรรณ "ฐานภาษี" ตามที่หน้าสมาคมแสดง
+export function parseGta(html) {
+  const p = "DetailPlace_uc_goldprices1_";
+  const o = { barBuy: toNum(spanText(html, p + "lblBLBuy")), barSell: toNum(spanText(html, p + "lblBLSell")),
+              jewelryBuy: toNum(spanText(html, p + "lblOMBuy")), jewelrySell: toNum(spanText(html, p + "lblOMSell")),
+              updatedAt: spanText(html, p + "lblAsTime"), source: "สมาคมค้าทองคำ (goldtraders.or.th)" };
+  return o.barBuy || o.barSell || o.jewelrySell ? o : null;
+}
+export function parseChnwt(d) {
+  const p = d?.response?.price || {};
+  const o = { barBuy: toNum(p.gold_bar?.buy), barSell: toNum(p.gold_bar?.sell), jewelryBuy: toNum(p.gold?.buy), jewelrySell: toNum(p.gold?.sell),
+              updatedAt: [d?.response?.update_date, d?.response?.update_time].filter(Boolean).join(" ") || null,
+              source: "สมาคมค้าทองคำ · api.chnwt.dev" };
+  return o.barBuy || o.barSell || o.jewelrySell ? o : null;
+}
+export function saneThai(g) {
+  return !!g && !(g.barBuy && g.barSell && (g.barSell < g.barBuy || g.barSell > g.barBuy * 1.05));
+}
+async function fetchThai() {
+  const errs = [];
+  try {
+    const r = await fetch(GTA_URL, { headers: { "User-Agent": "Mozilla/5.0 (gold-recorder; price board reader)", "Accept-Language": "th,en" }, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const g = parseGta(await r.text());
+    if (saneThai(g)) return g;
+    errs.push("classic: unparsed");
+  } catch (e) { errs.push("classic: " + e.message); }
+  try {
+    const g = parseChnwt(await getJSON(CHNWT_URL));
+    if (saneThai(g)) return g;
+    errs.push("chnwt: unparsed");
+  } catch (e) { errs.push("chnwt: " + e.message); }
+  throw new Error(errs.join("; "));
+}
+async function ensureThaiTable(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS thai_gold (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, fetched_at INTEGER NOT NULL)").run();
+}
+async function saveThai(env, g) {
+  await ensureThaiTable(env);
+  await env.DB.prepare("INSERT INTO thai_gold (id, data, fetched_at) VALUES (1, ?1, ?2) ON CONFLICT(id) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at")
+    .bind(JSON.stringify(g), Date.now()).run();
+}
+async function readThai(env) {
+  try {
+    const row = await env.DB.prepare("SELECT data, fetched_at FROM thai_gold WHERE id = 1").first();
+    return row ? { data: JSON.parse(row.data), at: row.fetched_at } : null;
+  } catch (_) { return null; }  // ตารางยังไม่ถูกสร้าง (cron ยังไม่รันรอบแรก)
+}
+function thaiDue(now = new Date()) {
+  const m = (now.getUTCHours() * 60 + now.getUTCMinutes() + 7 * 60) % 1440;   // นาทีของวัน เวลาไทย (UTC+7)
+  const busy = m >= 8 * 60 + 30 && m <= 18 * 60;
+  return busy ? now.getUTCMinutes() % 2 === 0 : now.getUTCMinutes() % 10 === 0;
+}
+async function refreshThai(env) {
+  if (!env.DB || !thaiDue()) return;
+  try { await saveThai(env, await fetchThai()); } catch (e) { console.log("thai gold refresh failed:", e.message); }
+}
+async function getThai(env) {
+  const now = Date.now();
+  const row = env.DB ? await readThai(env) : null;
+  if (row && now - row.at < THAI_STALE_MS) return { ...row.data, fetchedAt: new Date(row.at).toISOString(), stale: false };
+  if (thaiMem && now - thaiMem.at < 120000) return { ...thaiMem.data, fetchedAt: new Date(thaiMem.at).toISOString(), stale: false };
+  try {
+    thaiInflight ??= fetchThai().finally(() => { thaiInflight = null; });
+    const g = await thaiInflight;
+    thaiMem = { at: Date.now(), data: g };
+    if (env.DB) saveThai(env, g).catch(() => {});
+    return { ...g, fetchedAt: new Date(thaiMem.at).toISOString(), stale: false };
+  } catch (e) {
+    if (row) return { ...row.data, fetchedAt: new Date(row.at).toISOString(), stale: true };   // ต้นทางล่ม → ค่าล่าสุดที่เคยได้
+    throw e;
+  }
+}
+
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(record(env));
+    ctx.waitUntil(refreshThai(env));
   },
 
   async fetch(request, env) {
@@ -115,6 +208,14 @@ export default {
       const row = await env.DB.prepare("SELECT b, c FROM ticks ORDER BY b DESC LIMIT 1").first();
       const cnt = await env.DB.prepare("SELECT COUNT(*) AS n FROM ticks").first();
       return json({ ok: true, lastMinute: row ? new Date(row.b).toISOString() : null, lastPrice: row?.c ?? null, rows: cnt?.n ?? 0 });
+    }
+
+    if (url.pathname === "/thai") {
+      try {
+        return json({ ok: true, ...(await getThai(env)) }, 200, { "Cache-Control": "public, max-age=60" });
+      } catch (e) {
+        return json({ ok: false, error: "source_unavailable", detail: String(e.message || e) }, 503);
+      }
     }
 
     const target = url.searchParams.get("url");

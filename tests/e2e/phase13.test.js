@@ -56,7 +56,7 @@ async function badge(page) {
     const r = b.getBoundingClientRect(), chip = document.getElementById("kfpAuthRoot");
     return { role: pill ? pill.textContent : "", roleCls: pill ? pill.className : "", plan: plan ? plan.textContent : "",
       planCls: plan ? plan.innerHTML : "", href: plan ? plan.getAttribute("href") : "", left: r.left, top: r.top, right: r.right,
-      chipLeft: chip ? chip.getBoundingClientRect().left : 9999, tap: plan ? plan.getBoundingClientRect().height : 0 };
+      chipLeft: chip ? chip.getBoundingClientRect().left : 9999, tap: plan ? plan.offsetHeight : 0 }; // layout height: unaffected by the pop-in scale animation
   });
 }
 
@@ -119,7 +119,7 @@ async function badge(page) {
       if (plan === "plus") ok(b && b.planCls.includes("kfb-text plus"), "PLUS = blue text");
       if (plan === "premium" && !role) ok(b && b.planCls.includes("kfb-pill gold"), "PREMIUM = gold pill");
       if (role) ok(await page.$eval("#kfpBadge .kfb-pill", e => getComputedStyle(e).boxShadow.split("rgba").length <= 2 && getComputedStyle(e).animationName.indexOf("glow") < 0), "no glow behind the pill");
-      ok(b && b.left >= 0 && b.top >= 0 && b.right < b.chipLeft && b.tap >= 44, "top-left, clear of the account chip, 44px tap target");
+      ok(b && b.left >= 0 && b.top >= 0 && b.right < b.chipLeft && b.tap >= 44, "top-left, clear of the account chip, 44px tap target" + (b ? " [" + role + "/" + plan + " right=" + b.right + " chip=" + b.chipLeft + " tap=" + b.tap + "]" : ""));
       if (role === "owner") await shot(page, "p13_badge_owner");
       if (plan === "free") {
         await page.click("#kfpBadge .kfb-plan"); await page.waitForTimeout(800);

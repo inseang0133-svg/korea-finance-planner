@@ -19,3 +19,10 @@ npx wrangler d1 create gold-ticks        # คัดลอก database_id ไป
 npx wrangler d1 execute gold-ticks --remote --file=schema.sql
 npx wrangler deploy
 ```
+
+## อัปเดต 17/11/2569 — เพิ่มราคาสมาคมค้าทองคำ (`/thai`)
+- Cron เดิม (`* * * * *`) ไปอ่านหน้า `classic.goldtraders.or.th` เอง: ทุก 2 นาทีช่วง 08:30–18:00 น. (เวลาไทย) นอกนั้นทุก 10 นาที แล้วเก็บไว้ใน D1 ตาราง `thai_gold` (Worker สร้างตารางให้เองอัตโนมัติ)
+- เว็บเรียก `GET /thai` → อ่านจาก D1 ทันที ผู้ใช้กี่คนก็ไม่ไปยิงเว็บสมาคมเพิ่ม
+- ถ้าเว็บสมาคมล่ม จะตอบค่าล่าสุดที่เคยได้ (`stale: true`)
+- วิธีอัปเดต: Workers & Pages → `gold-recorder` → Edit code → วาง `worker.js` ใหม่ทั้งไฟล์ → Deploy (ไม่ต้องตั้งค่าอื่นเพิ่ม)
+- ตรวจ: เปิด `https://gold-recorder.inseang0133.workers.dev/thai` ควรเห็น `"ok":true` และราคาทองแท่ง

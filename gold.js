@@ -691,15 +691,15 @@ async function fetchThaiGoldPrices(){
     return Number.isFinite(n)&&n>0?n:null;
   };
 
-  // 0) Our own Supabase Edge Function (reads the association's classic page server-side; no CORS proxy).
-  //    www.goldtraders.or.th became a client-rendered site in 2026, which broke the old public wrappers.
+  // 0) Our Cloudflare Worker (/thai): its cron reads the association's classic page every 2 min and keeps it in D1,
+  //    so every visitor reads the same cached copy — one request to the association no matter how many users.
+  //    (www.goldtraders.or.th became a client-rendered site in 2026, which broke the old public wrappers.)
   try{
-    const base=(window.KFP_SUPABASE_CONFIG&&window.KFP_SUPABASE_CONFIG.SUPABASE_URL)||"";
-    if(base){
-      const d=await fetchJSONOnce(`${base}/functions/v1/thai-gold-price`,9000);
+    if(MARKET_PROXY_URL){
+      const d=await fetchJSONOnce(`${MARKET_PROXY_URL}/thai`,9000);
       if(d&&d.ok&&(d.barBuy||d.barSell||d.jewelrySell)){
         const next={barBuy:clean(d.barBuy),barSell:clean(d.barSell),jewelryBuy:clean(d.jewelryBuy),jewelrySell:clean(d.jewelrySell),
-                    updatedAt:d.updatedAt||null,source:d.source+(d.stale?" · cached":"")};
+                    updatedAt:d.updatedAt||null,source:d.source+(d.stale?" · ค่าล่าสุดที่มี":"")};
         state.thaiGold=next;
         localStorage.setItem("kfp_gold_thai_prices_v1",JSON.stringify(next));
         renderMarket();
@@ -958,6 +958,7 @@ function saveGoldSnapshot(p){
 
 function renderPortfolio(){
   const p=calculatePortfolio();
+  try{ scheduleOverlay(); }catch(_){ } // keep the chart's P/L label in step with the round cards
   saveGoldSnapshot(p);
   $("totalGold").textContent=`${num(p.totalGrams,4)} g`;
   $("totalGoldOz").textContent=`${num(p.totalGrams/OZ_TO_GRAM,6)} oz`;
@@ -1514,6 +1515,22 @@ function lotBuyUsdOz(lot){
   return usd > 0 ? { grams, buyGram, usd } : null;
 }
 
+// Spot (USD/oz) at which this round's P/L is exactly 0 — the same number the round card shows as "Spot คุ้มทุน".
+// GOLD2go 96.5% rounds: calibrated by the live GOLD2go buy-back price ÷ spot (includes GOLD2go's spread).
+// Other rounds (market valuation): the plain spot equivalent of the buy price.
+function lotBreakEvenUsdOz(calc, info){
+  const q = getEffectiveSellPrice();
+  const fx = Number(state.usdThb) || chartFx();
+  const spot = Number(state.spotUsdOz) > 0 ? Number(state.spotUsdOz)
+    : ((Number(state.priceThbGram) > 0 && fx > 0) ? Number(state.priceThbGram) * OZ_TO_GRAM / fx : 0);
+  const bahtWeight = calc.unit === "baht" ? (Number(calc.quantity) || 0) : (Number(calc.grams) || 0) / BAHT_GOLD_GRAM;
+  const cost = Number(calc.cost) || 0;
+  if(calc.valuationSource === "gold2go" && q.pricePerBaht > 0 && spot > 0 && bahtWeight > 0 && cost > 0){
+    return { usd: spot * (cost / bahtWeight) / q.pricePerBaht, calibrated: true };
+  }
+  return info && info.usd > 0 ? { usd: info.usd, calibrated: false } : null;
+}
+
 /* ---------- chart creation ---------- */
 function setChartEmpty(text){
   const stage = $("chartStageOz"); if(!stage) return;
@@ -1738,18 +1755,20 @@ function drawPurchaseOverlay(){
     const info = lotBuyUsdOz(lot); if(!info) continue;
     const ts = chartTime(parseLotTimestamp(lot.date, lot.time));
     const bt = barTimeFor(ts); if(bt == null) continue;
+    // same P/L and break-even as the round card ("บันทึกรอบเข้าซื้อ"), so the chart and the card always agree
+    const calc = calculateLot(lot);
+    const be = lotBreakEvenUsdOz(calc, info); if(!be) continue;
     const x = chart.timeScale().timeToCoordinate(bt);
-    const y = series.priceToCoordinate(info.usd);
+    const y = series.priceToCoordinate(be.usd);
     if(x == null || y == null || x < 0 || x > w - priceW) continue;
-    const purity = Number(lot.goldType || 99.99) / 99.99;
-    const pl = (current * purity - info.buyGram) * info.grams;
+    const pl = calc.pl;
     const color = pl >= 0 ? "#62db8a" : "#ff5d68";
     const v = svgEl("line", { x1: x, y1: 0, x2: x, y2: h, stroke: color, class: "purchase-vline" });
     const hl = svgEl("line", { x1: 0, y1: y, x2: w - priceW, y2: y, stroke: color, class: "purchase-hline" });
     const dot = svgEl("circle", { cx: x, cy: y, r: 6, fill: color, class: "purchase-dot" });
     const lx = Math.min(Math.max(x + 8, 8), Math.max(8, w - priceW - 140));
     const label = svgEl("text", { x: lx, y: Math.max(16, y - 9), fill: color, class: "purchase-label" }); label.textContent = `${pl >= 0 ? "+" : ""}${money(pl)}`;
-    const price = svgEl("text", { x: lx, y: Math.min(h - 22, Math.max(30, y + 15)), fill: "#d4af37", class: "purchase-sub" }); price.textContent = `ซื้อ ${formatUsdPrice(info.usd)}/oz`;
+    const price = svgEl("text", { x: lx, y: Math.min(h - 22, Math.max(30, y + 15)), fill: "#d4af37", class: "purchase-sub" }); price.textContent = be.calibrated ? `คุ้มทุน ${formatUsdPrice(be.usd)}/oz` : `ซื้อ ${formatUsdPrice(be.usd)}/oz`;
     const time = svgEl("text", { x: Math.min(Math.max(x + 5, 5), Math.max(5, w - priceW - 125)), y: h - 8, fill: "#bdbdbd", class: "purchase-sub" }); time.textContent = `${lot.date} ${lot.time || ""} · ${num(info.grams, 4)}g`;
     svg.append(v, hl, dot, label, price, time);
   }
@@ -2411,4 +2430,6 @@ function saveGold2goQuote(){
   return useManualGold2goPrice();
 }
 document.addEventListener("DOMContentLoaded",setup);
+// test hook (local test server only): lets e2e compare the chart overlay maths with the round card
+if(location.hostname==="localhost") window.__kfpGoldTest={calculateLot,lotBreakEvenUsdOz,lotBuyUsdOz,lotEntryHTML,loadSettings,saveSettings,get state(){return state;}};
 })();

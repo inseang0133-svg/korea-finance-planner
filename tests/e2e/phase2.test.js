@@ -2,6 +2,7 @@
  * Run: node tests/e2e/phase2.test.js   (serves the project on :8790, Supabase mocked)
  * Needs: playwright (Chromium). Network to CDNs is blocked on purpose. */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 
 const ROOT = path.resolve(__dirname, "../..");

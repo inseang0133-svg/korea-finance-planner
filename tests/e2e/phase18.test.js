@@ -2,6 +2,7 @@
  * Supabase mocked (admin_* RPC fixtures in mock-supabase.js, role via sessionStorage __mock_admin_role).
  * Run: node tests/e2e/phase18.test.js   (SHOT_DIR=… for screenshots) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

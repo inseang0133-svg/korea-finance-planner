@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script src="kfp-guard.js?v=20261115-saas17"></script>
+<meta name="theme-color" content="#07080b">
+<title>PLANNER · Personal Finance Control Center — ศูนย์ควบคุมการเงินส่วนบุคคล</title>
+<meta name="description" content="PLANNER ศูนย์ควบคุมการเงินส่วนบุคคล สำหรับคนไทยในเกาหลีและในไทย: แบ่งเงินเดือน บันทึกรายจ่ายสองสกุลเงิน บันทึกการทำงานและ OT สัญญาจ้าง บัตรเครดิตและหนี้ พอร์ตทองคำ">
+<meta property="og:title" content="PLANNER · Personal Finance Control Center">
+<meta property="og:description" content="เงินทุกก้อนมีที่มา ทุกภาระมีคำตอบ ทุกเป้าหมายมีแผน">
+<link rel="manifest" href="manifest.json">
+<script src="supabase-config.js?v=20261114-saas13"></script>
+<script src="kfp-storage.js?v=20261114-saas13"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kfp-access.css?v=20261117-saas23">
+<link rel="stylesheet" href="showcase.css?v=20261117-saas23">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
+<script src="auth.js?v=20261117-saas23"></script>
+</head>
+<body class="sc-page" data-no-preview-ui>
+<a class="sc-skip" href="#main">ข้ามไปเนื้อหา</a>
+
+<header class="sc-nav" id="scNav">
+  <a class="sc-logo" href="showcase.html" aria-label="PLANNER หน้าแรก"><span class="sc-logo-mark" aria-hidden="true">P</span><span><b>PLANNER</b><small>Personal Finance Control Center</small></span></a>
+  <nav class="sc-links" aria-label="เมนูหลัก">
+    <a href="#features">ฟีเจอร์</a><a href="#overview">ภาพรวม</a><a href="pricing.html">แพ็กเกจ</a>
+  </nav>
+  <div class="sc-nav-cta">
+    <button type="button" class="sc-btn sc-ghost sc-sm" data-auth="login" data-guest>เข้าสู่ระบบ</button>
+    <a class="sc-btn sc-gold sc-sm" href="index.html" data-member hidden>เปิดแอปของฉัน →</a>
+  </div>
+</header>
+
+<main id="main">
+  <!-- ============ HERO ============ -->
+  <section class="sc-hero" aria-labelledby="heroTitle">
+    <div class="sc-hero-copy">
+      <p class="sc-eyebrow">PLANNER · PERSONAL FINANCE CONTROL CENTER</p>
+      <h1 id="heroTitle"><span class="l">เงินทุกก้อนมีที่มา</span> <span class="l g">ทุกภาระมีคำตอบ</span> <span class="l">ทุกเป้าหมายมีแผน</span></h1>
+      <p class="sc-lead">ไม่ว่าคุณจะทำงานอยู่เกาหลีหรือใช้ชีวิตในประเทศไทย จัดการเงินเดือน เงินออม รายจ่าย ทรัพย์สิน การลงทุน และหนี้สินทั้งหมดได้ในที่เดียว</p>
+      <p class="sc-quote">“คุณไม่จำเป็นต้องจำทุกตัวเลข แค่มีระบบที่ช่วยให้คุณมองเห็นทุกอย่าง”</p>
+      <div class="sc-cta-row">
+        <button type="button" class="sc-btn sc-gold" data-auth="register" data-guest>เริ่มจัดการการเงินของฉัน</button>
+        <a class="sc-btn sc-gold" href="index.html" data-member hidden>เปิดแอปของฉัน</a>
+        <a class="sc-btn sc-ghost" href="#features">สำรวจฟีเจอร์ทั้งหมด ↓</a>
+      </div>
+      <p class="sc-fine">เริ่มใช้ฟรี ไม่ต้องใช้บัตรเครดิต · <a href="index.html?demo=1" data-demo>ลองแอปจริงด้วยข้อมูลตัวอย่าง →</a></p>
+    </div>
+    <div class="sc-hero-visual" aria-label="ตัวอย่างหน้าจอ (ข้อมูลจำลอง)">
+      <div class="sc-glass sc-hero-card sc-float-a">
+        <span class="sc-demo">DEMO DATA</span>
+        <small>เงินเดือนเดือนนี้</small>
+        <b class="sc-count" data-to="2500000" data-fmt="krw">₩0</b>
+        <em data-show-kr>≈ ฿60,000 (เรตตัวอย่าง)</em>
+        <div class="sc-mini-bars" aria-hidden="true"><i style="--w:40%;--c:var(--g1)"></i><i style="--w:35%;--c:var(--g2)"></i><i style="--w:15%;--c:var(--g3)"></i><i style="--w:10%;--c:var(--g4)"></i></div>
+        <div class="sc-mini-legend"><span>ออม 40%</span><span>ใช้จ่าย 35%</span><span>สำรอง 15%</span><span>เป้าหมาย 10%</span></div>
+      </div>
+      <div class="sc-glass sc-hero-chip sc-float-b"><span aria-hidden="true">🪙</span><div><small>พอร์ตทอง · P/L</small><b class="sc-pos">+฿4,125</b></div></div>
+      <div class="sc-glass sc-hero-chip sc-float-c"><span aria-hidden="true">💳</span><div><small>หนี้รวม 3 บัตร</small><b>฿42,300</b></div></div>
+      <div class="sc-glass sc-hero-chip sc-float-d" data-show-kr><span aria-hidden="true">⏳</span><div><small>สัญญาจ้างเหลือ</small><b><span data-cd-days-mini>—</span> วัน</b></div></div>
+    </div>
+  </section>
+
+  <!-- ============ AUDIENCE ============ -->
+  <section class="sc-audience" aria-labelledby="audTitle">
+    <h2 id="audTitle" class="sc-center">คุณใช้ชีวิตอยู่ที่ไหน?</h2>
+    <p class="sc-center sc-muted">เลือกเพื่อดูตัวอย่างในสกุลเงินและฟีเจอร์ที่ตรงกับคุณ — ฟีเจอร์ทั้งหมดยังแสดงครบ</p>
+    <div class="sc-seg" role="tablist" aria-label="เลือกกลุ่มผู้ใช้">
+      <button type="button" role="tab" id="audKR" aria-selected="true" data-aud="KR">🇰🇷 ทำงาน / อยู่ที่เกาหลี <small>KRW + THB</small></button>
+      <button type="button" role="tab" id="audTH" aria-selected="false" data-aud="TH">🇹🇭 อยู่ในประเทศไทย <small>THB</small></button>
+    </div>
+    <div class="sc-aud-points" data-show-kr>
+      <div class="sc-glass sc-point"><b>รับเงินเดือนเป็นวอน วางแผนเป็นบาท</b><small>เห็นทั้ง ₩ และ ฿ ในทุกตัวเลขสำคัญ</small></div>
+      <div class="sc-glass sc-point"><b>ตรวจชั่วโมงทำงานและ OT</b><small>เทียบรายได้ที่ควรได้กับที่ได้รับจริง</small></div>
+      <div class="sc-glass sc-point"><b>นับถอยหลังวันจบสัญญา</b><small>รู้เวลาที่เหลือเพื่อวางแผนกลับบ้าน</small></div>
+    </div>
+    <div class="sc-aud-points" data-show-th hidden>
+      <div class="sc-glass sc-point"><b>ใช้เงินบาทเป็นหลัก</b><small>ไม่มีวอนหรือเมนูเฉพาะเกาหลีมากวน</small></div>
+      <div class="sc-glass sc-point"><b>แบ่งเงินเดือนเป็นเปอร์เซ็นต์</b><small>ออม ใช้จ่าย สำรอง เป้าหมาย</small></div>
+      <div class="sc-glass sc-point"><b>บัตรเครดิต หนี้ และพอร์ตทอง</b><small>ครบในบัญชีเดียว</small></div>
+    </div>
+  </section>
+
+  <div id="features"></div>
+
+  <!-- ============ 1. SALARY PLANNER ============ -->
+  <section class="sc-feature" id="salary" aria-labelledby="fSalary">
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">01</span> Smart Salary Planner <span class="sc-tier free">FREE</span></p>
+      <h2 id="fSalary">เงินเดือนเข้ามาแล้ว อย่าปล่อยให้หมดไปโดยไม่รู้ตัว</h2>
+      <p class="sc-problem">เงินเดือนเข้าบัญชีวันเดียว แต่หายไปทีละนิดจนสิ้นเดือน เพราะไม่เคยตัดสินใจล่วงหน้าว่าแต่ละบาทจะไปไหน</p>
+      <ul class="sc-ticks">
+        <li>ตั้งการ์ดแบ่งเงินได้เอง (ออม ใช้จ่าย สำรอง เป้าหมาย …) เป็นเปอร์เซ็นต์</li>
+        <li>คำนวณยอดเงินจริงของทุกการ์ดทันที พร้อมกราฟสัดส่วน</li>
+        <li data-show-kr>กรอกเงินเดือนเป็น ₩ แล้วเห็นยอดแต่ละส่วนเป็น ฿ อัตโนมัติ พร้อมบอกอัตราแลกเปลี่ยนที่ใช้ (ดึงเรตล่าสุดได้ด้วยปุ่มเดียว)</li>
+        <li data-show-th hidden>ใช้เงินบาทเป็นหลัก คำนวณและแสดงยอดเงินบาทตามปกติ</li>
+      </ul>
+      <p class="sc-benefit">ประโยชน์: รู้ตั้งแต่วันเงินเข้าว่าเดือนนี้เก็บได้เท่าไร ใช้ได้เท่าไร</p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างการแบ่งเงินเดือน (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span>ลากแถบเพื่อปรับเปอร์เซ็นต์</span></div>
+      <div class="sc-salary-top">
+        <div><small>เงินเดือน</small><b id="salAmt">₩2,500,000</b><em id="salSub" data-show-kr>≈ ฿60,000 · เรตตัวอย่าง 1 ₩ = 0.0240 ฿</em></div>
+        <svg class="sc-donut" viewBox="0 0 120 120" aria-hidden="true"><g id="salDonut" transform="rotate(-90 60 60)"></g><text x="60" y="56" text-anchor="middle" id="salTotPct">100%</text><text x="60" y="74" text-anchor="middle" class="sc-donut-sub">จัดสรรแล้ว</text></svg>
+      </div>
+      <div id="salRows" class="sc-sal-rows"></div>
+      <p class="sc-warn" id="salWarn" role="status" hidden></p>
+    </div>
+  </section>
+
+  <!-- ============ 2. EXPENSES ============ -->
+  <section class="sc-feature sc-flip" id="expense" aria-labelledby="fExp">
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">02</span> Smart Expense Tracking <span class="sc-tier free">FREE</span></p>
+      <h2 id="fExp" data-kr-text="ทุกบาทและทุกวอนมีความหมาย รู้ว่าเงินของคุณไปอยู่ที่ไหน" data-th-text="ทุกบาทมีความหมาย รู้ว่าเงินของคุณไปอยู่ที่ไหน">ทุกบาทและทุกวอนมีความหมาย รู้ว่าเงินของคุณไปอยู่ที่ไหน</h2>
+      <p class="sc-problem">ค่าอาหาร ค่าเดินทาง ค่าของใช้ — ก้อนเล็กๆ ที่รวมกันแล้วไม่เล็ก แต่จำไม่ได้ว่าจ่ายไปตอนไหน</p>
+      <ul class="sc-ticks">
+        <li data-show-kr>บันทึกเป็น ₩ แล้วเห็นยอด ฿ เทียบเท่าทันที (หรือบันทึกเป็น ฿ ก็ได้)</li>
+        <li data-show-th hidden>บันทึกเป็นเงินบาท ดูยอดรวมรายเดือนได้ทันที</li>
+        <li>ผูกแต่ละรายการกับการ์ดแบ่งเงินเดือน เพื่อดูว่างบส่วนไหนถูกใช้ไปเท่าไร</li>
+        <li>ดูย้อนหลังทีละเดือน และสรุปรายจ่ายเทียบกับเดือนก่อน</li>
+      </ul>
+      <p class="sc-benefit">ประโยชน์: เห็นว่าเงินรั่วตรงไหน ก่อนจะหมดเดือน</p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างรายจ่าย (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span>พฤศจิกายน</span></div>
+      <ul class="sc-exp-list" id="expList"></ul>
+      <div class="sc-exp-total"><small>รวมเดือนนี้</small><b id="expTotal">—</b><em id="expTotal2" data-show-kr>—</em></div>
+      <div class="sc-exp-compare" aria-label="เปรียบเทียบกับเดือนก่อน">
+        <div><small>ต.ค.</small><i style="--h:84%"></i></div><div><small>พ.ย.</small><i class="now" style="--h:72%"></i></div>
+        <p><b class="sc-pos">−14%</b> จากเดือนก่อน</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. KOREA WORK ============ -->
+  <section class="sc-feature" id="work" aria-labelledby="fWork" data-kr-section>
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">03</span> Korea Work &amp; Attendance <span class="sc-tier plus">PLUS</span><span class="sc-flag">🇰🇷 เฉพาะคนทำงานในเกาหลี</span></p>
+      <h2 id="fWork">ทำงานหนักทั้งเดือน ต้องรู้ว่าเงินที่ได้รับถูกต้องหรือไม่</h2>
+      <p class="sc-problem">OT เสาร์-อาทิตย์ วันหยุดนักขัตฤกษ์ ตัวคูณไม่เท่ากัน — สลิปเงินเดือนมาแล้วก็ไม่รู้ว่าครบหรือเปล่า</p>
+      <ul class="sc-ticks">
+        <li>บันทึกวันทำงาน ชั่วโมงปกติ และ OT แยกวันปกติ เสาร์-อาทิตย์ วันหยุด และวันหยุดงาน</li>
+        <li>ตั้งค่าแรงต่อชั่วโมงและตัวคูณ OT / เสาร์-อาทิตย์ / วันหยุด ตามเงื่อนไขของคุณ</li>
+        <li>ปฏิทินการทำงาน สรุปชั่วโมงและรายได้ที่คาดว่าจะได้รายเดือน</li>
+        <li>กรอกเงินเดือนที่ได้รับจริง แล้วดูส่วนต่างจากยอดที่คำนวณ ทั้ง ₩ และ ฿</li>
+      </ul>
+      <p class="sc-note">เป็นเครื่องมือช่วยตรวจสอบเบื้องต้นจากข้อมูลและเงื่อนไขที่คุณบันทึกเอง ไม่ใช่การรับรองตามกฎหมายแรงงาน</p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างปฏิทินการทำงาน (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span>ค่าแรง ₩10,320/ชม. · OT ×1.5</span></div>
+      <div class="sc-cal" id="workCal" aria-hidden="true"></div>
+      <div class="sc-cal-legend"><span><i class="n"></i>ปกติ</span><span><i class="o"></i>มี OT</span><span><i class="w"></i>เสาร์-อาทิตย์</span><span><i class="h"></i>วันหยุด</span></div>
+      <div class="sc-work-sum">
+        <div><small>ชม. ทำงาน</small><b id="wReg">0</b></div><div><small>ชม. OT</small><b id="wOt">0</b></div>
+        <div><small>คาดว่าจะได้</small><b id="wExp">₩0</b></div>
+      </div>
+      <div class="sc-work-actual">
+        <label for="wActual">เงินเดือนที่ได้รับจริง (₩)</label>
+        <input id="wActual" inputmode="numeric" value="2,250,000" autocomplete="off">
+        <p id="wDiff" class="sc-diff" role="status">—</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4. SALARY HISTORY ============ -->
+  <section class="sc-feature sc-flip" id="history" aria-labelledby="fHist">
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">04</span> Salary History &amp; Income Analytics <span class="sc-tier free">FREE</span><span class="sc-tier plus">กราฟ PLUS</span></p>
+      <h2 id="fHist">เห็นการเติบโตของรายได้ ไม่ต้องเดาว่าแต่ละเดือนหาเงินได้เท่าไหร่</h2>
+      <p class="sc-problem">สลิปกระจายอยู่หลายที่ จะย้อนดูว่าปีนี้รายได้ขึ้นหรือลงก็ต้องนั่งรื้อ</p>
+      <ul class="sc-ticks">
+        <li>บันทึกเงินเดือนรายเดือน เก็บประวัติย้อนหลังและรายละเอียดแต่ละเดือน</li>
+        <li>กราฟรายได้แต่ละเดือนและเงินเก็บสะสม เทียบเดือนต่อเดือน</li>
+        <li data-show-kr>บันทึกเป็น ₩ พร้อมมูลค่า ฿ ตามอัตราแลกเปลี่ยนที่บันทึกไว้ในเดือนนั้น</li>
+        <li>Export เป็น Excel ได้ (PLUS)</li>
+      </ul>
+      <p class="sc-benefit">ประโยชน์: ย้อนดูรายได้ในอดีต และเห็นพัฒนาการทางการเงินของตัวเอง</p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างกราฟเงินเดือน (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span>
+        <span class="sc-mini-seg" data-show-kr><button type="button" data-hist="KRW" aria-pressed="true">₩</button><button type="button" data-hist="THB" aria-pressed="false">฿</button></span></div>
+      <svg class="sc-line" id="histChart" viewBox="0 0 320 170" role="img" aria-label="กราฟเงินเดือน 6 เดือน"></svg>
+      <div class="sc-hist-foot"><span>เฉลี่ย <b id="histAvg">—</b></span><span>เดือนล่าสุด <b id="histLast" class="sc-pos">—</b></span></div>
+    </div>
+  </section>
+
+  <!-- ============ 5. CONTRACT ============ -->
+  <section class="sc-feature" id="contract" aria-labelledby="fContract" data-kr-section>
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">05</span> Employment Contract Countdown <span class="sc-tier plus">PLUS</span><span class="sc-flag">🇰🇷 เฉพาะคนทำงานในเกาหลี</span></p>
+      <h2 id="fContract">รู้เวลาที่เหลือ เพื่อวางแผนชีวิตหลังวันสิ้นสุดสัญญา</h2>
+      <p class="sc-problem">สัญญาจ้างผ่านไปทีละเดือนโดยไม่รู้ตัว พอใกล้ครบก็ยังไม่ได้เตรียมเงินก้อนกลับบ้าน</p>
+      <ul class="sc-ticks">
+        <li>ใส่วันเริ่มและวันสิ้นสุดสัญญา ระบบคำนวณอายุสัญญาให้</li>
+        <li>นับถอยหลังแบบเรียลไทม์ วัน ชั่วโมง นาที วินาที พร้อมแถบความคืบหน้า</li>
+        <li>ใช้คู่กับเป้าหมายเงินเก็บ เพื่อรู้ว่าต้องเก็บเดือนละเท่าไรก่อนครบสัญญา</li>
+      </ul>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างนับถอยหลังสัญญาจ้าง (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span id="cdRange">—</span></div>
+      <div class="sc-countdown" aria-live="off">
+        <div><b data-cd="d">0</b><small>วัน</small></div><div><b data-cd="h">00</b><small>ชั่วโมง</small></div>
+        <div><b data-cd="m">00</b><small>นาที</small></div><div><b data-cd="s">00</b><small>วินาที</small></div>
+      </div>
+      <div class="sc-progress"><i id="cdBar"></i></div>
+      <p class="sc-muted sc-small" id="cdPct">—</p>
+    </div>
+  </section>
+
+  <!-- compact Korea teaser for the Thailand audience -->
+  <section class="sc-kr-teaser sc-glass" data-show-th hidden aria-label="ฟีเจอร์สำหรับคนไทยในเกาหลี">
+    <span aria-hidden="true">🇰🇷</span>
+    <div><b>มีเครื่องมือสำหรับคนไทยที่ทำงานในเกาหลีด้วย</b><small>บันทึกการทำงานและ OT · ตรวจสอบเงินเดือน · นับถอยหลังสัญญาจ้าง · เงินวอนคู่เงินบาท</small></div>
+    <button type="button" class="sc-btn sc-ghost sc-sm" data-aud="KR">ดูฟีเจอร์เกาหลี</button>
+  </section>
+
+  <!-- ============ 6. CREDIT & DEBT ============ -->
+  <section class="sc-feature sc-flip sc-wide" id="debt" aria-labelledby="fDebt">
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">06</span> Credit Card &amp; Debt Management <span class="sc-tier premium">PREMIUM</span></p>
+      <h2 id="fDebt">บัตรกี่ใบ หนี้กี่ทาง ก็ต้องมองเห็นทั้งหมด</h2>
+      <p class="sc-problem">บัตรหลายใบ ผ่อนหลายรายการ ใช้บัตรหนึ่งไปจ่ายอีกบัตร — สุดท้ายไม่รู้ว่าหนี้จริงๆ มีเท่าไร</p>
+      <ul class="sc-ticks">
+        <li>บัตรหลายใบ วงเงิน ยอดค้าง % การใช้วงเงิน วันตัดรอบและวันครบกำหนด</li>
+        <li>แผนผ่อน 0% · ดอกคงที่ · ลดต้นลดดอก — ตารางงวด จ่ายแล้วกี่งวด เหลือกี่งวด</li>
+        <li><b>ติดตามการโยกยอดระหว่างบัตร</b> บอกบัตรต้นทาง ปลายทาง และจำนวนเงิน</li>
+        <li>ปฏิทินครบกำหนด ประวัติการชำระ และแผนปลดหนี้ Snowball / Avalanche</li>
+        <li>รองรับทั้งเงินบาทและวอน</li>
+      </ul>
+      <p class="sc-benefit">การโยกยอดถูกแยกจากการใช้จ่ายใหม่ หนี้รวมจึง <b>ไม่ถูกนับซ้ำ</b></p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal sc-debt-demo" aria-label="ตัวอย่างการโยกยอดระหว่างบัตร (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><button type="button" class="sc-btn sc-ghost sc-xs" id="debtPlay">▶ เล่นอีกครั้ง</button></div>
+      <div class="sc-cards-flow">
+        <div class="sc-cc a"><small>บัตร A</small><b data-cc="a">฿20,000</b><em>ยอดค้าง</em></div>
+        <svg class="sc-flow" viewBox="0 0 120 60" aria-hidden="true"><defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e8be46"/></marker></defs>
+          <path id="flowPath" d="M8 30 C 40 2, 80 2, 112 30" fill="none" stroke="#e8be46" stroke-width="2.5" stroke-dasharray="6 5" marker-end="url(#arr)"/></svg>
+        <div class="sc-cc b"><small>บัตร B</small><b data-cc="b">฿5,000</b><em>ยอดค้าง</em></div>
+      </div>
+      <p class="sc-flow-label" id="flowLabel">ใช้บัตร B จ่ายยอดบัตร A ฿20,000 · ผ่อน 0% 10 งวด</p>
+      <div class="sc-debt-sum">
+        <div><small>หนี้รวมก่อนโยก</small><b>฿25,000</b></div>
+        <div><small>หนี้รวมหลังโยก</small><b id="debtAfter">฿25,000</b></div>
+        <div><small>นับเป็นรายจ่ายใหม่</small><b class="sc-pos">฿0</b></div>
+      </div>
+      <div class="sc-install"><div><small>ผ่อน iPhone 0% · 10 งวด</small><b><span id="instPaid">0</span>/10 งวด</b></div><div class="sc-progress"><i id="instBar"></i></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 7. GOLD ============ -->
+  <section class="sc-feature" id="gold" aria-labelledby="fGold">
+    <div class="sc-copy sc-reveal">
+      <p class="sc-kicker"><span class="sc-num">07</span> Gold Portfolio Management <span class="sc-tier premium">PREMIUM</span></p>
+      <h2 id="fGold">ซื้อทองทุกครั้ง ต้องรู้ต้นทุนและกำไรที่แท้จริง</h2>
+      <p class="sc-problem">ซื้อทองหลายรอบ หลายราคา พอถามว่าตอนนี้กำไรเท่าไร ก็ตอบได้แค่คร่าวๆ</p>
+      <ul class="sc-ticks">
+        <li>ราคาทอง Spot (USD/troy oz) อัตราแลกเปลี่ยน และราคาทองไทย 96.5% ทั้งทองแท่งและทองรูปพรรณ</li>
+        <li>ราคาสมาคมค้าทองคำ และราคาซื้อ-ขาย GOLD2go</li>
+        <li>บันทึกทุกรอบที่ซื้อ: น้ำหนัก ราคา ต้นทุน ต้นทุนเฉลี่ย</li>
+        <li>มูลค่าพอร์ตและกำไร/ขาดทุนทั้งรายรอบและรวม พร้อมจุดคุ้มทุนบนกราฟ</li>
+        <li class="sc-soon">บันทึกการขายทอง — <b>Coming Soon</b></li>
+      </ul>
+      <p class="sc-benefit">“ไม่ใช่แค่รู้ว่าพอร์ตทองกำไรเท่าไหร่ แต่รู้ด้วยว่าทองที่ซื้อแต่ละรอบกำไรหรือขาดทุนเท่าไหร่”</p>
+    </div>
+    <div class="sc-demo-box sc-glass sc-reveal" aria-label="ตัวอย่างพอร์ตทอง (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span>ทองแท่ง 96.5% · บาทละ</span></div>
+      <label class="sc-gold-slider" for="goldPx"><span>ราคารับซื้อตอนนี้ <b id="goldPxTxt">฿61,900</b></span>
+        <input type="range" id="goldPx" min="56000" max="68000" step="50" value="61900"></label>
+      <table class="sc-gold-table">
+        <thead><tr><th>รอบ</th><th>บาท</th><th>ต้นทุน</th><th>มูลค่า</th><th>P/L</th></tr></thead>
+        <tbody id="goldRows"></tbody>
+        <tfoot><tr><th>รวม</th><th id="gW">—</th><th id="gC">—</th><th id="gV">—</th><th id="gP">—</th></tr></tfoot>
+      </table>
+      <p class="sc-muted sc-small">ต้นทุนเฉลี่ย <b id="gAvg">—</b>/บาท · มูลค่า = น้ำหนัก (บาท) × ราคารับซื้อ · P/L = มูลค่า − ต้นทุน · ในแอปเลือกได้ว่าจะประเมินด้วยราคารับซื้อ GOLD2go หรือราคาตลาด</p>
+    </div>
+  </section>
+
+  <!-- ============ BIG PICTURE ============ -->
+  <section class="sc-overview" id="overview" aria-labelledby="fOverview">
+    <div class="sc-center sc-reveal">
+      <p class="sc-kicker sc-kicker-c">THE BIG PICTURE · Financial Overview</p>
+      <h2 id="fOverview">ทุกบัญชี ทุกทรัพย์สิน ทุกภาระทางการเงิน มองเห็นได้ในภาพเดียว</h2>
+      <p class="sc-muted sc-narrow">ทุกโมดูลของ PLANNER ใช้บัญชีเดียวกัน ข้อมูลเดียวกัน — เงินเดือน รายจ่าย ทอง และหนี้ไม่ได้แยกกันอยู่คนละแอป</p>
+    </div>
+    <div class="sc-dash sc-glass sc-reveal" aria-label="ตัวอย่างภาพรวมการเงิน (ข้อมูลจำลอง)">
+      <div class="sc-demo-head"><span class="sc-demo">DEMO DATA</span><span class="sc-soon-pill">หน้าภาพรวมรวมในหน้าเดียว · Coming Soon</span></div>
+      <div class="sc-dash-grid">
+        <div class="sc-dash-group in"><h3>เงินเข้า <small>Income</small></h3><div class="sc-tile"><small>รายได้เดือนนี้</small><b data-ov="income">—</b></div></div>
+        <div class="sc-dash-group save"><h3>เก็บได้ <small>Savings</small></h3><div class="sc-tile"><small>เงินเก็บสะสม</small><b data-ov="saving">—</b></div><div class="sc-tile"><small>เป้าหมาย</small><b>62%</b><div class="sc-progress sm"><i style="--p:62%"></i></div></div></div>
+        <div class="sc-dash-group out"><h3>เงินออก <small>Expenses</small></h3><div class="sc-tile"><small>รายจ่ายเดือนนี้</small><b data-ov="expense">—</b></div><div class="sc-tile"><small>ค่างวดเดือนนี้</small><b data-ov="install">—</b></div></div>
+        <div class="sc-dash-group own"><h3>มีอยู่ <small>Assets</small></h3><div class="sc-tile"><small>พอร์ตทอง (มูลค่า)</small><b data-ov="gold">—</b></div></div>
+        <div class="sc-dash-group owe"><h3>เป็นหนี้ <small>Liabilities</small></h3><div class="sc-tile"><small>หนี้บัตรและผ่อน</small><b data-ov="debt">—</b></div><div class="sc-tile"><small>ใช้วงเงิน</small><b>34%</b></div></div>
+      </div>
+      <p class="sc-muted sc-small">แยกประเภทชัดเจน: รายได้ไม่ใช่ทรัพย์สิน และยอดโอนหนี้ระหว่างบัตรไม่ใช่รายได้หรือรายจ่ายใหม่ · วันนี้ตัวเลขชุดนี้ดูได้จากแต่ละโมดูล (หน้าหลัก · พอร์ตทอง · บัตรเครดิตและหนี้) ส่วนหน้าที่รวมทุกอย่างไว้ในจอเดียวกำลังพัฒนา</p>
+    </div>
+  </section>
+
+  <!-- ============ PACKAGES ============ -->
+  <section class="sc-plans" aria-labelledby="fPlans">
+    <h2 id="fPlans" class="sc-center sc-reveal">เริ่มฟรี แล้วเพิ่มเครื่องมือเมื่อพร้อม</h2>
+    <div class="sc-plan-grid">
+      <div class="sc-glass sc-plan sc-reveal"><b>Free</b><ul><li>แบ่งเงินเดือนเป็นเปอร์เซ็นต์</li><li>บันทึกเงินเดือน 3 เดือนล่าสุด</li><li>รายจ่ายได้ 10 รายการ</li><li>ตัวแปลงสกุลเงิน</li></ul></div>
+      <div class="sc-glass sc-plan plus sc-reveal"><b>Finance Plus</b><ul><li>ทุกอย่างใน Free ไม่จำกัดจำนวน</li><li>บันทึกการทำงานและ OT</li><li>สถิติและกราฟ · Export Excel</li><li>สัญญาจ้าง · เป้าหมายเงินเก็บ</li><li>Cloud Sync ข้ามเครื่อง</li></ul></div>
+      <div class="sc-glass sc-plan premium sc-reveal"><b>Finance Premium</b><ul><li>ทุกอย่างใน Plus</li><li>พอร์ตทองคำ</li><li>บัตรเครดิตและหนี้ (฿/₩)</li><li>สรุปรายเดือนอัตโนมัติ</li></ul></div>
+    </div>
+    <p class="sc-center sc-muted sc-small sc-reveal">ต้องการแค่บางฟีเจอร์? ซื้อเป็น Add-on แยกรายเดือนได้ · <a href="pricing.html">ดูราคาและรายละเอียดแพ็กเกจ →</a></p>
+  </section>
+
+  <!-- ============ FINAL CTA ============ -->
+  <section class="sc-final sc-glass sc-reveal" aria-labelledby="fFinal">
+    <h2 id="fFinal">มองเห็นทุกอย่าง ก่อนตัดสินใจเรื่องสำคัญ</h2>
+    <p>เงินเดือน เงินออม รายจ่าย ทอง และหนี้ — ในศูนย์ควบคุมเดียวที่เป็นของคุณ</p>
+    <div class="sc-cta-row sc-center-row">
+      <button type="button" class="sc-btn sc-gold" data-auth="register" data-guest>เริ่มจัดการการเงินของฉัน</button>
+      <a class="sc-btn sc-gold" href="index.html" data-member hidden>เปิดแอปของฉัน</a>
+      <a class="sc-btn sc-ghost" href="index.html?demo=1" data-demo>ลองแอปจริงด้วยข้อมูลตัวอย่าง</a>
+    </div>
+  </section>
+</main>
+
+<footer class="sc-footer">
+  <p><b>PLANNER</b> · Personal Finance Control Center</p>
+  <p>ตัวเลขทุกตัวในหน้านี้เป็น <b>ข้อมูลจำลอง (DEMO DATA)</b> ไม่ใช่ข้อมูลสมาชิกจริง · การคำนวณค่าแรงเป็นการประมาณจากข้อมูลและเงื่อนไขที่ผู้ใช้บันทึก ไม่ใช่การรับรองทางกฎหมาย · กำไร/ขาดทุนทองคำเป็นการประเมินตามราคาอ้างอิง ไม่ใช่ราคาที่ร้านรับซื้อจริงทุกแห่ง</p>
+  <p><a href="pricing.html">แพ็กเกจ</a> · <a href="index.html?demo=1" data-demo>ลองแอปตัวอย่าง</a> · <button type="button" class="sc-link" data-auth="login" data-guest>เข้าสู่ระบบ</button></p>
+</footer>
+
+<script src="showcase.js?v=20261117-saas23"></script>
+<script src="kfp-access.js?v=20261117-saas23"></script>
+</body>
+</html>

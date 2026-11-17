@@ -3,6 +3,7 @@
  * External network is mocked: worker /thai, GOLD2go price (worker root), spot sources.
  * Run: node tests/e2e/phase17.test.js   (SHOT_DIR=… for screenshots) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

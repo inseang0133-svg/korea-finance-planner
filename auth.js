@@ -663,7 +663,7 @@
       <div id="kfpAuthPanel" role="dialog" aria-modal="true" aria-labelledby="kfpAuthTitle">
         <div class="kfp-auth-modal">
           <button id="kfpAuthX" class="kfp-auth-x" type="button" aria-label="ปิด">✕</button>
-          <h2 id="kfpAuthTitle">🔐 Korea Finance Planner</h2>
+          <h2 id="kfpAuthTitle">🔐 PLANNER</h2>
           <p id="kfpAuthSub">เข้าสู่ระบบเพื่อใช้ข้อมูลส่วนตัวข้ามเครื่องแบบ Cloud</p>
 
           <p id="kfpAuthGateMsg" class="kfp-auth-gate" hidden></p>

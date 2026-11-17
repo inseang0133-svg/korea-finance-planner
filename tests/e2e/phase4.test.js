@@ -3,6 +3,7 @@
  * (original handler never runs) and opens the auth modal; viewing controls stay free;
  * members are unaffected.   Run: node tests/e2e/phase4.test.js */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 
 const ROOT = path.resolve(__dirname, "../..");

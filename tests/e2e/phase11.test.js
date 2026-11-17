@@ -1,6 +1,7 @@
 /* Phase 11 e2e: activity tracking in the app (throttled, names only) + Admin "การใช้งาน" analytics.
  * Run: node tests/e2e/phase11.test.js   (SHOT_DIR=… for screenshots) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

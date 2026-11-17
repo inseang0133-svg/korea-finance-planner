@@ -1,6 +1,7 @@
 /* Phase 5 e2e: plan-based visibility from server entitlements.
  * Run: node tests/e2e/phase5.test.js   (Supabase mocked: get_my_entitlements returns the plan set per test) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 
 const ROOT = path.resolve(__dirname, "../..");

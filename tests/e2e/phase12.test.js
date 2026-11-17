@@ -7,6 +7,7 @@
  *   X6 profile update sends only the permitted column; account isolation on one device
  * Run: node tests/e2e/phase12.test.js */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

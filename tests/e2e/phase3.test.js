@@ -1,6 +1,7 @@
 /* Phase 3 e2e: Preview Mode + Demo Data + per-account storage isolation.
  * Run: node tests/e2e/phase3.test.js     (Supabase mocked, CDNs blocked) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 
 const ROOT = path.resolve(__dirname, "../..");

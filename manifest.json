@@ -1,7 +1,7 @@
 {
-  "name": "Korea Planner",
+  "name": "PLANNER · Personal Finance Control Center",
   "short_name": "สู้หน่อยดิว้ะ",
-  "description": "วางแผนการเงินและบันทึกเงินเดือนสำหรับแรงงานไทยในเกาหลี",
+  "description": "PLANNER ศูนย์ควบคุมการเงินส่วนบุคคล สำหรับคนไทยในเกาหลีและในไทย: เงินเดือน รายจ่าย การทำงาน ทองคำ บัตรเครดิตและหนี้",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0f0f0f",

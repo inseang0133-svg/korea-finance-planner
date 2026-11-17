@@ -1,5 +1,6 @@
 /* Phase 6 e2e: prices from plan_prices + throttled activity heartbeat.  Run: node tests/e2e/phase6.test.js */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

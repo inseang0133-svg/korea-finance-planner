@@ -2,6 +2,7 @@
  * Supabase mocked: get_my_gold / save_my_gold keep the "server" copy in sessionStorage __mock_gold_<uid>.
  * Run: node tests/e2e/phase9.test.js   (SHOT_DIR=… for screenshots) */
 const { chromium } = require("playwright");
+require("./demo-seed");
 const http = require("http"), fs = require("fs"), path = require("path");
 const ROOT = path.resolve(__dirname, "../..");
 const MOCK = fs.readFileSync(path.join(__dirname, "mock-supabase.js"), "utf8");

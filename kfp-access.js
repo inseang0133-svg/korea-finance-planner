@@ -512,8 +512,10 @@
       '<p>ตัวเลขทุกอย่างในหน้านี้เป็น<b>ข้อมูลจำลอง</b> ไม่ใช่ข้อมูลของสมาชิกจริง · เลื่อนดูและเปิดทุกเมนูได้เลย ' +
       'ส่วนการบันทึก แก้ไข ลบ คำนวณ หรือ Export ต้องเข้าสู่ระบบก่อน</p>' +
       '<div class="kfp-pv-actions"><button type="button" class="kfp-pv-cta" data-pv="register">✨ สมัครใช้งานฟรี</button>' +
-      '<button type="button" class="kfp-pv-ghost" data-pv="login">เข้าสู่ระบบ</button></div>';
+      '<button type="button" class="kfp-pv-ghost" data-pv="login">เข้าสู่ระบบ</button>' +
+      '<a class="kfp-pv-ghost kfp-btnlink" href="showcase.html" data-pv-exit>← กลับหน้าแนะนำ PLANNER</a></div>';
     ban.addEventListener("click", function (e) {
+      if (e.target.closest("[data-pv-exit]")) { try { sessionStorage.removeItem("kfp_demo"); } catch (_) {} return; }
       var t = e.target.closest("[data-pv]"); if (t) openAuth(t.getAttribute("data-pv"));
     });
     var sub = document.querySelector(".container > .subtitle");

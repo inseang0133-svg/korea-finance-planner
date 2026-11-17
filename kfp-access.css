@@ -33,6 +33,7 @@
 @keyframes kfp-pv-in{from{opacity:0;transform:translateY(12px)}}
 @keyframes kfp-pv-flash{0%,100%{box-shadow:0 18px 40px -22px rgba(255,196,64,.6)}35%{box-shadow:0 0 0 3px rgba(255,224,138,.9),0 0 40px rgba(255,196,64,.6)}}
 @media(max-width:380px){.kfp-pv-actions{grid-template-columns:1fr}}
+.kfp-pv-actions [data-pv-exit]{grid-column:1/-1;min-height:44px;font-size:14px}
 
 /* ---------- ป้าย DEMO บน popup ทุกอัน (เปิดดูได้ แต่เป็นข้อมูลจำลอง) ---------- */
 html[data-kfp-mode="preview"] .kfp-modal-card::after{content:"DEMO";position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:3;pointer-events:none;

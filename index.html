@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="เป้าการเก็บเงิน">
     
-    <title>เป้าการเก็บเงิน</title>
+    <title>PLANNER · เป้าการเก็บเงิน</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,14 +24,19 @@
     <script src="supabase-config.js?v=20261114-saas13"></script>
     <script src="kfp-demo-data.js?v=20261113-saas5"></script>
     <script src="kfp-storage.js?v=20261114-saas13"></script>
-    <link rel="stylesheet" href="kfp-access.css?v=20261116-saas19">
+    <!-- Guests land on the Product Showcase; the live demo app stays reachable with ?demo=1 (remembered for this tab) -->
+    <script>(function(){try{if(!window.kfpStorage||!kfpStorage.isPreview())return;var q=new URLSearchParams(location.search);
+      if(q.get("demo")==="1"){sessionStorage.setItem("kfp_demo","1");return;}
+      if(sessionStorage.getItem("kfp_demo")==="1"||/access_token|error_description/.test(location.hash)||q.has("code"))return;
+      location.replace("showcase.html"+location.hash);}catch(e){}})();</script>
+    <link rel="stylesheet" href="kfp-access.css?v=20261117-saas23">
     <link rel="stylesheet" href="kfp-badge.css?v=20261115-saas18">
 <link rel="stylesheet" href="kfp-notice.css?v=20261117-saas22">
 <link rel="stylesheet" href="kfp-digest.css?v=20261115-saas18">
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-    <script src="auth.js?v=20261116-saas19"></script>
+    <script src="auth.js?v=20261117-saas23"></script>
     <script src="pwa-persistence.js?v=20261113-saas5"></script>
 </head>
 <body>
@@ -261,7 +266,7 @@
 <script src="ui-fx.js?v=20261109-fix2"></script>
 <script src="tools-ui.js?v=20261115-saas18"></script>
 <script src="kfp-digest.js?v=20261115-saas18"></script>
-<script src="kfp-access.js?v=20261116-saas19"></script>
+<script src="kfp-access.js?v=20261117-saas23"></script>
 <script src="kfp-badge.js?v=20261115-saas18"></script>
 <script src="kfp-notice.js?v=20261117-saas22"></script>
 <script src="floating-nav.js?v=20261113-saas5" data-target="gold.html" data-icon="🪙" data-label="ไปหน้าพอร์ตทอง" data-feature="gold_portfolio"></script>

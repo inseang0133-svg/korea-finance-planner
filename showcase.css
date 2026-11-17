@@ -17,8 +17,8 @@ a{color:var(--gold2)}
 .sc-nav{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:14px;padding:10px max(16px,env(safe-area-inset-left));padding-top:max(10px,env(safe-area-inset-top));
   background:rgba(7,8,11,.72);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border-bottom:1px solid var(--line)}
 .sc-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text)}
-.sc-logo-mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:20px;color:#1a1300;
-  background:linear-gradient(140deg,var(--gold2),var(--gold) 60%,#b88a2a);box-shadow:0 6px 18px rgba(227,184,74,.35)}
+.sc-logo-mark{width:50px;flex:0 0 auto}
+.sc-hero-logo{width:clamp(96px,22vw,150px);margin:0 0 18px -4px}
 .sc-logo b{display:block;letter-spacing:.18em;font-size:16px;line-height:1.1}
 .sc-logo small{display:block;color:var(--muted);font-size:10.5px;letter-spacing:.06em}
 .sc-links{display:none;gap:22px;margin-left:auto}

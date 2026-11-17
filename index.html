@@ -8,9 +8,8 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="เป้าการเก็บเงิน">
     
-    <title>PLANNER · เป้าการเก็บเงิน</title>
+    <title>PLANNER · Personal Finance Control Center</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,13 +37,22 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
     <script src="auth.js?v=20261117-saas23"></script>
     <script src="pwa-persistence.js?v=20261113-saas5"></script>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Planner">
+<meta name="application-name" content="Planner">
+<link rel="stylesheet" href="planner-logo.css?v=20261117-saas24">
 </head>
 <body>
 
 <div class="container">
 
-    <h1>สู้หน่อยดิว้ะ</h1>
-    <p class="subtitle">วางแผนการเงินจะได้เติบโตสักที</p>
+    <header class="pl-brand">
+        <h1 class="pl-sr">PLANNER</h1>
+        <span class="pl-logo" aria-hidden="true"><img src="assets/brand/planner-logo.png" alt="" width="720" height="582" decoding="async" fetchpriority="high"></span>
+        <p class="pl-brand-sub">Personal Finance Control Center</p>
+    </header>
 
     <div class="card" id="salaryCard">
 

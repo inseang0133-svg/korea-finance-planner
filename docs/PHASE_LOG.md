@@ -619,3 +619,10 @@ SRI ยังไม่ได้ใส่ (ต้องออกเน็ตเ�
 - เส้นทาง: ผู้เยี่ยมชมที่เปิด `index.html` → `showcase.html` · แอปตัวอย่างยังเปิดได้ด้วย `index.html?demo=1` (จำไว้ในแท็บนั้น) · แถบ Preview มีลิงก์กลับหน้าแนะนำ · สมาชิกไม่ถูกเปลี่ยนเส้นทาง · สมัคร/เข้าสู่ระบบจาก showcase แล้วเข้าแอปทันที
 - แบรนด์: title ทุกหน้า, หัวหน้าต่างเข้าสู่ระบบ, manifest name/description → PLANNER · คงไว้: คีย์ข้อมูล, รูปแบบไฟล์ export (`app: "Korea Finance Planner"`), `short_name`, โดเมน
 - ทดสอบ: `tests/e2e/phase19.test.js` (48) · ชุดเดิมโหลด `tests/e2e/demo-seed.js` เพื่อเปิดแอปตัวอย่างแบบผู้เยี่ยมชม · เวอร์ชันไฟล์ `saas23`
+
+### Phase 19.1 — โลโก้ P · ชื่อแอป Planner · ไอคอน (17/11/2026)
+
+- โลโก้ตัว P จากไฟล์ของเจ้าของ → PNG พื้นโปร่งใส `assets/brand/planner-logo.png` (+ `-sm`) · ไอคอนแอป 192/512/maskable/1024, `apple-touch-icon.png` (180), `favicon.ico` (16/32/48), `favicon-32.png`, ภาพแชร์ `og-image.png` (1200×630)
+- `planner-logo.css`: โลโก้เรืองแสง (เข้าแบบเฟด → แสงทองหายใจ + แสงวาบเฉพาะรูปโลโก้) · ปิดเมื่อผู้ใช้ตั้ง reduced-motion
+- หน้าแอป: "สู้หน่อยดิว้ะ / วางแผนการเงินจะได้เติบโตสักที" → โลโก้ + "Personal Finance Control Center" · showcase: โลโก้แทนตัว P สีเหลืองบนแถบเมนู + โลโก้ใหญ่ใน hero
+- manifest: name/short_name "Planner", ไอคอนเป็นไฟล์ในเว็บเอง (เลิกใช้ลิงก์ภายนอก) · ทุกหน้ามี favicon, apple-touch-icon, `apple-mobile-web-app-title=Planner` · SW `saas24` precache โลโก้/ไอคอน

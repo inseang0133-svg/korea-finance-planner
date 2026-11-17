@@ -168,12 +168,27 @@ const num = s => Number(String(s).replace(/[^\d.-]/g, ""));
     ok(await page.$$eval(".sc-reveal", es => es.every(e => getComputedStyle(e).opacity === "1")), "reduced motion: all content visible without animation");
     await page.close();
     const man = JSON.parse(fs.readFileSync(path.join(ROOT, "manifest.json"), "utf8"));
-    ok(man.name.startsWith("PLANNER") && !/เกาหลี$/.test(man.description), "manifest name/description rebranded");
+    ok(/^planner/i.test(man.name) && !/เกาหลี$/.test(man.description), "manifest name/description rebranded");
     const sw = fs.readFileSync(path.join(ROOT, "sw.js"), "utf8");
     ok(["showcase.html", "showcase.css", "showcase.js"].every(f => sw.includes(`'${f}'`)), "showcase assets precached by the service worker");
     const titles = ["pricing.html", "account.html", "admin.html", "auth-callback.html", "index.html", "gold.html", "credit-debt.html"]
       .map(f => /<title>([^<]*)<\/title>/.exec(fs.readFileSync(path.join(ROOT, f), "utf8"))[1]);
     ok(titles.every(t => t.includes("PLANNER") && !t.includes("Korea")), "every page title carries PLANNER");
+    console.log("S7 logo, app name, icons");
+    ok(man.short_name === "Planner" && man.icons.every(i => !/^https?:/.test(i.src) && fs.existsSync(path.join(ROOT, i.src))), "manifest: app name ‘Planner’, icons are local files that exist");
+    ok(man.icons.some(i => i.purpose === "maskable"), "maskable icon present");
+    const heads = ["pricing.html", "account.html", "admin.html", "auth-callback.html", "index.html", "gold.html", "credit-debt.html", "showcase.html"].map(f => fs.readFileSync(path.join(ROOT, f), "utf8"));
+    ok(heads.every(h => h.includes('href="favicon.ico"') && h.includes("apple-touch-icon.png") && h.includes('apple-mobile-web-app-title" content="Planner"')), "favicon + touch icon + ‘Planner’ title on every page");
+    ok(["favicon.ico", "assets/brand/planner-logo.png", "assets/brand/apple-touch-icon.png"].every(f => sw.includes(`'${f}'`)), "logo + icons precached");
+    page = await newPage(browser);
+    await seed(page, {}, { kfp_demo: "1" });
+    await page.goto(`${BASE}/index.html`); await settle(page, 1500);
+    ok(!(await txt(page, "body")).includes("สู้หน่อยดิว้ะ") && !(await txt(page, "body")).includes("จะได้เติบโตสักที"), "old heading/subtitle gone from the app");
+    ok(await page.$eval(".pl-brand .pl-logo img", i => i.complete && i.naturalWidth > 0) && (await txt(page, ".pl-brand-sub")) === "Personal Finance Control Center", "app header shows the P logo + ‘Personal Finance Control Center’");
+    ok((await page.$eval(".pl-brand .pl-logo img", i => getComputedStyle(i).animationName)).includes("pl-glow"), "logo glow is animated");
+    await page.goto(`${BASE}/showcase.html`); await settle(page, 800);
+    ok(await page.$eval(".sc-logo .pl-logo img", i => i.complete && i.naturalWidth > 0) && !(await page.$eval(".sc-logo", e => e.textContent)).includes("P\u200b"), "showcase nav uses the P logo image");
+    await page.close();
   } catch (e) { fail++; console.log("  ✗ crashed:", e.message); }
   await browser.close(); server.close();
   console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,11 +1,13 @@
-const CACHE_NAME = 'korea-finance-pwa-20261117-saas23';
-const API_CACHE_NAME = 'korea-finance-api-20261117-saas23';
+const CACHE_NAME = 'korea-finance-pwa-20261117-saas24';
+const API_CACHE_NAME = 'korea-finance-api-20261117-saas24';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
   'gold.html', 'gold.css', 'gold.js', 'pwa-persistence.js',
   'auth.js', 'auth-callback.html', 'supabase-config.js', 'floating-nav.js',
-  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js', 'kfp-storage.js', 'kfp-demo-data.js', 'kfp-access.js', 'kfp-access.css', 'pricing.html', 'account.html', 'kfp-gold-sync.js', 'kfp-motion.css', 'kfp-motion.js', 'kfp-bfcache.js', 'kfp-badge.css', 'kfp-badge.js', 'kfp-guard.js', 'kfp-country.js', 'kfp-digest.js', 'kfp-digest.css', 'kfp-notice.js', 'kfp-notice.css', 'credit-debt.html', 'credit-debt.css', 'debt-engine.js', 'debt-api.js', 'debt-ui.js', 'showcase.html', 'showcase.css', 'showcase.js'
+  'theme.css', 'ui-fx.js', 'ui-charts.js', 'ui-numflow.js', 'kfp-config.js', 'alloc-ui.js', 'tools.css', 'tools-ui.js', 'kfp-storage.js', 'kfp-demo-data.js', 'kfp-access.js', 'kfp-access.css', 'pricing.html', 'account.html', 'kfp-gold-sync.js', 'kfp-motion.css', 'kfp-motion.js', 'kfp-bfcache.js', 'kfp-badge.css', 'kfp-badge.js', 'kfp-guard.js', 'kfp-country.js', 'kfp-digest.js', 'kfp-digest.css', 'kfp-notice.js', 'kfp-notice.css', 'credit-debt.html', 'credit-debt.css', 'debt-engine.js', 'debt-api.js', 'debt-ui.js', 'showcase.html', 'showcase.css', 'showcase.js', 'planner-logo.css', 'favicon.ico',
+  'assets/brand/planner-logo.png', 'assets/brand/planner-logo-sm.png', 'assets/brand/icon-192.png', 'assets/brand/icon-512.png',
+  'assets/brand/icon-maskable-512.png', 'assets/brand/apple-touch-icon.png', 'assets/brand/favicon-32.png'
 ];
 
 const API_HOSTS = new Set([

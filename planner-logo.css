@@ -1,0 +1,35 @@
+/* PLANNER logo — glowing, animated mark (index header, showcase nav/hero).
+ * Markup: <span class="pl-logo"><img src="assets/brand/planner-logo.png" alt="PLANNER"></span>
+ * Layers: soft champagne halo (::before) · the mark with a breathing glow · a light sheen clipped to the mark (::after). */
+.pl-logo{position:relative;display:inline-block;line-height:0;isolation:isolate;--pl-glow:255,214,110}
+.pl-logo img{display:block;width:100%;height:auto;position:relative;z-index:1;
+  filter:drop-shadow(0 0 5px rgba(var(--pl-glow),.30)) drop-shadow(0 8px 16px rgba(0,0,0,.65));
+  animation:pl-in 1.1s cubic-bezier(.22,1,.36,1) both, pl-glow 3.6s ease-in-out 1.1s infinite}
+.pl-logo::before{content:"";position:absolute;inset:-22% -18%;z-index:0;border-radius:50%;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(232,190,70,.34),rgba(232,190,70,.10) 55%,transparent 75%);
+  filter:blur(6px);animation:pl-halo 3.6s ease-in-out 1.1s infinite;opacity:.75}
+.pl-logo::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(105deg,transparent 38%,rgba(255,246,220,.95) 50%,transparent 62%) no-repeat;background-size:260% 100%;background-position:160% 0;
+  -webkit-mask:url("assets/brand/planner-logo.png") center/100% 100% no-repeat;mask:url("assets/brand/planner-logo.png") center/100% 100% no-repeat;
+  mix-blend-mode:screen;animation:pl-sheen 5.2s ease-in-out 1.4s infinite}
+@keyframes pl-in{from{opacity:0;transform:translateY(10px) scale(.92);filter:blur(6px) drop-shadow(0 0 0 rgba(var(--pl-glow),0))}}
+@keyframes pl-glow{50%{filter:drop-shadow(0 0 10px rgba(var(--pl-glow),.70)) drop-shadow(0 0 26px rgba(232,190,70,.38)) drop-shadow(0 8px 16px rgba(0,0,0,.65))}}
+@keyframes pl-halo{50%{opacity:1;transform:scale(1.06)}}
+@keyframes pl-sheen{0%,30%{background-position:160% 0}70%,100%{background-position:-60% 0}}
+
+/* small variant (nav bars): calmer glow, same sheen */
+.pl-logo.pl-sm::before{inset:-30% -25%;filter:blur(4px);opacity:.6}
+.pl-logo.pl-sm img{animation:pl-glow-sm 3.6s ease-in-out infinite}
+@keyframes pl-glow-sm{0%,100%{filter:drop-shadow(0 0 3px rgba(var(--pl-glow),.25))}50%{filter:drop-shadow(0 0 7px rgba(var(--pl-glow),.65))}}
+
+/* index header */
+.pl-brand{display:flex;flex-direction:column;align-items:center;margin:4px auto 0;text-align:center}
+.pl-brand .pl-logo{width:min(42vw,170px)}
+.pl-brand-sub{margin:14px 0 30px;color:var(--muted,#a9a397);font-size:clamp(11px,3.1vw,13px);font-weight:500;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap}
+.pl-brand-sub::after{content:"";display:block;width:80px;height:3px;margin:16px auto 0;border-radius:2px;background:linear-gradient(90deg,transparent,var(--gold,#e3b84a),transparent)}
+.pl-sr{position:absolute!important;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+@media(prefers-reduced-motion:reduce){
+  .pl-logo img,.pl-logo::before,.pl-logo::after{animation:none!important}
+  .pl-logo::after{display:none}
+}

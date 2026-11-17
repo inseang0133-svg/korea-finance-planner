@@ -99,7 +99,8 @@ async function record(env) {
 // www.goldtraders.or.th เปลี่ยนเป็นเว็บที่โหลดราคาภายหลัง (Next.js) → อ่านจากหน้า classic ที่ยังเป็น HTML ปกติ
 // แหล่งหลัก: JSON ที่หน้าเว็บใหม่ของสมาคมใช้เอง (อัปเดตทุกครั้งที่ประกาศ)
 // สำรอง: หน้า classic (บางครั้งอัปเดตช้ากว่าหน้าใหม่หลายรอบ) แล้วค่อย api.chnwt.dev
-const GTA_JSON_URL = "https://www.goldtraders.or.th/api/GoldPrices/Latest?readjson=false";
+// readjson=true = ราคาประกาศล่าสุดของวันนี้ (readjson=false คืนค่าจากฐานข้อมูลที่ค้างเป็นรอบสุดท้ายของเมื่อวาน)
+const GTA_JSON_URL = "https://www.goldtraders.or.th/api/GoldPrices/Latest?readjson=true";
 const GTA_URL = "https://classic.goldtraders.or.th/default.aspx";
 const CHNWT_URL = "https://api.chnwt.dev/thai-gold-api/latest";
 const THAI_STALE_MS = 20 * 60000;  // เก่ากว่านี้ (cron ไม่ทำงาน) → ให้ /thai ดึงสดเองครั้งเดียว แล้วแคชในหน่วยความจำ

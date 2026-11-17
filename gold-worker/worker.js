@@ -7,7 +7,7 @@
 // 4) GET /                  → GOLD2go priceInfo แคช 5 วิ (ใช้เป็น GOLD2GO_WORKER_URL)
 // 5) GET /health            → ดูสถานะ (นาทีล่าสุดที่บันทึก)
 // 6) GET /thai              → ราคาสมาคมค้าทองคำ (ทองแท่ง/ทองรูปพรรณ 96.5%)
-//    Cron ไปอ่านหน้า classic.goldtraders.or.th เอง (ทุก 2 นาทีช่วง 08:30–18:00 น. เวลาไทย, นอกนั้นทุก 10 นาที)
+//    Cron ไปอ่านราคาจากสมาคมเอง (JSON ของเว็บใหม่ → หน้า classic → api.chnwt.dev) (ทุก 2 นาทีช่วง 08:30–18:00 น. เวลาไทย, นอกนั้นทุก 10 นาที)
 //    แล้วเก็บไว้ใน D1 → ผู้ใช้กี่คนก็อ่านจาก D1 ต้นทางโดนเรียกแค่จาก Cron นี้ที่เดียว
 
 const KEEP_MS = 35 * 86400000;
@@ -97,6 +97,9 @@ async function record(env) {
 
 // ---------- ราคาสมาคมค้าทองคำ (Thai Gold Traders Association) ----------
 // www.goldtraders.or.th เปลี่ยนเป็นเว็บที่โหลดราคาภายหลัง (Next.js) → อ่านจากหน้า classic ที่ยังเป็น HTML ปกติ
+// แหล่งหลัก: JSON ที่หน้าเว็บใหม่ของสมาคมใช้เอง (อัปเดตทุกครั้งที่ประกาศ)
+// สำรอง: หน้า classic (บางครั้งอัปเดตช้ากว่าหน้าใหม่หลายรอบ) แล้วค่อย api.chnwt.dev
+const GTA_JSON_URL = "https://www.goldtraders.or.th/api/GoldPrices/Latest?readjson=false";
 const GTA_URL = "https://classic.goldtraders.or.th/default.aspx";
 const CHNWT_URL = "https://api.chnwt.dev/thai-gold-api/latest";
 const THAI_STALE_MS = 20 * 60000;  // เก่ากว่านี้ (cron ไม่ทำงาน) → ให้ /thai ดึงสดเองครั้งเดียว แล้วแคชในหน่วยความจำ
@@ -118,6 +121,19 @@ export function parseGta(html) {
               updatedAt: spanText(html, p + "lblAsTime"), source: "สมาคมค้าทองคำ (goldtraders.or.th)" };
   return o.barBuy || o.barSell || o.jewelrySell ? o : null;
 }
+// { asTime:"2026-11-17T10:21:00", priceSeq:5, bL_BuyPrice, bL_SellPrice, oM965_BuyPrice (ฐานภาษี), oM965_SellPrice, priceChangeFromPrevRow, ... }
+export function parseGtaJson(d) {
+  if (Array.isArray(d)) d = d.slice().sort((a, b) => String(a?.asTime || "").localeCompare(String(b?.asTime || ""))).pop();
+  if (!d || typeof d !== "object") return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(d.asTime || ""));
+  const seq = d.priceSeq ?? d.seq;
+  const o = { barBuy: toNum(d.bL_BuyPrice), barSell: toNum(d.bL_SellPrice), jewelryBuy: toNum(d.oM965_BuyPrice), jewelrySell: toNum(d.oM965_SellPrice),
+              updatedAt: m ? `${m[3]}/${m[2]}/${Number(m[1]) + 543} เวลา ${m[4]}:${m[5]} น.` + (seq ? ` (ครั้งที่ ${seq})` : "") : null,
+              asTime: d.asTime || null, round: seq ?? null,
+              change: Number.isFinite(Number(d.priceChangeFromPrevRow)) ? Number(d.priceChangeFromPrevRow) : null,
+              source: "สมาคมค้าทองคำ (goldtraders.or.th)" };
+  return o.barBuy || o.barSell || o.jewelrySell ? o : null;
+}
 export function parseChnwt(d) {
   const p = d?.response?.price || {};
   const o = { barBuy: toNum(p.gold_bar?.buy), barSell: toNum(p.gold_bar?.sell), jewelryBuy: toNum(p.gold?.buy), jewelrySell: toNum(p.gold?.sell),
@@ -130,6 +146,13 @@ export function saneThai(g) {
 }
 async function fetchThai() {
   const errs = [];
+  try {
+    const r = await fetch(GTA_JSON_URL, { headers: { "User-Agent": "Mozilla/5.0 (gold-recorder; price board reader)", "Accept": "application/json", "Referer": "https://www.goldtraders.or.th/" }, signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const g = parseGtaJson(await r.json());
+    if (saneThai(g)) return g;
+    errs.push("gta-json: unparsed");
+  } catch (e) { errs.push("gta-json: " + e.message); }
   try {
     const r = await fetch(GTA_URL, { headers: { "User-Agent": "Mozilla/5.0 (gold-recorder; price board reader)", "Accept-Language": "th,en" }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) throw new Error("HTTP " + r.status);

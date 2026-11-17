@@ -1,0 +1,33 @@
+/* kfp-notice.css — celebration pop-up (purchase / admin gift) */
+.kfn-ov{position:fixed;inset:0;z-index:2147483200;display:grid;place-items:center;padding:18px;background:rgba(4,5,8,.72);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:0;transition:opacity .22s ease;font-family:"Prompt","Noto Sans Thai",system-ui,sans-serif}
+.kfn-ov.in{opacity:1}
+.kfn-fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.kfn-card{position:relative;z-index:1;width:min(420px,100%);max-height:calc(100dvh - 36px);overflow:auto;text-align:center;color:#f5f2ea;
+  padding:30px 22px 22px;border-radius:26px;border:1px solid rgba(232,190,70,.45);
+  background:radial-gradient(120% 80% at 50% 0%,rgba(232,190,70,.22),rgba(20,21,28,.97) 60%),#14151c;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.08);transform:translateY(18px) scale(.96);transition:transform .32s cubic-bezier(.22,1,.36,1)}
+.kfn-ov.in .kfn-card{transform:none}
+.kfn-ov.gift .kfn-card{border-color:rgba(178,139,255,.55);background:radial-gradient(120% 80% at 50% 0%,rgba(178,139,255,.25),rgba(20,21,28,.97) 60%),#14151c}
+.kfn-x{position:absolute;z-index:2;top:10px;right:10px;width:44px;height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.07);color:#f5f2ea;font-size:16px;cursor:pointer}
+.kfn-badge{width:fit-content;pointer-events:none;font-size:54px;line-height:1;margin:0 auto 8px;animation:kfn-pop .7s cubic-bezier(.22,1.6,.36,1) both}
+@keyframes kfn-pop{from{transform:scale(.3) rotate(-14deg);opacity:0}}
+.kfn-eyebrow{margin:0;font-size:11px;letter-spacing:.2em;font-weight:700;color:#e8be46}
+.kfn-ov.gift .kfn-eyebrow{color:#c9b2ff}
+.kfn-card h2{margin:6px 0 4px;font-size:clamp(21px,5.6vw,26px);line-height:1.3}
+.kfn-sub{margin:0 0 14px;color:#b9b4a8;font-size:14px}
+.kfn-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px;text-align:left}
+.kfn-list li{display:flex;align-items:center;gap:10px;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.kfn-ico{font-size:22px;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:rgba(0,0,0,.25);flex:0 0 auto}
+.kfn-name{flex:1;min-width:0;font-weight:600;font-size:15px}
+.kfn-tag{font-size:10.5px;font-weight:700;letter-spacing:.1em;padding:3px 8px;border-radius:99px;flex:0 0 auto}
+.kfn-tag.premium{color:#1b1406;background:linear-gradient(135deg,#ffe08a,#e8be46)}
+.kfn-tag.plus{color:#fff;background:linear-gradient(135deg,#6cb8ff,#3b82f6)}
+.kfn-tag.addon{color:#fff;background:linear-gradient(135deg,#b28bff,#7c5cff)}
+.kfn-until{margin:4px 0 14px;color:#b9b4a8;font-size:13px}
+.kfn-go{width:100%;min-height:50px;border:0;border-radius:14px;font:inherit;font-weight:700;font-size:16px;cursor:pointer;color:#1b1406;
+  background:linear-gradient(135deg,#ffe08a,#e8be46);box-shadow:0 10px 26px rgba(232,190,70,.35)}
+.kfn-ov.gift .kfn-go{color:#fff;background:linear-gradient(135deg,#c9b2ff,#7c5cff);box-shadow:0 10px 26px rgba(124,92,255,.4)}
+.kfn-go:focus-visible,.kfn-x:focus-visible{outline:2px solid #ffe08a;outline-offset:2px}
+html.kfn-lock,html.kfn-lock body{overflow:hidden}
+@media(prefers-reduced-motion:reduce){.kfn-ov,.kfn-card,.kfn-badge{transition:none;animation:none}}

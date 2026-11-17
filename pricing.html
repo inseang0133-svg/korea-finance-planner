@@ -12,6 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kfp-access.css?v=20261116-saas19">
+<link rel="stylesheet" href="kfp-notice.css?v=20261117-saas22">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
 <script src="auth.js?v=20261116-saas19"></script>
@@ -375,6 +376,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
     var timer = setInterval(function () {
       var P = window.kfpPlan;
       if (P) P.refresh();
+      if (window.kfpNotice) window.kfpNotice.check();   // the purchase pop-up appears as soon as the webhook has landed
       var info = P ? P.info() : {};
       var got = /^addon_[a-z]+$/.test(addonId) ? (info.addons || []).filter(function (a) { return a.id === addonId; })[0] : null;
       var paid = addonId ? !!got : String(info.source || "").indexOf("subscription") === 0 && info.plan && info.plan !== "free";
@@ -414,6 +416,7 @@ a.cta{display:grid;place-items:center;text-decoration:none}
 })();
 </script>
 <script src="kfp-access.js?v=20261116-saas19"></script>
+<script src="kfp-notice.js?v=20261117-saas22"></script>
 <style>.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}</style>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>

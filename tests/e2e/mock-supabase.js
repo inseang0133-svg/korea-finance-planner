@@ -179,6 +179,14 @@
           var out = Promise.resolve({ data: ent, error: null });
           return mode === "slow" ? new Promise(function (r) { setTimeout(function () { r({ data: ent, error: null }); }, 2500); }) : out;
         }
+        if (fn === "get_my_notices" || fn === "ack_my_notices") {
+          if (!session) return Promise.resolve({ data: null, error: { code: "28000", message: "not_authenticated" } });
+          var nk = "__mock_notices_" + session.user.id, list = JSON.parse(sessionStorage.getItem(nk) || "[]");
+          if (fn === "get_my_notices") return Promise.resolve({ data: list, error: null });
+          var gone = (args && args.p_ids) || [];
+          sessionStorage.setItem(nk, JSON.stringify(list.filter(function (n) { return gone.indexOf(n.id) < 0; })));
+          return Promise.resolve({ data: gone.length, error: null });
+        }
         if (fn === "get_my_debt_access" || fn === "export_my_debt" || fn.indexOf("debt_") === 0) return Promise.resolve(window.__mockDebt(fn, args || {}, session));
         if (fn === "is_admin" || fn.indexOf("admin_") === 0) return Promise.resolve(window.__mockAdmin(fn, args || {}, session));
         if (fn === "export_my_gold") {
@@ -269,7 +277,9 @@
         customer: paid ? { provider: "stripe", customer_id: "cus_TEST" + u.user_id.slice(-3) } : null,
         subscriptions: paid ? [{ id: "s1", provider: "stripe", provider_subscription_id: "sub_TEST" + u.user_id.slice(-3), plan_id: u.plan, status: u.sub_status, billing_interval: "month", currency: "THB",
           unit_amount_minor: u.plan === "plus" ? 12900 : 19900, cancel_at_period_end: !!u.cancel_at_period_end, started_at: u.sub_started_at, current_period_start: iso(-5), current_period_end: iso(25) }] : [],
-        entitlements: u.plan_source === "admin_grant" ? [{ id: "g1", plan_id: u.plan, reason: "admin_grant", note: "promo", starts_at: iso(-3), expires_at: iso(27), revoked_at: null, active: true, granted_by: "owner@mail.test" }] : [],
+        entitlements: (u.plan_source === "admin_grant" ? [{ id: "g1", plan_id: u.plan, reason: "admin_grant", note: "promo", starts_at: iso(-3), expires_at: iso(27), revoked_at: null, active: true, granted_by: "owner@mail.test" }] : [])
+          .concat(JSON.parse(sessionStorage.getItem("__mock_addon_grants_" + u.user_id) || "[]").map(function (id, i) {
+            return { id: "ga" + i, plan_id: id, reason: "admin_grant", note: "gift", starts_at: iso(-1), expires_at: null, revoked_at: null, active: true, granted_by: "owner@mail.test" }; })),
         payments: paid ? [{ id: "p1", provider_invoice_id: "in_TEST1", plan_id: u.plan, currency: "THB", amount_due_minor: 12900, amount_paid_minor: 12900, amount_refunded_minor: 5000, status: "partially_refunded",
           hosted_invoice_url: "https://invoice.stripe.com/i/1", invoice_pdf_url: "javascript:alert(1)", paid_at: iso(-5), created_at: iso(-5) }] : [],
         payments_total: paid ? 1 : 0, activity: [{ kind: "page", page: "gold.html", at: iso(-0.1) }],
@@ -283,10 +293,15 @@
       window.__mockRoleCalls = (window.__mockRoleCalls || []).concat([a]);
       return ok({ role: a.p_role === "none" ? null : a.p_role });
     }
-    if (["admin_set_plan", "admin_extend_access", "admin_revoke_access", "admin_set_suspended"].indexOf(fn) >= 0) {
+    if (["admin_set_plan", "admin_extend_access", "admin_revoke_access", "admin_set_suspended", "admin_set_addons"].indexOf(fn) >= 0) {
       if (!canWrite) return no();
       if (a.p_user === session.user.id) return no("cannot_act_on_self");
       if (!a.p_reason || a.p_reason.trim().length < 3) return no("reason_required", "22023");
+      if (fn === "admin_set_addons") {
+        if ((a.p_addons || []).some(function (x) { return !/^addon_[a-z]+$/.test(x); })) return no("invalid_addon", "22023");
+        sessionStorage.setItem("__mock_addon_grants_" + a.p_user, JSON.stringify(a.p_addons || []));
+        return ok({ grants: a.p_addons || [] });
+      }
       if (fn === "admin_set_suspended") { var n = Number(String(a.p_user).slice(-12)); if (a.p_suspended) sessionStorage.setItem("__mock_susp_" + n, "1"); else sessionStorage.removeItem("__mock_susp_" + n); }
       return ok({ effective: { plan_id: a.p_plan || "premium" } });
     }

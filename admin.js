@@ -74,7 +74,7 @@
   }
   var ERR = {
     forbidden: "ไม่มีสิทธิ์ทำรายการนี้", cannot_act_on_self: "ทำรายการกับบัญชีของตัวเองไม่ได้", only_owner_can_change_admins: "เฉพาะ Owner เท่านั้นที่จัดการบัญชีผู้ดูแลได้", cannot_change_owner: "เปลี่ยนบทบาทของ Owner ไม่ได้", invalid_role: "บทบาทไม่ถูกต้อง",
-    reason_required: "กรุณาใส่เหตุผลอย่างน้อย 3 ตัวอักษร", invalid_expiry: "วันหมดอายุต้องเป็นวันในอนาคต", invalid_days: "จำนวนวันต้องอยู่ระหว่าง 1–3650",
+    reason_required: "กรุณาใส่เหตุผลอย่างน้อย 3 ตัวอักษร", invalid_expiry: "วันหมดอายุต้องเป็นวันในอนาคต", invalid_addon: "Add-on ไม่ถูกต้อง", invalid_days: "จำนวนวันต้องอยู่ระหว่าง 1–3650",
     nothing_to_extend: "สมาชิกนี้ไม่มีสิทธิ์ที่จะขยาย (เป็น Free)", no_expiry: "สิทธิ์ปัจจุบันไม่มีวันหมดอายุ", no_subscription: "ไม่มี subscription ที่ใช้งานอยู่",
     user_not_found: "ไม่พบสมาชิก", rate_limited: "ทำรายการบ่อยเกินไป รอสักครู่", customer_mismatch: "ข้อมูล Stripe ไม่ตรงกัน ตรวจสอบใน Stripe Dashboard",
     network: "เชื่อมต่อไม่ได้", unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
@@ -282,7 +282,7 @@
     var why = canActOn(x), hasGrant = (x.entitlements || []).some(function (g) { return g.active; });
     var acts = why ? '<p class="note" id="actLocked">🔒 ' + esc(why) + "</p>" :
       '<div class="acts" id="userActs">' +
-        '<button class="btn sm" type="button" data-act="set_plan">เปลี่ยนแพ็กเกจ</button>' +
+        '<button class="btn sm" type="button" data-act="set_plan">เปลี่ยนแพ็กเกจ / Add-on</button>' +
         '<button class="btn sm gold" type="button" data-act="grant_premium">ให้ Premium</button>' +
         '<button class="btn sm" type="button" data-act="extend"' + (ef.plan_id === "free" || !ef.valid_until ? " disabled" : "") + ">ขยายสิทธิ์</button>" +
         '<button class="btn sm danger" type="button" data-act="revoke"' + (hasGrant ? "" : " disabled") + ">ยกเลิกสิทธิ์ที่ให้</button>" +
@@ -343,9 +343,13 @@
   /* ---------------------------------------------------------- actions (confirm + reason) */
   function plus(days) { var t = new Date(Date.now() + days * 86400000); return t.toISOString().slice(0, 10); }
   var SPEC = {
-    set_plan: { title: "เปลี่ยนแพ็กเกจ", text: "ตั้งแพ็กเกจนี้แทนสิทธิ์ที่ให้ไว้เดิมทั้งหมด (รวมสิทธิ์สมาชิกเดิม 90 วัน) แบบไม่ผ่าน Stripe · เลือก Free = ยกเลิกสิทธิ์ที่ให้ทั้งหมด · subscription ที่จ่ายเงินไม่ถูกยกเลิก ถ้าจ่ายแพ็กเกจที่สูงกว่าอยู่จะยังใช้แพ็กเกจนั้น",
-      fields: '<label for="cfPlan">แพ็กเกจ</label><select class="sel" id="cfPlan"><option value="premium">Finance Premium</option><option value="plus">Finance Plus</option><option value="free">Free (ยกเลิกสิทธิ์ที่ให้)</option></select>' +
-              '<label for="cfUntil">ใช้ได้ถึง (เว้นว่าง = ไม่มีกำหนด)</label><input class="inp" type="date" id="cfUntil">',
+    set_plan: { title: "เปลี่ยนแพ็กเกจ / Add-on", text: "ให้สิทธิ์แบบไม่ผ่าน Stripe · แพ็กเกจใหม่จะแทนแพ็กเกจที่ให้ไว้เดิม (Add-on ที่ให้ไว้ยังอยู่) · เลือก Free = ยกเลิกแพ็กเกจที่ให้ · ติ๊ก Add-on = สมาชิกจะมี Add-on ที่ให้ตามที่ติ๊กไว้พอดี · subscription ที่จ่ายเงินไม่ถูกยกเลิก · สมาชิกจะเห็นป๊อปอัพ “ของขวัญจากแอดมิน” เมื่อเข้าเว็บครั้งถัดไป",
+      fields: function () {
+        return '<label for="cfPlan">แพ็กเกจ</label><select class="sel" id="cfPlan"><option value="keep">— ไม่เปลี่ยนแพ็กเกจ —</option><option value="premium">Finance Premium</option><option value="plus">Finance Plus</option><option value="free">Free (ยกเลิกแพ็กเกจที่ให้)</option></select>' +
+          '<fieldset class="cf-addons" id="cfAddons"><legend>Add-on ที่ให้ (ติ๊ก = มี · เอาติ๊กออก = ยกเลิก)</legend>' +
+          ADDONS.map(function (a) { return '<label class="cf-chk"><input type="checkbox" value="' + a + '"' + (grantedAddons().indexOf(a) >= 0 ? " checked" : "") + "> " + esc(PLAN[a]) + "</label>"; }).join("") + "</fieldset>" +
+          '<label for="cfUntil">ใช้ได้ถึง (เว้นว่าง = ไม่มีกำหนด · ใช้กับแพ็กเกจและ Add-on ที่ให้ครั้งนี้)</label><input class="inp" type="date" id="cfUntil">';
+      },
       danger: function () { return $("cfPlan").value === "free"; } },
     grant_premium: { title: "ให้ Finance Premium", text: "ให้สิทธิ์ Premium โดยไม่เรียกเก็บเงิน",
       fields: '<label for="cfDays">ระยะเวลา</label><select class="sel" id="cfDays"><option value="30">30 วัน</option><option value="90">90 วัน</option><option value="365">1 ปี</option><option value="">ไม่มีกำหนด</option></select>' },
@@ -362,13 +366,18 @@
       fields: '<label for="cfMode">วิธียกเลิก</label><select class="sel" id="cfMode"><option value="period_end">เมื่อสิ้นรอบบิล (ใช้ได้จนถึงวันนั้น)</option><option value="now">ทันที (หมดสิทธิ์ตอนนี้ ไม่คืนเงินอัตโนมัติ)</option></select>',
       danger: true }
   };
+  // add-ons this member currently has from an admin grant (paid add-on subscriptions are not touched here)
+  function grantedAddons() {
+    return ((CUR && CUR.entitlements) || []).filter(function (g) { return g.active && /^addon_/.test(g.plan_id) && g.reason !== "staff"; })
+      .map(function (g) { return g.plan_id; });
+  }
   var pending = null;
   function askAction(kind, btn) {
     var sp = SPEC[kind], u = CUR.user; if (!sp) return;
     pending = { kind: kind, btn: btn };
     $("cfTitle").textContent = sp.title + " · " + (u.email || u.user_id);
     $("cfText").textContent = sp.text;
-    $("cfFields").innerHTML = sp.fields || "";
+    $("cfFields").innerHTML = (typeof sp.fields === "function" ? sp.fields() : sp.fields) || "";
     if (kind === "set_plan") $("cfUntil").min = plus(1);
     if (kind === "set_role") $("cfRole").value = u.admin_role === "admin" || u.admin_role === "viewer" ? (u.admin_role === "admin" ? "viewer" : "admin") : "viewer";
     $("cfReason").value = ""; $("cfErr").textContent = ""; $("cfType").value = "";
@@ -397,9 +406,20 @@
     try {
       var k = pending.kind, ok;
       if (k === "set_plan") {
-        var until = $("cfUntil").value ? new Date($("cfUntil").value + "T23:59:59").toISOString() : null;
-        await rpc("admin_set_plan", { p_user: u.user_id, p_plan: $("cfPlan").value, p_expires_at: $("cfPlan").value === "free" ? null : until, p_reason: reason });
-        ok = "เปลี่ยนแพ็กเกจแล้ว";
+        var until = $("cfUntil").value ? new Date($("cfUntil").value + "T23:59:59").toISOString() : null, plan = $("cfPlan").value;
+        var picked = Array.prototype.map.call(document.querySelectorAll("#cfAddons input:checked"), function (x) { return x.value; }).sort();
+        var had = grantedAddons().sort(), addonsChanged = picked.join() !== had.join() || (until && picked.length > 0);
+        if (plan === "keep" && !addonsChanged) { $("cfErr").textContent = "ยังไม่ได้เลือกการเปลี่ยนแปลง"; busy($("cfOk"), false); return; }
+        var done = [];
+        if (plan !== "keep") {
+          await rpc("admin_set_plan", { p_user: u.user_id, p_plan: plan, p_expires_at: plan === "free" ? null : until, p_reason: reason });
+          done.push(plan === "free" ? "ยกเลิกแพ็กเกจที่ให้" : "ตั้งเป็น " + PLAN[plan]);
+        }
+        if (addonsChanged) {
+          await rpc("admin_set_addons", { p_user: u.user_id, p_addons: picked, p_expires_at: picked.length ? until : null, p_reason: reason });
+          done.push(picked.length ? "Add-on: " + picked.map(function (a) { return PLAN[a]; }).join(", ") : "ยกเลิก Add-on ที่ให้");
+        }
+        ok = done.join(" · ") + " แล้ว";
       } else if (k === "grant_premium") {
         var days = $("cfDays").value;
         await rpc("admin_set_plan", { p_user: u.user_id, p_plan: "premium", p_expires_at: days ? new Date(Date.now() + Number(days) * 86400000).toISOString() : null, p_reason: reason });

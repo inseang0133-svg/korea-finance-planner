@@ -219,3 +219,11 @@ details summary{cursor:pointer;color:var(--gold-l);min-height:32px;display:inlin
 .kfa-reset-note .g{color:#3ddc97;user-select:all}
 @keyframes kfa-reset-in{from{opacity:0;transform:translateY(-4px)}}
 @media(prefers-reduced-motion:reduce){.kfa-reset-note{animation:none}}
+
+/* change plan / add-on modal (Phase 17) */
+.cf-addons{border:1px solid rgba(232,190,70,.25);border-radius:12px;padding:8px 12px 10px;margin:10px 0 4px;display:grid;grid-template-columns:1fr;gap:2px}
+@media(min-width:520px){.cf-addons{grid-template-columns:1fr 1fr}}
+.cf-addons legend{padding:0 6px;font-size:12.5px;color:#b9b4a8}
+.cf-chk{display:flex;align-items:center;gap:8px;min-height:40px;font-size:14px;cursor:pointer;margin:0}
+.cf-chk input{width:20px;height:20px;accent-color:#e8be46;flex:0 0 auto}
+#cfAddons .cf-chk{margin:0;padding:0;align-items:center;line-height:1.3}#cfAddons .cf-chk input{margin:0;padding:0;min-height:0}

@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kfp-access.css?v=20261117-saas23">
-<link rel="stylesheet" href="admin.css?v=20261117-saas22">
+<link rel="stylesheet" href="admin.css?v=20261119-saas28">
 <link rel="stylesheet" href="kfp-motion.css?v=20261114-saas15">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
 <script src="auth.js?v=20261117-saas23"></script>
@@ -27,8 +27,9 @@
 <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Planner">
 <meta name="application-name" content="Planner">
-<link rel="stylesheet" href="planner-nav.css?v=20261119-saas27">
-<script src="planner-icons.js?v=20261119-saas27"></script>
+<link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
+<script src="planner-icons.js?v=20261119-saas28"></script>
+<link rel="stylesheet" href="kfp-support.css?v=20261119-saas28">
 </head>
 <body data-no-preview-ui>
 <!-- Hiding this page is NOT the protection: every admin_* function checks the role in the database. -->
@@ -50,6 +51,8 @@
     <button class="kfa-tab" role="tab" id="tab-activity" aria-controls="view-activity" data-tab="activity">📈 การใช้งาน</button>
     <button class="kfa-tab" role="tab" id="tab-revenue" aria-controls="view-revenue" data-tab="revenue">💰 รายได้</button>
     <button class="kfa-tab" role="tab" id="tab-prices" aria-controls="view-prices" data-tab="prices">🏷️ ราคา</button>
+    <button class="kfa-tab" role="tab" id="tab-messages" aria-controls="view-messages" data-tab="messages">💬 ข้อความ <span class="kfa-count" id="msgTabCount" hidden></span></button>
+    <button class="kfa-tab" role="tab" id="tab-announce" aria-controls="view-announce" data-tab="announce">📣 ประกาศ</button>
     <button class="kfa-tab" role="tab" id="tab-audit" aria-controls="view-audit" data-tab="audit">📜 Audit log</button>
   </nav>
 
@@ -119,12 +122,46 @@
       <div id="priceBody"></div>
     </section>
 
+    <!-- MESSAGES (Phase 21) -->
+    <section id="view-messages" role="tabpanel" aria-labelledby="tab-messages" hidden>
+      <div class="kfa-h"><h2>ข้อความจากสมาชิก</h2><small id="msgInfo" aria-live="polite"></small><button class="btn sm sp" type="button" id="msgRefresh">↻ รีเฟรช</button></div>
+      <div class="sp-wrap" id="spWrap">
+        <aside class="sp-list" aria-label="รายการบทสนทนา">
+          <form class="tools" id="msgFilters" role="search">
+            <label class="sr-only" for="msgQ">ค้นหา</label>
+            <input class="inp" type="search" id="msgQ" placeholder="ค้นหาอีเมล ชื่อผู้ใช้ หรือ User ID" autocomplete="off" maxlength="100">
+            <label class="sr-only" for="msgF">กรอง</label>
+            <select class="sel" id="msgF"><option value="all">ทั้งหมด</option><option value="unread">ยังไม่อ่าน</option><option value="open">เปิดอยู่</option><option value="closed">ปิดแล้ว</option></select>
+          </form>
+          <ul class="sp-threads" id="msgThreads"><li class="empty">กำลังโหลด…</li></ul>
+        </aside>
+        <section class="sp-conv" id="msgConv" aria-label="บทสนทนา"><div class="sp-placeholder">เลือกบทสนทนาทางซ้ายเพื่ออ่านและตอบกลับ</div></section>
+      </div>
+    </section>
+
+    <!-- ANNOUNCEMENTS (Phase 21) -->
+    <section id="view-announce" role="tabpanel" aria-labelledby="tab-announce" hidden>
+      <div class="kfa-h"><h2>ประกาศถึงสมาชิกทุกคน</h2><small>แสดงในแชทของสมาชิกทุกคน และขึ้นตัวเลขแจ้งเตือนสีแดงบนเมนู “บัญชี”</small></div>
+      <form class="ann-form" id="annForm" novalidate>
+        <div class="ann-grid">
+          <label>หัวข้อ <span class="muted" id="annTitleN">0/120</span><input class="inp" id="annTitle" maxlength="120" required placeholder="เช่น ปิดปรับปรุงระบบคืนนี้ 23:00–23:30"></label>
+          <label>ประเภท<select class="sel" id="annKind"><option value="info">ข่าวสาร (ทอง)</option><option value="success">ฟีเจอร์ใหม่ / ข่าวดี (เขียว)</option><option value="warning">แจ้งเตือนสำคัญ (ส้ม)</option></select></label>
+          <label>แสดงถึง<select class="sel" id="annExp"><option value="">ไม่มีวันหมดอายุ</option><option value="1">1 วัน</option><option value="3">3 วัน</option><option value="7" selected>7 วัน</option><option value="30">30 วัน</option></select></label>
+        </div>
+        <label class="ann-body">ข้อความ <span class="muted" id="annBodyN">0/2000</span><textarea id="annBody" maxlength="2000" rows="4" required placeholder="รายละเอียดที่ต้องการแจ้งสมาชิก"></textarea></label>
+        <p class="note" id="annErr" role="alert"></p>
+        <div class="row"><button class="btn gold" type="submit" id="annSend">📣 ส่งประกาศถึงทุกคน</button><span class="muted" id="annRO" hidden>Viewer ดูได้อย่างเดียว</span></div>
+      </form>
+      <h3 class="ann-h">ประกาศที่ส่งแล้ว</h3>
+      <div id="annList" class="ann-list"><div class="sk"></div></div>
+    </section>
+
     <!-- AUDIT -->
     <section id="view-audit" role="tabpanel" aria-labelledby="tab-audit" hidden>
       <div class="kfa-h"><h2>Audit log</h2><small>บันทึกทุกการกระทำของผู้ดูแล · แก้ไขหรือลบไม่ได้</small>
         <label class="sr-only" for="auFilter">ประเภท</label>
         <select class="sel sp" id="auFilter"><option value="">ทั้งหมด</option><option value="plan.">แพ็กเกจ/สิทธิ์</option><option value="user.">บัญชี</option>
-          <option value="subscription.">Subscription</option><option value="price.">ราคา</option></select></div>
+          <option value="subscription.">Subscription</option><option value="price.">ราคา</option><option value="support.">ข้อความ</option><option value="announce.">ประกาศ</option></select></div>
       <div class="tbl-wrap"><table class="tbl cards"><thead><tr><th scope="col">เวลา</th><th scope="col">ผู้ดูแล</th><th scope="col">การกระทำ</th><th scope="col">สมาชิก</th><th scope="col">เหตุผล</th><th scope="col">รายละเอียด</th></tr></thead>
         <tbody id="auRows"></tbody></table></div>
       <div class="pager"><button class="btn sm" type="button" id="auPrev">‹ ก่อนหน้า</button><span id="auInfo" class="num"></span><button class="btn sm" type="button" id="auNext">ถัดไป ›</button></div>
@@ -153,9 +190,10 @@
   </form>
 </dialog>
 
-<script src="admin.js?v=20261117-saas22"></script>
+<script src="admin.js?v=20261119-saas28"></script>
 <script src="kfp-access.js?v=20261117-saas23"></script>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
-<script src="planner-nav.js?v=20261119-saas27" data-active="none"></script>
+<script src="planner-nav.js?v=20261119-saas28" data-active="none"></script>
+<script src="kfp-support.js?v=20261119-saas28"></script>
 </body>
 </html>

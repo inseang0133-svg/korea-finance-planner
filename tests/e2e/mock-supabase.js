@@ -188,6 +188,8 @@
           return Promise.resolve({ data: gone.length, error: null });
         }
         if (fn === "get_my_debt_access" || fn === "export_my_debt" || fn.indexOf("debt_") === 0) return Promise.resolve(window.__mockDebt(fn, args || {}, session));
+        if (/^(get_my_support_unread|get_my_support|support_send|support_mark_read)$/.test(fn) || fn.indexOf("admin_support_") === 0 || fn.indexOf("admin_announce") === 0)
+          return Promise.resolve(window.__mockSupport(fn, args || {}, session));
         if (fn === "is_admin" || fn.indexOf("admin_") === 0) return Promise.resolve(window.__mockAdmin(fn, args || {}, session));
         if (fn === "export_my_gold") {
           if (!session) return Promise.resolve({ data: null, error: err("42501", "not authenticated") });
@@ -227,6 +229,83 @@
     };
   }
   window.supabase = { createClient: createClient };
+
+  /* ---------- Support chat + announcements (Phase 21) · store: sessionStorage __mock_support · __mock_support_mode = missing ---------- */
+  window.__mockSupport = function (fn, a, session) {
+    var ok = function (d) { return { data: d, error: null }; }, no = function (m, c) { return { data: null, error: { code: c || "42501", message: m } }; };
+    if (sessionStorage.getItem("__mock_support_mode") === "missing") return no("Could not find the function public." + fn, "PGRST202");
+    if (!session) return no("not_authenticated", "28000");
+    var st = JSON.parse(sessionStorage.getItem("__mock_support") || '{"threads":{},"messages":[],"anns":[],"seq":0}');
+    var save = function () { sessionStorage.setItem("__mock_support", JSON.stringify(st)); };
+    var now = function () { st.seq = (st.seq || 0) + 1; return new Date(Date.now() + st.seq).toISOString(); };
+    var me = session.user.id, role = sessionStorage.getItem("__mock_admin_role") || "";
+    var rank = { owner: 3, admin: 2, viewer: 1 }[role] || 0;
+    var live = function (x) { return !x.deleted_at && (!x.expires_at || x.expires_at > new Date().toISOString()); };
+    var unread = function (uid) {
+      var t = st.threads[uid] || {};
+      return st.messages.filter(function (m) { return m.user_id === uid && m.sender === "admin" && (!t.user_read_at || m.created_at > t.user_read_at); }).length
+           + st.anns.filter(function (x) { return live(x) && (!t.ann_read_at || x.created_at > t.ann_read_at); }).length;
+    };
+    var adminUnread = function (uid) { var t = st.threads[uid] || {}; return st.messages.filter(function (m) { return m.user_id === uid && m.sender === "user" && (!t.admin_read_at || m.created_at > t.admin_read_at); }).length; };
+    var body = function (b, max) { b = String(b || "").trim(); return b.length >= 1 && b.length <= (max || 2000) ? b : null; };
+    var pub = function (m) { return { id: m.id, sender: m.sender, body: m.body, created_at: m.created_at }; };
+    if (fn === "get_my_support_unread") return ok(unread(me));
+    if (fn === "get_my_support") {
+      var t = st.threads[me] || {};
+      return ok({ status: t.status || "open", user_read_at: t.user_read_at || null, ann_read_at: t.ann_read_at || null, unread: unread(me),
+        messages: st.messages.filter(function (m) { return m.user_id === me; }).map(pub),
+        announcements: st.anns.filter(live).map(function (x) { return { id: x.id, title: x.title, body: x.body, kind: x.kind, created_at: x.created_at, expires_at: x.expires_at }; }) });
+    }
+    if (fn === "support_send") {
+      if (sessionStorage.getItem("__mock_support_fail") === "1") return no("rate_limited", "54000");
+      var b = body(a.p_body); if (!b) return no("invalid_message", "22023");
+      var ts = now(), m = { id: "m" + st.seq, user_id: me, sender: "user", body: b, created_at: ts };
+      st.threads[me] = Object.assign(st.threads[me] || {}, { status: "open", last_message_at: ts, user_read_at: ts });
+      st.messages.push(m); save(); return ok(pub(m));
+    }
+    if (fn === "support_mark_read") { var tr = now(); st.threads[me] = Object.assign(st.threads[me] || {}, { user_read_at: tr, ann_read_at: tr }); save(); return ok(0); }
+    if (rank < 1) return no("forbidden");
+    var who = function (uid) {
+      if (uid === me) return { email: session.user.email, username: "alice", nickname: "Alice" };
+      return { email: uid + "@mail.test", username: uid, nickname: null };
+    };
+    if (fn === "admin_support_threads") {
+      var rows = Object.keys(st.threads).filter(function (u) { return st.threads[u].last_message_at; }).map(function (u) {
+        var t = st.threads[u], ms = st.messages.filter(function (m) { return m.user_id === u; }), last = ms[ms.length - 1];
+        return Object.assign({ user_id: u, status: t.status || "open", last_message_at: t.last_message_at, unread: adminUnread(u),
+          last: last ? { sender: last.sender, body: last.body.slice(0, 140), created_at: last.created_at } : null }, who(u));
+      });
+      var f = a.p_filter || "all", q = String(a.p_q || "").toLowerCase();
+      var fl = rows.filter(function (r) { return (f === "all" || (f === "unread" && r.unread > 0) || (f === "open" && r.status === "open") || (f === "closed" && r.status === "closed"))
+        && (!q || (r.email + " " + r.username).toLowerCase().indexOf(q) >= 0); })
+        .sort(function (x, y) { return (y.unread > 0) - (x.unread > 0) || (x.last_message_at < y.last_message_at ? 1 : -1); });
+      return ok({ total: fl.length, unread_total: rows.reduce(function (s, r) { return s + r.unread; }, 0), unread_threads: rows.filter(function (r) { return r.unread; }).length, rows: fl });
+    }
+    if (fn === "admin_support_thread") {
+      var u = a.p_user, t2 = st.threads[u];
+      if (t2 && rank >= 2) { t2.admin_read_at = now(); save(); }
+      return ok({ user: Object.assign({ user_id: u, country: "TH", registered_at: "2026-01-01T00:00:00Z", suspended: false }, who(u)), status: (t2 && t2.status) || "open",
+        user_read_at: t2 && t2.user_read_at, messages: st.messages.filter(function (m) { return m.user_id === u; }).map(function (m) { return Object.assign(pub(m), { staff: m.sender === "admin" ? "admin" : null }); }) });
+    }
+    if (fn === "admin_announcements") return ok(st.anns.slice().reverse().map(function (x) {
+      return Object.assign({}, x, { author: "Alice", live: live(x), reads: Object.keys(st.threads).filter(function (u) { return st.threads[u].ann_read_at && st.threads[u].ann_read_at >= x.created_at; }).length });
+    }));
+    if (rank < 2) return no("forbidden");
+    if (fn === "admin_support_reply") {
+      var rb = body(a.p_body); if (!rb) return no("invalid_message", "22023");
+      var ts2 = now(), rm = { id: "m" + st.seq, user_id: a.p_user, sender: "admin", body: rb, created_at: ts2 };
+      st.threads[a.p_user] = Object.assign(st.threads[a.p_user] || {}, { last_message_at: ts2, admin_read_at: ts2, status: (st.threads[a.p_user] || {}).status || "open" });
+      st.messages.push(rm); save(); return ok(pub(rm));
+    }
+    if (fn === "admin_support_set_status") { if (!st.threads[a.p_user]) return no("user_not_found", "22023"); st.threads[a.p_user].status = a.p_status; save(); return ok({ user_id: a.p_user, status: a.p_status }); }
+    if (fn === "admin_announce") {
+      var tt = body(a.p_title, 120), ab = body(a.p_body); if (!tt || !ab) return no("invalid_message", "22023");
+      var x = { id: "a" + now(), title: tt, body: ab, kind: a.p_kind || "info", created_at: new Date(Date.now() + st.seq).toISOString(), expires_at: a.p_expires_at || null, deleted_at: null };
+      st.anns.push(x); save(); return ok(x);
+    }
+    if (fn === "admin_announce_delete") { st.anns.forEach(function (x) { if (x.id === a.p_id) x.deleted_at = now(); }); save(); return ok({ id: a.p_id }); }
+    return no("not_found");
+  };
 
   /* ---------- Admin Console fixtures (Phase 10) · role: sessionStorage __mock_admin_role = owner|admin|viewer ---------- */
   var DAY = 86400000, iso = function (d) { return new Date(Date.now() + d * DAY).toISOString(); };

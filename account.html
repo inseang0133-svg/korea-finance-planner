@@ -78,6 +78,10 @@ h1{margin:12px 0 4px;font-size:clamp(24px,5vw,32px);line-height:1.25;color:var(-
 .btn.gold{border:0;color:#1a1300;background:linear-gradient(120deg,#ffe08a,#e8be46 62%,#c9962b);box-shadow:0 12px 26px -12px rgba(232,190,70,.9)}
 .btn.danger{color:#ffd5da;border-color:rgba(255,107,122,.5);background:rgba(255,107,122,.08)}
 .btn.danger:hover{background:rgba(255,107,122,.16)}
+.ks-pill{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 8px;margin-left:6px;border-radius:11px;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(180deg,#ff5a6c,#e2283e);vertical-align:2px}
+.ks-pill[hidden]{display:none}
+h2 .pi{width:22px;height:22px;color:var(--gold-l);vertical-align:-4px}
+.btn .pi{width:20px;height:20px}
 .btn.link{border:0;background:none;padding:10px 4px;color:var(--gold-l);text-decoration:underline;text-underline-offset:3px}
 .btn:disabled,.opt:disabled{opacity:.5;cursor:not-allowed}
 .btn.busy{cursor:wait;opacity:.8}
@@ -147,8 +151,9 @@ dialog[open]{animation:pop .35s var(--spring)}
 <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Planner">
 <meta name="application-name" content="Planner">
-<link rel="stylesheet" href="planner-nav.css?v=20261119-saas27">
-<script src="planner-icons.js?v=20261119-saas27"></script>
+<link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
+<script src="planner-icons.js?v=20261119-saas28"></script>
+<link rel="stylesheet" href="kfp-support.css?v=20261119-saas28">
 </head>
 <body data-no-preview-ui>
 <main class="wrap">
@@ -161,6 +166,12 @@ dialog[open]{animation:pop .35s var(--spring)}
 
   <div id="acStatus" class="status" role="status" aria-live="polite"></div>
   <div id="alerts"></div>
+
+  <section class="card ks-card" id="supportCard" aria-labelledby="supportH">
+    <h2 id="supportH"><svg class="pi" aria-hidden="true" focusable="false"><use href="assets/icons/planner-icons.svg#pi-chat"/></svg> ข้อความ &amp; ติดต่อแอดมิน <span class="ks-pill" id="supportCount" hidden></span></h2>
+    <p class="hint">ติชม แจ้งปัญหา หรือสอบถามทีมงานได้โดยตรง — ประกาศสำคัญจากทีมงานก็อยู่ในแชทนี้ · ใช้ได้ทุกแพ็กเกจ</p>
+    <div class="row"><button class="btn gold" type="button" data-support-open><svg class="pi" aria-hidden="true" focusable="false"><use href="assets/icons/planner-icons.svg#pi-chat"/></svg> เปิดแชทกับแอดมิน</button></div>
+  </section>
 
   <section class="card" id="planCard" aria-labelledby="planH" aria-busy="true">
     <h2 id="planH">💎 แพ็กเกจปัจจุบัน</h2>
@@ -642,6 +653,7 @@ dialog[open]{animation:pop .35s var(--spring)}
 <script src="kfp-notice.js?v=20261117-saas22"></script>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>
-<script src="planner-nav.js?v=20261119-saas27" data-active="account"></script>
+<script src="planner-nav.js?v=20261119-saas28" data-active="account"></script>
+<script src="kfp-support.js?v=20261119-saas28"></script>
 </body>
 </html>

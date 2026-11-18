@@ -25,7 +25,7 @@
     "💾": "save", "📌": "pin", "📍": "pin", "☁": "cloud", "🔗": "link", "📰": "news", "⛶": "expand", "🎁": "gift", "🔎": "search", "🔍": "search",
     "👀": "eye", "🧩": "grid", "🔑": "key", "📴": "offline", "⏸": "pause", "▶": "play", "🏭": "briefcase", "💼": "briefcase", "🏷": "tag",
     "🌙": "moon", "💤": "moon", "⭐": "star", "🌟": "star", "✈": "send", "🍜": "bowl", "🍚": "bowl", "🚌": "bus", "🎧": "headphones",
-    "⬇": "download", "⬆": "upload", "↩": "refresh", "✓": "check", "✗": "close", "☑": "check", "⭕": "dot", "🔃": "refresh", "📲": "download", "🖨": "list", "🗃": "archive", "💬": "mail", "🎊": "sparkle", "🪪": "card", "🧧": "gift", "🔓": "lock",
+    "⬇": "download", "⬆": "upload", "↩": "refresh", "✓": "check", "✗": "close", "☑": "check", "⭕": "dot", "🔃": "refresh", "📲": "download", "🖨": "list", "🗃": "archive", "💬": "chat", "📣": "megaphone", "📢": "megaphone", "🎊": "sparkle", "🪪": "card", "🧧": "gift", "🔓": "lock",
     "🟢": "dot", "🔴": "dot", "🟡": "dot", "⚪": "dot", "🟠": "dot"
   };
   var TONE = { "🟢": "pi-up", "🔴": "pi-down", "🟡": "pi-warn", "🟠": "pi-warn", "⚪": "pi-off" };

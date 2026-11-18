@@ -1,0 +1,99 @@
+import os
+ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# PLANNER icon set — 24px grid, 1.7 stroke, round joins; "duo" = soft gold fill layer (opacity via --pi-duo)
+S='fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"'
+D='style="fill:currentColor;fill-opacity:var(--pi-duo,.16);stroke:none"'
+I={
+'home':f'<path {D} d="M5 10.6 12 4.8l7 5.8V19a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 19Z"/><path {S} d="M3.4 11.8 12 4.6l8.6 7.2"/><path {S} d="M5.4 10.2v8.6a1.8 1.8 0 0 0 1.8 1.8h9.6a1.8 1.8 0 0 0 1.8-1.8v-8.6"/><path {S} d="M10 20.6v-4.9a2 2 0 0 1 4 0v4.9"/>',
+'gold':f'<path {D} d="M3.2 19.6 4.8 14.4h5.8l1.6 5.2Z M11.8 19.6l1.6-5.2h5.8l1.6 5.2Z M7.6 13.4l1.6-5.2H15l1.6 5.2Z"/><path {S} d="M3.2 19.6 4.8 14.4h5.8l1.6 5.2Z"/><path {S} d="M11.8 19.6l1.6-5.2h5.8l1.6 5.2Z"/><path {S} d="M7.6 13.4l1.6-5.2H15l1.6 5.2Z"/><path {S} d="M12.1 3.4v1.6M8.2 4.6l.9 1.2M16 4.6l-.9 1.2"/>',
+'card':f'<rect {D} x="2.8" y="5.4" width="18.4" height="13.2" rx="2.6"/><rect {S} x="2.8" y="5.4" width="18.4" height="13.2" rx="2.6"/><path {S} d="M2.8 9.6h18.4"/><path {S} d="M6.4 14.6h3.2M13.8 14.6h3.8"/>',
+'user':f'<circle {D} cx="12" cy="8.4" r="3.8"/><circle {S} cx="12" cy="8.4" r="3.8"/><path {S} d="M4.6 20.2a7.4 7.4 0 0 1 14.8 0"/>',
+'plus':f'<path {S.replace("1.7","2.1")} d="M12 5v14M5 12h14"/>',
+'receipt':f'<path {D} d="M6 3.6h12v16.8l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4Z"/><path {S} d="M6 3.6h12v16.8l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4Z"/><path {S} d="M9 8.4h6M9 11.8h6M9 15.2h3.4"/>',
+'expense':f'<path {D} d="M4 7.4A2.4 2.4 0 0 1 6.4 5h11.2A2.4 2.4 0 0 1 20 7.4v9.2a2.4 2.4 0 0 1-2.4 2.4H6.4A2.4 2.4 0 0 1 4 16.6Z"/><path {S} d="M20 9.6V7.4A2.4 2.4 0 0 0 17.6 5H6.4A2.4 2.4 0 0 0 4 7.4v9.2A2.4 2.4 0 0 0 6.4 19h11.2a2.4 2.4 0 0 0 2.4-2.4v-2.2"/><path {S} d="M21 9.6h-4.4a2.4 2.4 0 0 0 0 4.8H21Z"/><path {S} d="M16.8 12h.01"/>',
+'attendance':f'<rect {D} x="3.6" y="5" width="16.8" height="15.4" rx="2.6"/><rect {S} x="3.6" y="5" width="16.8" height="15.4" rx="2.6"/><path {S} d="M3.6 9.8h16.8M8.2 3.2v3.4M15.8 3.2v3.4"/><path {S} d="m9 14.8 2 2 4-4"/>',
+'calendar':f'<rect {D} x="3.6" y="5" width="16.8" height="15.4" rx="2.6"/><rect {S} x="3.6" y="5" width="16.8" height="15.4" rx="2.6"/><path {S} d="M3.6 9.8h16.8M8.2 3.2v3.4M15.8 3.2v3.4"/><path {S} d="M8 13.6h.01M12 13.6h.01M16 13.6h.01M8 16.8h.01M12 16.8h.01"/>',
+'salary':f'<rect {D} x="2.6" y="6" width="18.8" height="12" rx="2.4"/><rect {S} x="2.6" y="6" width="18.8" height="12" rx="2.4"/><circle {S} cx="12" cy="12" r="2.6"/><path {S} d="M6 9.4v.01M18 14.6v.01"/>',
+'refresh':f'<path {S} d="M19.4 12a7.4 7.4 0 0 1-12.9 5"/><path {S} d="M4.6 12a7.4 7.4 0 0 1 12.9-5"/><path {S} d="M17.8 3.4v3.8H14M6.2 20.6v-3.8H10"/>',
+'chart':f'<path {D} d="M5 20V14h3.6v6Z M10.2 20V9.6h3.6V20Z M15.4 20V5h3.6v15Z"/><path {S} d="M3.4 20.4h17.2"/><rect {S} x="5" y="14" width="3.6" height="6.4" rx=".8"/><rect {S} x="10.2" y="9.6" width="3.6" height="10.8" rx=".8"/><rect {S} x="15.4" y="5" width="3.6" height="15.4" rx=".8"/>',
+'trend':f'<path {D} d="M3.6 17.4 9 12l3.6 3.4 7.8-7.8V20H3.6Z"/><path {S} d="m3.6 17.4 5.4-5.4 3.6 3.4 7.8-7.8"/><path {S} d="M15.4 7.6h5v5"/>',
+'pie':f'<path {D} d="M12 3.6a8.4 8.4 0 0 1 8.4 8.4H12Z"/><path {S} d="M12 3.6a8.4 8.4 0 0 1 8.4 8.4H12Z"/><path {S} d="M10 5.8A7.8 7.8 0 1 0 18.2 14"/>',
+'download':f'<path {D} d="M4 15.6v2.2A2.2 2.2 0 0 0 6.2 20h11.6a2.2 2.2 0 0 0 2.2-2.2v-2.2Z"/><path {S} d="M4 15v2.8A2.2 2.2 0 0 0 6.2 20h11.6a2.2 2.2 0 0 0 2.2-2.2V15"/><path {S} d="M12 3.8v11M7.8 10.8 12 15l4.2-4.2"/>',
+'sliders':f'<path {S} d="M4 7h9M17 7h3M4 17h3M11 17h9M4 12h4M12 12h8"/><circle {D} cx="15" cy="7" r="2"/><circle {S} cx="15" cy="7" r="2"/><circle {D} cx="9" cy="17" r="2"/><circle {S} cx="9" cy="17" r="2"/><circle {S} cx="10" cy="12" r="2"/>',
+'lock':f'<rect {D} x="4.6" y="10.4" width="14.8" height="10" rx="2.4"/><rect {S} x="4.6" y="10.4" width="14.8" height="10" rx="2.4"/><path {S} d="M8 10.4V7.6a4 4 0 0 1 8 0v2.8"/><path {S} d="M12 14.4v2.2"/>',
+'crown':f'<path {D} d="m3.6 8 4.6 4 3.8-6.4 3.8 6.4 4.6-4-1.8 10.4H5.4Z"/><path {S} d="m3.6 8 4.6 4 3.8-6.4 3.8 6.4 4.6-4-1.8 10.4H5.4Z"/><path {S} d="M6 21h12"/>',
+'transfer':f'<path {S} d="M4 8.4h14.4M14.6 4.6l3.8 3.8-3.8 3.8"/><path {S} d="M20 15.6H5.6M9.4 11.8l-3.8 3.8 3.8 3.8"/>',
+'layers':f'<path {D} d="m12 3.6 8.6 4.6L12 12.8 3.4 8.2Z"/><path {S} d="m12 3.6 8.6 4.6L12 12.8 3.4 8.2Z"/><path {S} d="m3.4 12.2 8.6 4.6 8.6-4.6M3.4 16.2l8.6 4.6 8.6-4.6"/>',
+'coins':f'<ellipse {D} cx="9.4" cy="7.4" rx="5.8" ry="2.6"/><ellipse {S} cx="9.4" cy="7.4" rx="5.8" ry="2.6"/><path {S} d="M3.6 7.4v4c0 1.4 2.6 2.6 5.8 2.6M15.2 7.4v2.2"/><ellipse {S} cx="14.6" cy="13.4" rx="5.8" ry="2.6"/><path {S} d="M8.8 13.4v4c0 1.4 2.6 2.6 5.8 2.6s5.8-1.2 5.8-2.6v-4"/>',
+'target':f'<circle {D} cx="12" cy="12" r="8.4"/><circle {S} cx="12" cy="12" r="8.4"/><circle {S} cx="12" cy="12" r="4.6"/><circle {S} cx="12" cy="12" r=".9"/>',
+'globe':f'<circle {D} cx="12" cy="12" r="8.6"/><circle {S} cx="12" cy="12" r="8.6"/><path {S} d="M3.4 12h17.2M12 3.4c2.4 2.6 3.6 5.4 3.6 8.6s-1.2 6-3.6 8.6c-2.4-2.6-3.6-5.4-3.6-8.6s1.2-6 3.6-8.6Z"/>',
+'close':f'<path {S.replace("1.7","2")} d="M6.4 6.4l11.2 11.2M17.6 6.4 6.4 17.6"/>',
+'check':f'<path {S.replace("1.7","2")} d="m5 12.6 4.4 4.4L19 7.4"/>',
+'edit':f'<path {D} d="m15.6 4.4 4 4L8.8 19.2 4 20l.8-4.8Z"/><path {S} d="m15.6 4.4 4 4L8.8 19.2 4 20l.8-4.8Z"/><path {S} d="m13.4 6.6 4 4"/>',
+'trash':f'<path {D} d="M6 7h12l-.9 12.2a1.8 1.8 0 0 1-1.8 1.6H8.7a1.8 1.8 0 0 1-1.8-1.6Z"/><path {S} d="M4.4 7h15.2M9.4 7V5a1.4 1.4 0 0 1 1.4-1.4h2.4A1.4 1.4 0 0 1 14.6 5v2"/><path {S} d="M6 7l.9 12.2a1.8 1.8 0 0 0 1.8 1.6h6.6a1.8 1.8 0 0 0 1.8-1.6L18 7"/><path {S} d="M10.2 11v5.6M13.8 11v5.6"/>',
+'archive':f'<rect {D} x="3.4" y="4.4" width="17.2" height="4.4" rx="1.4"/><rect {S} x="3.4" y="4.4" width="17.2" height="4.4" rx="1.4"/><path {S} d="M5 8.8v9.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.8M10 12.6h4"/>',
+'bell':f'<path {D} d="M6.2 10.4a5.8 5.8 0 0 1 11.6 0c0 4.8 2 6.2 2 6.2H4.2s2-1.4 2-6.2"/><path {S} d="M6.2 10.4a5.8 5.8 0 0 1 11.6 0c0 4.8 2 6.2 2 6.2H4.2s2-1.4 2-6.2"/><path {S} d="M10.2 19.8a2 2 0 0 0 3.6 0"/>',
+'sparkle':f'<path {D} d="M12 3.4c.6 4 2.6 6 6.6 6.6-4 .6-6 2.6-6.6 6.6-.6-4-2.6-6-6.6-6.6 4-.6 6-2.6 6.6-6.6Z"/><path {S} d="M12 3.4c.6 4 2.6 6 6.6 6.6-4 .6-6 2.6-6.6 6.6-.6-4-2.6-6-6.6-6.6 4-.6 6-2.6 6.6-6.6Z"/><path {S} d="M18.6 16.6v3.6M16.8 18.4h3.6"/>',
+'shield':f'<path {D} d="M12 3.4 19.2 6v5.6c0 4.6-3 7.8-7.2 9.2-4.2-1.4-7.2-4.6-7.2-9.2V6Z"/><path {S} d="M12 3.4 19.2 6v5.6c0 4.6-3 7.8-7.2 9.2-4.2-1.4-7.2-4.6-7.2-9.2V6Z"/><path {S} d="m9 12 2.2 2.2L15.2 10"/>',
+'logout':f'<path {S} d="M14 4.6H7.2a2 2 0 0 0-2 2v10.8a2 2 0 0 0 2 2H14"/><path {S} d="M10.4 12h10M17 8.4l3.6 3.6-3.6 3.6"/>',
+'swap':f'<path {S} d="M7.4 4.4 4 7.8l3.4 3.4M4 7.8h12.6"/><path {S} d="m16.6 12.8 3.4 3.4-3.4 3.4M20 16.2H7.4"/>',
+'send':f'<path {D} d="M20.6 3.4 3.4 10.2l7 2.8 2.8 7Z"/><path {S} d="M20.6 3.4 3.4 10.2l7 2.8 2.8 7Z"/><path {S} d="m10.4 13 4.4-4.4"/>',
+'hourglass':f'<path {D} d="M7.4 20.4c0-3.4 2.6-5.2 4.6-6.6 2 1.4 4.6 3.2 4.6 6.6Z"/><path {S} d="M6.4 3.6h11.2M6.4 20.4h11.2"/><path {S} d="M7.4 3.6c0 3.8 2.4 5.6 4.6 8.4 2.2-2.8 4.6-4.6 4.6-8.4M7.4 20.4c0-3.8 2.4-5.6 4.6-8.4 2.2 2.8 4.6 4.6 4.6 8.4"/>',
+'flag':f'<path {D} d="M5.4 4.6h12.2l-2.4 4.2 2.4 4.2H5.4Z"/><path {S} d="M5.4 21V4.6h12.2l-2.4 4.2 2.4 4.2H5.4"/>',
+'safe':f'<rect {D} x="3.6" y="4" width="16.8" height="15.2" rx="2.6"/><rect {S} x="3.6" y="4" width="16.8" height="15.2" rx="2.6"/><circle {S} cx="12" cy="11.6" r="3.4"/><path {S} d="M12 8.2v1.4M12 13.6V15M7 19.2v1.4M17 19.2v1.4"/>',
+'chevron':f'<path {S.replace("1.7","2")} d="m9.4 5.6 6.4 6.4-6.4 6.4"/>',
+'arrowout':f'<path {S} d="M7.4 16.6 16.6 7.4M9 7.4h7.6V15"/>',
+'calculator':f'<rect {D} x="5" y="3.4" width="14" height="17.2" rx="2.6"/><rect {S} x="5" y="3.4" width="14" height="17.2" rx="2.6"/><rect {S} x="8" y="6.4" width="8" height="3.4" rx=".8"/><path {S} d="M8.6 13.4h.01M12 13.4h.01M15.4 13.4h.01M8.6 17h.01M12 17h.01M15.4 17h.01"/>',
+'list':f'<rect {D} x="4.6" y="3.6" width="14.8" height="17" rx="2.4"/><rect {S} x="4.6" y="3.6" width="14.8" height="17" rx="2.4"/><path {S} d="M8.6 8.4h6.8M8.6 12h6.8M8.6 15.6h4"/>',
+'info':f'<circle {D} cx="12" cy="12" r="8.6"/><circle {S} cx="12" cy="12" r="8.6"/><path {S} d="M12 11v5.4M12 7.8v.01"/>',
+'warning':f'<path {D} d="M10.4 4.4a1.8 1.8 0 0 1 3.2 0l7.2 13a1.8 1.8 0 0 1-1.6 2.8H4.8a1.8 1.8 0 0 1-1.6-2.8Z"/><path {S} d="M10.4 4.4a1.8 1.8 0 0 1 3.2 0l7.2 13a1.8 1.8 0 0 1-1.6 2.8H4.8a1.8 1.8 0 0 1-1.6-2.8Z"/><path {S} d="M12 9.4v4.4M12 16.8v.01"/>',
+'save':f'<path {D} d="M5.4 3.8h10.4l3 3v11.4a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z"/><path {S} d="M5.4 3.8h10.4l3 3v11.4a2 2 0 0 1-2 2H5.4a2 2 0 0 1-2-2V5.8a2 2 0 0 1 2-2Z"/><path {S} d="M7.6 3.8v4.4h6.8V3.8M7.6 20.2v-5.4h8.8v5.4"/>',
+'grid':f'<rect {D} x="4" y="4" width="6.6" height="6.6" rx="1.8"/><rect {S} x="4" y="4" width="6.6" height="6.6" rx="1.8"/><rect {S} x="13.4" y="4" width="6.6" height="6.6" rx="1.8"/><rect {S} x="4" y="13.4" width="6.6" height="6.6" rx="1.8"/><rect {D} x="13.4" y="13.4" width="6.6" height="6.6" rx="1.8"/><rect {S} x="13.4" y="13.4" width="6.6" height="6.6" rx="1.8"/>',
+'clock':f'<circle {D} cx="12" cy="12" r="8.6"/><circle {S} cx="12" cy="12" r="8.6"/><path {S} d="M12 7.4V12l3 2"/>',
+'pin':f'<path {D} d="M12 21s-6.4-5.6-6.4-10.6a6.4 6.4 0 0 1 12.8 0C18.4 15.4 12 21 12 21Z"/><path {S} d="M12 21s-6.4-5.6-6.4-10.6a6.4 6.4 0 0 1 12.8 0C18.4 15.4 12 21 12 21Z"/><circle {S} cx="12" cy="10.4" r="2.4"/>',
+'cloud':f'<path {D} d="M7.2 18.6a4.4 4.4 0 0 1-.6-8.8 5.8 5.8 0 0 1 11.2 1.4 3.8 3.8 0 0 1-.4 7.4Z"/><path {S} d="M7.2 18.6a4.4 4.4 0 0 1-.6-8.8 5.8 5.8 0 0 1 11.2 1.4 3.8 3.8 0 0 1-.4 7.4Z"/>',
+'link':f'<path {S} d="M10.4 13.6a4 4 0 0 0 5.6 0l3-3a4 4 0 0 0-5.6-5.6l-1 1"/><path {S} d="M13.6 10.4a4 4 0 0 0-5.6 0l-3 3a4 4 0 0 0 5.6 5.6l1-1"/>',
+'news':f'<path {D} d="M4 5.4h12.4v13.2a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2Z"/><path {S} d="M16.4 9.4h3.2v9.2a2 2 0 0 1-4 0V5.4H4v13.2a2 2 0 0 0 2 2h12.4"/><path {S} d="M7.4 9h5.4M7.4 12.4h5.4M7.4 15.8h3.4"/>',
+'expand':f'<path {S} d="M4.6 9V4.6H9M15 4.6h4.4V9M19.4 15v4.4H15M9 19.4H4.6V15"/>',
+'medal':f'<circle {D} cx="12" cy="14.6" r="5.4"/><circle {S} cx="12" cy="14.6" r="5.4"/><path {S} d="M8.4 10.6 5.6 3.6h4l2.4 5M15.6 10.6l2.8-7h-4L12 8.6"/>',
+'gift':f'<rect {D} x="3.8" y="8.4" width="16.4" height="4" rx="1.2"/><rect {S} x="3.8" y="8.4" width="16.4" height="4" rx="1.2"/><path {S} d="M5.4 12.4v6.4a1.8 1.8 0 0 0 1.8 1.8h9.6a1.8 1.8 0 0 0 1.8-1.8v-6.4M12 8.4v12.2"/><path {S} d="M12 8.4S10.6 3.8 8 4.8c-2 .8-.6 3.6 4 3.6 4.6 0 6-2.8 4-3.6-2.6-1-4 3.6-4 3.6"/>',
+'house-money':f'<path {D} d="M5 10.6 12 4.8l7 5.8V19a1.6 1.6 0 0 1-1.6 1.6H6.6A1.6 1.6 0 0 1 5 19Z"/><path {S} d="M3.4 11.8 12 4.6l8.6 7.2"/><path {S} d="M5.4 10.2v8.6a1.8 1.8 0 0 0 1.8 1.8h9.6a1.8 1.8 0 0 0 1.8-1.8v-8.6"/><path {S} d="M13.6 12.6c-.4-.6-1-.9-1.7-.9-1 0-1.7.5-1.7 1.3 0 1.8 3.6.9 3.6 2.8 0 .8-.8 1.3-1.8 1.3-.8 0-1.5-.3-1.9-1M12 10.8v.9M12 17.1v.9"/>',
+
+'dot':f'<circle style="fill:currentColor;stroke:none" cx="12" cy="12" r="5.2"/><circle {S} cx="12" cy="12" r="8.2" stroke-opacity=".35"/>',
+'store':f'<path {D} d="M4.4 9.6h15.2V19a1.6 1.6 0 0 1-1.6 1.6H6a1.6 1.6 0 0 1-1.6-1.6Z"/><path {S} d="M4.4 9.6V19a1.6 1.6 0 0 0 1.6 1.6h12a1.6 1.6 0 0 0 1.6-1.6V9.6"/><path {S} d="M3.4 9 5.2 4h13.6l1.8 5a2.4 2.4 0 0 1-4.3 1.5A2.6 2.6 0 0 1 12 10.6a2.6 2.6 0 0 1-4.3-.1A2.4 2.4 0 0 1 3.4 9Z"/><path {S} d="M9.6 20.6v-4.4h4.8v4.4"/>',
+'cart':f'<path {D} d="M6.6 6.6h13.2l-1.6 7.4a1.6 1.6 0 0 1-1.6 1.2H8.4Z"/><path {S} d="M3.4 3.8h2.2l2.6 11.4h8.4a1.6 1.6 0 0 0 1.6-1.2l1.6-7.4H6.6"/><circle {S} cx="9.4" cy="19.2" r="1.4"/><circle {S} cx="16.4" cy="19.2" r="1.4"/>',
+'bank':f'<path {D} d="M3.6 9.2 12 4l8.4 5.2Z"/><path {S} d="M3.6 9.2 12 4l8.4 5.2Z"/><path {S} d="M5.4 9.6v7.6M9.8 9.6v7.6M14.2 9.6v7.6M18.6 9.6v7.6M3.4 20.2h17.2M4.4 17.4h15.2"/>',
+'mail':f'<rect {D} x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"/><rect {S} x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"/><path {S} d="m3.8 7 8.2 6 8.2-6"/>',
+'search':f'<circle {D} cx="10.6" cy="10.6" r="6.4"/><circle {S} cx="10.6" cy="10.6" r="6.4"/><path {S} d="m15.4 15.4 5 5"/>',
+'eye':f'<path {D} d="M2.6 12S6 5.6 12 5.6 21.4 12 21.4 12 18 18.4 12 18.4 2.6 12 2.6 12Z"/><path {S} d="M2.6 12S6 5.6 12 5.6 21.4 12 21.4 12 18 18.4 12 18.4 2.6 12 2.6 12Z"/><circle {S} cx="12" cy="12" r="3"/>',
+'key':f'<circle {D} cx="8" cy="15.6" r="4.4"/><circle {S} cx="8" cy="15.6" r="4.4"/><path {S} d="m11.2 12.4 8.4-8.4M16.4 7.2l2.6 2.6M14.2 9.4l2 2"/>',
+'pause':f'<rect {D} x="6.4" y="5" width="4" height="14" rx="1.4"/><rect {S} x="6.4" y="5" width="4" height="14" rx="1.4"/><rect {D} x="13.6" y="5" width="4" height="14" rx="1.4"/><rect {S} x="13.6" y="5" width="4" height="14" rx="1.4"/>',
+'play':f'<path {D} d="M7.4 4.8v14.4a1 1 0 0 0 1.5.9l11.6-7.2a1 1 0 0 0 0-1.8L8.9 3.9a1 1 0 0 0-1.5.9Z"/><path {S} d="M7.4 4.8v14.4a1 1 0 0 0 1.5.9l11.6-7.2a1 1 0 0 0 0-1.8L8.9 3.9a1 1 0 0 0-1.5.9Z"/>',
+'briefcase':f'<rect {D} x="3.2" y="7.2" width="17.6" height="12.6" rx="2.4"/><rect {S} x="3.2" y="7.2" width="17.6" height="12.6" rx="2.4"/><path {S} d="M8.6 7.2V5.6a1.6 1.6 0 0 1 1.6-1.6h3.6a1.6 1.6 0 0 1 1.6 1.6v1.6M3.2 12.6h17.6M12 11.4v2.4"/>',
+'tag':f'<path {D} d="M3.6 4.6v6.6l9.2 9.2a1.6 1.6 0 0 0 2.2 0l5.4-5.4a1.6 1.6 0 0 0 0-2.2L11.2 3.6H4.6a1 1 0 0 0-1 1Z"/><path {S} d="M3.6 4.6v6.6l9.2 9.2a1.6 1.6 0 0 0 2.2 0l5.4-5.4a1.6 1.6 0 0 0 0-2.2L11.2 3.6H4.6a1 1 0 0 0-1 1Z"/><circle {S} cx="8" cy="8" r="1.4"/>',
+'moon':f'<path {D} d="M19.6 14.4A8 8 0 0 1 9.6 4.4a8 8 0 1 0 10 10Z"/><path {S} d="M19.6 14.4A8 8 0 0 1 9.6 4.4a8 8 0 1 0 10 10Z"/>',
+'star':f'<path {D} d="m12 3.6 2.6 5.4 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8Z"/><path {S} d="m12 3.6 2.6 5.4 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8Z"/>',
+'upload':f'<path {D} d="M4 15.6v2.2A2.2 2.2 0 0 0 6.2 20h11.6a2.2 2.2 0 0 0 2.2-2.2v-2.2Z"/><path {S} d="M4 15v2.8A2.2 2.2 0 0 0 6.2 20h11.6a2.2 2.2 0 0 0 2.2-2.2V15"/><path {S} d="M12 15V4M7.8 8.2 12 4l4.2 4.2"/>',
+'bowl':f'<path {D} d="M3.6 11.4h16.8a8.4 8.4 0 0 1-16.8 0Z"/><path {S} d="M3.6 11.4h16.8a8.4 8.4 0 0 1-16.8 0Z"/><path {S} d="M8.6 8.4c0-1.4 1-1.6 1-3M12 8.4c0-1.4 1-1.6 1-3M15.4 8.4c0-1.4 1-1.6 1-3M9 20.4h6"/>',
+'bus':f'<rect {D} x="4.6" y="3.6" width="14.8" height="14.4" rx="3"/><rect {S} x="4.6" y="3.6" width="14.8" height="14.4" rx="3"/><path {S} d="M4.6 11h14.8M8 18v2.4M16 18v2.4M8 14.6h.01M16 14.6h.01M9 6.6h6"/>',
+'headphones':f'<path {S} d="M4 15v-2.6a8 8 0 0 1 16 0V15"/><rect {D} x="3.6" y="13.4" width="4.6" height="7" rx="2"/><rect {S} x="3.6" y="13.4" width="4.6" height="7" rx="2"/><rect {D} x="15.8" y="13.4" width="4.6" height="7" rx="2"/><rect {S} x="15.8" y="13.4" width="4.6" height="7" rx="2"/>',
+'minus':f'<path {S.replace("1.7","2.1")} d="M5 12h14"/>',
+'offline':f'<path {S} d="M4 4.4 20 20.4"/><path {S} d="M8.8 8.4A9.6 9.6 0 0 0 4 11M12 5.6a14 14 0 0 1 8 3.2M8.6 14.6a5 5 0 0 1 6.8 0M12 18.8h.01"/>',
+
+'chat':f'<path {D} d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v7.2a2.6 2.6 0 0 1-2.6 2.6H11l-4.4 3.6v-3.6A2.6 2.6 0 0 1 4 13.8Z"/><path {S} d="M4 6.6A2.6 2.6 0 0 1 6.6 4h10.8A2.6 2.6 0 0 1 20 6.6v7.2a2.6 2.6 0 0 1-2.6 2.6H11l-4.4 3.6v-3.6A2.6 2.6 0 0 1 4 13.8Z"/><path {S} d="M8.4 9.4h7.2M8.4 12.4h4.4"/>',
+'megaphone':f'<path {D} d="M4 10v4a1.6 1.6 0 0 0 1.6 1.6H8l8.4 4V4.4L8 8.4H5.6A1.6 1.6 0 0 0 4 10Z"/><path {S} d="M4 10v4a1.6 1.6 0 0 0 1.6 1.6H8l8.4 4V4.4L8 8.4H5.6A1.6 1.6 0 0 0 4 10Z"/><path {S} d="M8 15.6V20M19.2 9.2a3.6 3.6 0 0 1 0 5.6"/>',
+'inbox':f'<path {D} d="M3.6 13.2h4.6l1.4 2.4h4.8l1.4-2.4h4.6V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2Z"/><path {S} d="M3.6 13.2 6 5.6A2 2 0 0 1 7.9 4.2h8.2A2 2 0 0 1 18 5.6l2.4 7.6V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2Z"/><path {S} d="M3.6 13.2h4.6l1.4 2.4h4.8l1.4-2.4h4.6"/>',
+'reply':f'<path {S} d="M9.6 6.4 4.4 11.6l5.2 5.2"/><path {S} d="M4.6 11.6h9.2a6 6 0 0 1 6 6v.8"/>',
+}
+out=['<svg xmlns="http://www.w3.org/2000/svg" style="display:none">']
+for k,v in I.items(): out.append(f'<symbol id="pi-{k}" viewBox="0 0 24 24">{v}</symbol>')
+out.append('</svg>')
+open(os.path.join(ROOT,'assets/icons/planner-icons.svg'),'w').write('\n'.join(out)+'\n')
+print(len(I),'icons')
+# preview page
+cells=''.join(f'<div class="c"><svg class="pi"><use href="planner-icons.svg#pi-{k}"/></svg><small>{k}</small></div>' for k in I)
+cells2=''.join(f'<div class="c on"><svg class="pi"><use href="planner-icons.svg#pi-{k}"/></svg></div>' for k in list(I)[:12])
+open(os.path.join(ROOT,'assets/icons/preview.html'),'w').write(f'''<!doctype html><meta charset=utf-8><style>body{{background:#0b0c10;color:#e8e2d4;font-family:system-ui;margin:20px}}
+.g{{display:grid;grid-template-columns:repeat(8,96px);gap:10px}}.c{{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0;border-radius:14px;background:rgba(255,255,255,.04)}}
+.pi{{width:32px;height:32px;color:#e9c86a}}small{{font-size:11px;color:#9a9486}}.on .pi{{--pi-duo:.38;color:#fff3cf;width:24px;height:24px}}</style>
+<div class="g">{cells}</div><div class="g" style="margin-top:14px">{cells2}</div>''')

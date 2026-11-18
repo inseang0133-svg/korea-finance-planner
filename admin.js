@@ -25,7 +25,8 @@
                  void: ["", "ยกเลิก"], uncollectible: ["bad", "เรียกเก็บไม่ได้"], refunded: ["info", "คืนเงินแล้ว"], partially_refunded: ["info", "คืนบางส่วน"] };
   var ACTION_LABEL = { "plan.grant": "ให้สิทธิ์แพ็กเกจ", "plan.revoke_all": "เปลี่ยนเป็น Free", "plan.extend": "ขยายสิทธิ์", "plan.revoke": "ยกเลิกสิทธิ์ที่ให้",
     "user.suspend": "ระงับบัญชี", "user.reactivate": "เปิดบัญชีคืน", "subscription.cancel": "ยกเลิก subscription (สิ้นรอบ)",
-    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา", "role.set": "เปลี่ยนบทบาท", "user.password_reset": "Reset password" };
+    "subscription.cancel_now": "ยกเลิก subscription ทันที", "price.set": "ตั้งราคา", "price.deactivate": "ปิดราคา", "role.set": "เปลี่ยนบทบาท", "user.password_reset": "Reset password",
+    "support.reply": "ตอบข้อความสมาชิก", "support.status": "เปลี่ยนสถานะแชท", "announce.create": "ส่งประกาศ", "announce.delete": "ลบประกาศ", "addon.set": "ตั้ง Add-on" };
   var ROLE_LABEL = { owner: "Owner", admin: "Admin", viewer: "Viewer" };
 
   /* ---------------------------------------------------------- format */
@@ -78,7 +79,9 @@
     nothing_to_extend: "สมาชิกนี้ไม่มีสิทธิ์ที่จะขยาย (เป็น Free)", no_expiry: "สิทธิ์ปัจจุบันไม่มีวันหมดอายุ", no_subscription: "ไม่มี subscription ที่ใช้งานอยู่",
     user_not_found: "ไม่พบสมาชิก", rate_limited: "ทำรายการบ่อยเกินไป รอสักครู่", customer_mismatch: "ข้อมูล Stripe ไม่ตรงกัน ตรวจสอบใน Stripe Dashboard",
     network: "เชื่อมต่อไม่ได้", unauthorized: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
-    weak_password: "ระบบ Auth ไม่ยอมรับรหัสเริ่มต้น (นโยบายรหัสผ่านของ Supabase)", auth_error: "ระบบ Auth ตอบกลับผิดพลาด ลองใหม่อีกครั้ง"
+    weak_password: "ระบบ Auth ไม่ยอมรับรหัสเริ่มต้น (นโยบายรหัสผ่านของ Supabase)", auth_error: "ระบบ Auth ตอบกลับผิดพลาด ลองใหม่อีกครั้ง",
+    invalid_message: "ข้อความต้องยาว 1–2000 ตัวอักษร (หัวข้อไม่เกิน 120)", invalid_kind: "ประเภทประกาศไม่ถูกต้อง", invalid_status: "สถานะไม่ถูกต้อง",
+    not_found: "ไม่พบรายการ (อาจถูกลบไปแล้ว)"
   };
   function errText(e) {
     var m = String((e && (e.message || e.error)) || e || "");
@@ -122,7 +125,7 @@
     $("gate").hidden = true; $("app").hidden = false;
     $("whoEmail").textContent = ME.email || "";
     $("whoRole").textContent = ME.role; $("whoRole").className = "kfa-role " + ME.role;
-    route();
+    route(); pollMsgCount();
   }
   var started = false;
   document.addEventListener("click", function (e) {
@@ -132,7 +135,7 @@
   window.addEventListener("kfp:auth-ready", function () { boot(); });
 
   /* ---------------------------------------------------------- tabs */
-  var TABS = ["overview", "users", "activity", "revenue", "prices", "audit"], loaded = {};
+  var TABS = ["overview", "users", "activity", "revenue", "prices", "messages", "announce", "audit"], loaded = {};
   function route() {
     var t = (location.hash || "#overview").slice(1).split("/")[0];
     if (TABS.indexOf(t) < 0) t = "overview";
@@ -142,7 +145,9 @@
       $("tab-" + x).tabIndex = on ? 0 : -1;
       $("view-" + x).hidden = !on;
     });
-    if (!loaded[t]) { loaded[t] = true; ({ overview: loadOverview, users: loadUsers, activity: loadActivity, revenue: loadRevenue, prices: loadPrices, audit: loadAudit })[t](); }
+    if (!loaded[t]) { loaded[t] = true; ({ overview: loadOverview, users: loadUsers, activity: loadActivity, revenue: loadRevenue, prices: loadPrices, audit: loadAudit,
+                                         messages: loadMessages, announce: loadAnnounce })[t](); }
+    else if (t === "messages") loadMessages(true);
   }
   document.querySelector(".kfa-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("[data-tab]"); if (!b) return;
@@ -679,6 +684,149 @@
     } catch (err) { $("cfErr").textContent = errText(err); }
     busy($("cfOk"), false);
   }, true);
+
+  /* ---------------------------------------------------------- messages (Phase 21) */
+  var MQ = { cur: null, timer: null, convTimer: null, sig: "" };
+  var QUICK_REPLIES = ["ขอบคุณที่แจ้งนะครับ ทีมงานกำลังตรวจสอบให้", "แก้ไขเรียบร้อยแล้วครับ ลองปิดแอปแล้วเปิดใหม่อีกครั้งได้เลย",
+                       "รบกวนส่งภาพหน้าจอเพิ่มเติมได้ไหมครับ", "ขอบคุณสำหรับคำแนะนำครับ จะนำไปพัฒนาต่อ"];
+  function setMsgCount(n) { var c = $("msgTabCount"); c.textContent = n > 99 ? "99+" : String(n); c.hidden = !n; }
+  async function pollMsgCount() {
+    if (!ME.role) return;
+    try { var r = await rpc("admin_support_threads", { p_filter: "unread", p_limit: 1 }); setMsgCount(r.unread_total || 0); } catch (_) {}
+  }
+  function threadName(r) { return r.email || r.username || r.user_id; }
+  async function loadMessages(keep) {
+    clearInterval(MQ.timer);
+    MQ.timer = setInterval(function () { if (!$("view-messages").hidden && document.visibilityState === "visible") loadMessages(true); }, 20000);
+    try {
+      var r = await rpc("admin_support_threads", { p_filter: $("msgF").value, p_q: $("msgQ").value.trim() || null, p_limit: 100 });
+      setMsgCount(r.unread_total || 0);
+      $("msgInfo").textContent = nf(r.total) + " บทสนทนา · ยังไม่อ่าน " + nf(r.unread_total) + " ข้อความ";
+      $("msgThreads").innerHTML = r.rows.length ? r.rows.map(function (x) {
+        var last = x.last || {};
+        return '<li><button type="button" class="sp-th' + (x.user_id === MQ.cur ? " on" : "") + (x.unread ? " unread" : "") + '" data-thread="' + esc(x.user_id) + '">' +
+          '<span class="sp-av" aria-hidden="true">' + esc(String(threadName(x)).slice(0, 1).toUpperCase()) + "</span>" +
+          '<span class="sp-tx"><b>' + esc(threadName(x)) + "</b><small>" + (last.sender === "admin" ? "คุณ: " : "") + esc(last.body || "") + "</small></span>" +
+          '<span class="sp-meta"><time>' + esc(rel(x.last_message_at)) + "</time>" + (x.unread ? '<i class="sp-n">' + nf(x.unread) + "</i>" : (x.status === "closed" ? pill("", "ปิดแล้ว") : "")) + "</span></button></li>";
+      }).join("") : '<li class="empty">ยังไม่มีข้อความ' + ($("msgQ").value || $("msgF").value !== "all" ? "ที่ตรงกับตัวกรอง" : "") + "</li>";
+    } catch (e) { $("msgThreads").innerHTML = '<li class="empty">' + esc(errText(e)) + "</li>"; }
+  }
+  async function openThread(uid, quiet) {
+    MQ.cur = uid; $("spWrap").classList.add("conv-open");
+    [].forEach.call($("msgThreads").querySelectorAll(".sp-th"), function (b) { b.classList.toggle("on", b.dataset.thread === uid); });
+    if (!quiet) $("msgConv").innerHTML = '<div class="sp-placeholder"><div class="sk"></div></div>';
+    clearInterval(MQ.convTimer);
+    MQ.convTimer = setInterval(function () { if (MQ.cur === uid && !$("view-messages").hidden && document.visibilityState === "visible") openThread(uid, true); }, 10000);
+    try {
+      var t = await rpc("admin_support_thread", { p_user: uid });
+      var sig = uid + ":" + t.messages.length + ":" + t.status + ":" + (t.messages.length ? t.messages[t.messages.length - 1].id : "");
+      if (quiet && sig === MQ.sig) return;
+      var draft = $("spText") ? $("spText").value : "";
+      MQ.sig = sig; renderThread(t, quiet ? draft : "");
+      if (!quiet) loadMessages(true);
+    } catch (e) { if (!quiet) $("msgConv").innerHTML = '<div class="sp-placeholder">' + esc(errText(e)) + "</div>"; }
+  }
+  function renderThread(t, draft) {
+    var u = t.user || {}, ro = !ME.canWrite, lastDay = "";
+    var html = '<header class="sp-head"><button type="button" class="btn sm sp-back" id="spBack" aria-label="กลับไปที่รายการ">‹</button>' +
+      '<div class="sp-who"><b>' + esc(u.email || u.user_id) + "</b><small>" + esc([u.username ? "@" + u.username : "", u.nickname || "", u.country || ""].filter(Boolean).join(" · ")) +
+      (u.suspended ? " · " + pill("bad", "ถูกระงับ") : "") + "</small></div>" +
+      '<button type="button" class="btn sm" id="spProfile">ข้อมูลสมาชิก</button>' +
+      (ro ? "" : '<button type="button" class="btn sm" id="spStatus" data-st="' + (t.status === "closed" ? "open" : "closed") + '">' + (t.status === "closed" ? "เปิดเรื่องอีกครั้ง" : "✓ ปิดเรื่อง") + "</button>") + "</header>";
+    html += '<div class="sp-msgs" id="spMsgs" role="log" aria-live="polite">';
+    t.messages.forEach(function (m) {
+      var day = d(m.created_at);
+      if (day !== lastDay) { lastDay = day; html += '<div class="sp-day">' + esc(day) + "</div>"; }
+      var mine = m.sender === "admin";
+      html += '<div class="sp-row ' + (mine ? "me" : "them") + '"><div class="sp-bub">' + (mine ? '<small class="sp-from">' + esc(m.staff || "ทีมงาน") + "</small>" : "") +
+        '<p></p><time>' + esc(new Date(m.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })) +
+        (mine && t.user_read_at && t.user_read_at >= m.created_at ? " · อ่านแล้ว" : "") + "</time></div></div>";
+    });
+    if (t.status === "closed") html += '<div class="sp-day">ปิดเรื่องแล้ว · สมาชิกพิมพ์ใหม่ได้เสมอ</div>';
+    html += "</div>";
+    if (ro) html += '<p class="sp-ro">Viewer อ่านได้อย่างเดียว — ตอบกลับได้เฉพาะ Admin / Owner</p>';
+    else html += '<div class="sp-quick">' + QUICK_REPLIES.map(function (q) { return '<button type="button" class="chip" data-quick="' + esc(q) + '">' + esc(q) + "</button>"; }).join("") + "</div>" +
+      '<form class="sp-compose" id="spForm"><label class="sr-only" for="spText">ตอบกลับ</label><textarea id="spText" rows="2" maxlength="2000" placeholder="พิมพ์คำตอบถึงสมาชิก… (Ctrl/⌘+Enter ส่ง)"></textarea>' +
+      '<button class="btn gold" type="submit" id="spSend">ส่ง</button></form><p class="note" id="spErr" role="alert"></p>';
+    $("msgConv").innerHTML = html;
+    var ps = $("msgConv").querySelectorAll(".sp-bub p");
+    t.messages.forEach(function (m, i) { ps[i].textContent = m.body; });                 // member text: textContent only
+    var box = $("spMsgs"); box.scrollTop = box.scrollHeight;
+    if ($("spText")) { $("spText").value = draft || ""; }
+    $("spBack").onclick = function () { $("spWrap").classList.remove("conv-open"); MQ.cur = null; clearInterval(MQ.convTimer); };
+    $("spProfile").onclick = function () { openUser(u.user_id); };
+    if ($("spStatus")) $("spStatus").onclick = async function () {
+      var b = this; busy(b, true);
+      try { await rpc("admin_support_set_status", { p_user: u.user_id, p_status: b.dataset.st }); toast(b.dataset.st === "closed" ? "ปิดเรื่องแล้ว" : "เปิดเรื่องอีกครั้งแล้ว"); MQ.sig = ""; openThread(u.user_id, true); loadMessages(true); }
+      catch (e) { toast(errText(e), "bad"); busy(b, false); }
+    };
+    if ($("spForm")) {
+      $("spForm").onsubmit = async function (e) {
+        e.preventDefault();
+        var tx = $("spText").value.trim(); $("spErr").textContent = "";
+        if (!tx) { $("spErr").textContent = "พิมพ์ข้อความก่อนส่ง"; return; }
+        busy($("spSend"), true);
+        try { await rpc("admin_support_reply", { p_user: u.user_id, p_body: tx }); $("spText").value = ""; MQ.sig = ""; await openThread(u.user_id, true); loadMessages(true); $("spText") && $("spText").focus(); }
+        catch (err) { $("spErr").textContent = errText(err); busy($("spSend"), false); }
+      };
+      $("spText").onkeydown = function (e) { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $("spForm").requestSubmit(); } };
+      $("msgConv").querySelector(".sp-quick").onclick = function (e) { var q = e.target.closest("[data-quick]"); if (q) { $("spText").value = q.dataset.quick; $("spText").focus(); } };
+    }
+  }
+  $("msgThreads").addEventListener("click", function (e) { var b = e.target.closest("[data-thread]"); if (b) openThread(b.dataset.thread); });
+  $("msgRefresh").addEventListener("click", function () { loadMessages(true); if (MQ.cur) { MQ.sig = ""; openThread(MQ.cur, true); } });
+  $("msgF").addEventListener("change", function () { loadMessages(true); });
+  var msgQT; $("msgQ").addEventListener("input", function () { clearTimeout(msgQT); msgQT = setTimeout(function () { loadMessages(true); }, 300); });
+  $("msgFilters").addEventListener("submit", function (e) { e.preventDefault(); loadMessages(true); });
+
+  /* ---------------------------------------------------------- announcements (Phase 21) */
+  // two-step confirm on the button itself (no native dialogs): first tap arms it for 4 s, second tap runs
+  function armed(btn, label) {
+    if (btn.dataset.armed === "1") { clearTimeout(btn._armT); btn.dataset.armed = ""; btn.classList.remove("armed"); if (btn._orig != null) btn.innerHTML = btn._orig; return true; }
+    btn._orig = btn.innerHTML; btn.dataset.armed = "1"; btn.classList.add("armed"); btn.textContent = label;
+    btn._armT = setTimeout(function () { btn.dataset.armed = ""; btn.classList.remove("armed"); btn.innerHTML = btn._orig; }, 4000);
+    return false;
+  }
+  var ANN_KIND = { info: ["", "ข่าวสาร"], success: ["ok", "ข่าวดี"], warning: ["warn", "สำคัญ"] };
+  async function loadAnnounce() {
+    var ro = !ME.canWrite;
+    ["annTitle", "annBody", "annKind", "annExp", "annSend"].forEach(function (id) { $(id).disabled = ro; });
+    $("annRO").hidden = !ro;
+    try {
+      var list = await rpc("admin_announcements", { p_limit: 50 });
+      $("annList").innerHTML = list.length ? list.map(function (a, i) {
+        var k = ANN_KIND[a.kind] || ANN_KIND.info;
+        var state = a.deleted_at ? pill("bad", "ลบแล้ว") : a.live ? pill("ok", "กำลังแสดง") : pill("", "หมดอายุ");
+        return '<article class="ann-item ' + esc(a.kind) + (a.live ? "" : " off") + '"><header>' + pill(k[0], k[1]) + state + '<b data-i="' + i + '"></b></header><p data-i="' + i + '"></p>' +
+          '<footer><span>' + esc(dt(a.created_at)) + " · โดย " + esc(a.author || "—") + (a.expires_at ? " · ถึง " + esc(dt(a.expires_at)) : "") + " · อ่านแล้ว " + nf(a.reads) + " คน</span>" +
+          (a.live && ME.canWrite ? '<button type="button" class="btn sm danger" data-ann-del="' + esc(a.id) + '">ลบประกาศ</button>' : "") + "</footer></article>";
+      }).join("") : '<p class="empty">ยังไม่เคยส่งประกาศ</p>';
+      [].forEach.call($("annList").querySelectorAll("b[data-i]"), function (b) { b.textContent = list[b.dataset.i].title; });
+      [].forEach.call($("annList").querySelectorAll("p[data-i]"), function (p) { p.textContent = list[p.dataset.i].body; });
+    } catch (e) { $("annList").innerHTML = '<p class="empty">' + esc(errText(e)) + "</p>"; }
+  }
+  function annCount() { $("annTitleN").textContent = $("annTitle").value.length + "/120"; $("annBodyN").textContent = $("annBody").value.length + "/2000"; }
+  $("annTitle").addEventListener("input", annCount); $("annBody").addEventListener("input", annCount);
+  $("annForm").addEventListener("submit", async function (e) {
+    e.preventDefault(); $("annErr").textContent = "";
+    var t = $("annTitle").value.trim(), b = $("annBody").value.trim(), days = Number($("annExp").value || 0);
+    if (!t || !b) { $("annErr").textContent = "ใส่ทั้งหัวข้อและข้อความ"; return; }
+    if (!armed($("annSend"), "แตะอีกครั้งเพื่อยืนยัน · ส่งถึงสมาชิกทุกคน")) return;
+    busy($("annSend"), true);
+    try {
+      await rpc("admin_announce", { p_title: t, p_body: b, p_kind: $("annKind").value, p_expires_at: days ? new Date(Date.now() + days * 86400000).toISOString() : null });
+      $("annTitle").value = ""; $("annBody").value = ""; annCount(); toast("ส่งประกาศแล้ว"); loadAnnounce();
+    } catch (err) { $("annErr").textContent = errText(err); }
+    busy($("annSend"), false);
+  });
+  $("annList").addEventListener("click", async function (e) {
+    var b = e.target.closest("[data-ann-del]"); if (!b) return;
+    if (!armed(b, "แตะอีกครั้งเพื่อลบ")) return;
+    busy(b, true);
+    try { await rpc("admin_announce_delete", { p_id: b.dataset.annDel, p_reason: "ลบจาก Admin Console" }); toast("ลบประกาศแล้ว"); loadAnnounce(); }
+    catch (err) { toast(errText(err), "bad"); busy(b, false); }
+  });
+  setInterval(function () { if (document.visibilityState === "visible" && $("view-messages").hidden) pollMsgCount(); }, 60000);
 
   /* ---------------------------------------------------------- audit */
   var AQ = { page: 1 };

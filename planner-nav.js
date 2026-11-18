@@ -21,7 +21,8 @@
     { q: "expense", icon: "receipt", t: "บันทึกรายจ่าย", s: "฿ หรือ ₩ ผูกกับการ์ดแบ่งเงิน" },
     { q: "work", icon: "attendance", t: "บันทึกการเข้างาน", s: "ชั่วโมงปกติ · OT · วันหยุด", tier: "PLUS" },
     { q: "gold", icon: "gold", t: "บันทึกรอบซื้อทอง", s: "น้ำหนัก · ราคา · ต้นทุน", tier: "PREMIUM" },
-    { q: "pay", icon: "coins", t: "บันทึกชำระบัตร / หนี้", s: "ตัดยอดบัตรหรือค่างวด", tier: "PREMIUM" }
+    { q: "pay", icon: "coins", t: "บันทึกชำระบัตร / หนี้", s: "ตัดยอดบัตรหรือค่างวด", tier: "PREMIUM" },
+    { q: "support", icon: "chat", t: "ติดต่อแอดมิน / Feedback", s: "แชท ติชม แจ้งปัญหา", sep: true }
   ];
   var FEAT = { work: "work_records", gold: "gold_portfolio", pay: "credit_debt" };
 
@@ -47,13 +48,14 @@
     side.innerHTML = '<a class="pn-brand" href="index.html"><img src="assets/brand/planner-logo-sm.png" alt="" width="360" height="291"><span><b>PLANNER</b><small>Personal Finance Control Center</small></span></a>' +
       '<button type="button" class="pn-side-add" aria-haspopup="true" aria-expanded="false" aria-controls="pnSheet">' + ico("plus", "pi-sm") + "บันทึกด่วน</button>" +
       '<nav class="pn-list" aria-label="หน้า"><span class="pn-lens' + (ACTIVE === "none" ? " pn-none" : "") + '" aria-hidden="true"></span>' + ITEMS.map(function (it) { return item(it, true); }).join("") + "</nav>" +
-      '<div class="pn-foot"><a class="pn-item" href="pricing.html"' + (ACTIVE === "pricing" ? ' aria-current="page"' : "") + ">" + ico("crown", "pi-sm") + "<span>แพ็กเกจและราคา</span></a>" +
+      '<div class="pn-foot"><a class="pn-item" data-k="support" href="account.html#support">' + ico("chat", "pi-sm") + "<span>ข้อความถึงแอดมิน</span></a>" +
+      '<a class="pn-item" href="pricing.html"' + (ACTIVE === "pricing" ? ' aria-current="page"' : "") + ">" + ico("crown", "pi-sm") + "<span>แพ็กเกจและราคา</span></a>" +
       '<a class="pn-item" href="showcase.html">' + ico("sparkle", "pi-sm") + "<span>รู้จัก PLANNER</span></a></div>";
     var scrim = document.createElement("div"); scrim.className = "pn-scrim";
     var sheet = document.createElement("div");
     sheet.className = "pn-sheet pn-glass"; sheet.id = "pnSheet"; sheet.setAttribute("role", "menu"); sheet.setAttribute("aria-label", "บันทึกด่วน");
     sheet.innerHTML = "<h2>บันทึกด่วน</h2>" + QUICK.map(function (a) {
-      return '<button type="button" role="menuitem" class="pn-act" data-q="' + a.q + '"><span class="pn-act-ico">' + ico(a.icon) + "</span><span><b>" + a.t + "</b><small>" + a.s + "</small></span>" +
+      return (a.sep ? '<hr class="pn-sep" aria-hidden="true">' : "") + '<button type="button" role="menuitem" class="pn-act" data-q="' + a.q + '"><span class="pn-act-ico">' + ico(a.icon) + "</span><span><b>" + a.t + "</b><small>" + a.s + "</small></span>" +
         (a.tier ? '<span class="pn-tier">' + a.tier + "</span>" : "") + "</button>";
     }).join("");
     var spacer = document.createElement("div"); spacer.className = "pn-spacer"; spacer.setAttribute("aria-hidden", "true");
@@ -200,6 +202,7 @@
     }
     if (q === "gold") { if (ACTIVE === "gold") { focusLot(); return; } go("gold.html#quick=gold", 0); return; }
     if (q === "pay") { go("credit-debt.html#quick=pay", 0); return; }
+    if (q === "support") { if (window.kfpSupport) window.kfpSupport.open(); else go("account.html#support", 0); return; }
   }
   function focusLot() {
     var f = document.getElementById("lotForm"); if (!f || !f.offsetParent) return;

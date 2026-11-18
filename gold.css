@@ -754,3 +754,8 @@ html.chart-fs-lock,html.chart-fs-lock body{overflow:hidden}
 html.kfp-restoring{scroll-behavior:auto !important}
 html.kfp-restoring body{opacity:0 !important}
 html.kfp-restoring-ready body{transition:opacity .15s ease}
+
+/* iOS Safari: date/time inputs have a large intrinsic width and overflowed the 2-column row (Phase 21 fix) */
+.lot-form .form-row>div{min-width:0}
+.lot-form input[type="date"],.lot-form input[type="time"]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none;min-height:52px}
+.lot-form input[type="date"]::-webkit-date-and-time-value,.lot-form input[type="time"]::-webkit-date-and-time-value{text-align:left;margin:0}

@@ -254,20 +254,35 @@
     return html + '<div class="cd-panel" role="tabpanel">' + fn(cur) + '</div>';
   }
 
+  /* ---- realistic card face: bank, nickname, •••• last4 only (no full number / expiry / CVV is ever stored) */
+  function cardFace(c, st) {
+    var l4 = /^\d{4}$/.test(String(c.last4 || '')) ? String(c.last4) : '••••';
+    var flag = c.status !== 'active' ? badge('คลัง', 'muted') : st && st.overLimit ? badge('เกินวงเงิน', 'bad') : '';
+    return '<div class="cd-face" aria-hidden="true"><i class="cd-face-band"></i><i class="cd-face-orb"></i><i class="cd-face-sheen"></i>' +
+      '<div class="cd-face-top"><span class="cd-face-bank">' + esc(c.bank || 'CREDIT CARD') + '</span>' + flag +
+        '<svg class="cd-face-nfc" viewBox="0 0 24 24"><path d="M8.5 7.5a6.5 6.5 0 0 1 0 9M12 5a10 10 0 0 1 0 14M15.5 2.8a13.5 13.5 0 0 1 0 18.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></div>' +
+      '<span class="cd-chip"><i></i><i></i><i></i></span>' +
+      '<div class="cd-face-num"><span>••••</span><span>••••</span><span>••••</span><span>' + esc(l4) + '</span></div>' +
+      '<div class="cd-face-bot"><div><small>CARD</small><b>' + (c.icon && c.icon !== '💳' ? esc(c.icon) + ' ' : '') + esc(c.name) + '</b></div><span class="cd-face-cur">' + (c.currency === 'KRW' ? '₩ KRW' : '฿ THB') + '</span></div></div>';
+  }
+
   /* ---- cards */
   function tabCards(cur) {
     var d = viewData(), list = cards(cur), act = list.filter(function (c) { return c.status === 'active'; }), arch = list.filter(function (c) { return c.status !== 'active'; });
     var head = '<div class="cd-sec-h"><h3>บัตรเครดิต <small>Credit cards</small></h3>' + wbtn('card-new', '+ เพิ่มบัตร', { cls: 'cd-primary' }) + '</div>';
     if (!list.length) return head + empty('💳', 'ยังไม่มีบัตรในสกุล ' + cur, wbtn('card-new', '+ เพิ่มบัตรใบแรก', { cls: 'cd-primary' }));
     var tile = function (c) {
-      var st = D.cardStatus(d, c, D.today()), u = st.utilization;
+      var st = D.cardStatus(d, c, D.today()), u = st.utilization, up = Math.min(100, Math.round((u || 0) * 100)), lvl = u > 0.7 ? 'bad' : u > 0.3 ? 'warn' : 'ok';
+      var credit = st.balance < 0;   // paid more than owed → the bank owes the holder
       return '<article class="cd-card' + (c.status !== 'active' ? ' cd-archived' : '') + '" style="--cc:' + esc(c.color) + '" data-act="card-open" data-id="' + esc(c.id) + '" tabindex="0" role="button" aria-label="ดูบัตร ' + esc(c.name) + '">' +
-        '<div class="cd-card-top"><span class="cd-card-ico">' + esc(c.icon || '💳') + '</span><div><b>' + esc(c.name) + '</b><small>' + esc(c.bank || '') + (c.last4 ? ' •••• ' + esc(c.last4) : '') + '</small></div>' +
-        (c.status !== 'active' ? badge('คลัง', 'muted') : st.overLimit ? badge('เกินวงเงิน', 'bad') : '') + '</div>' +
-        '<div class="cd-card-bal"><span>ยอดค้างบนบัตร</span><b>' + fmt(st.balance, cur) + '</b>' + (st.unbilled ? '<small>+ งวดผ่อนที่ยังไม่เรียกเก็บ ' + fmt(st.unbilled, cur) + '</small>' : '') + '</div>' +
-        (st.limit ? '<div class="cd-bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round((u || 0) * 100) + '" aria-label="ใช้วงเงิน"><i style="width:' + Math.min(100, Math.round((u || 0) * 100)) + '%" class="' + (u > 0.7 ? 'bad' : u > 0.3 ? 'warn' : '') + '"></i></div>' +
-          '<div class="cd-card-meta"><span>ใช้ ' + pct(u) + '</span><span>คงเหลือ ' + fmt(st.available, cur) + '</span></div>' : '<div class="cd-card-meta"><span>ยังไม่ได้ตั้งวงเงิน</span></div>') +
-        '<div class="cd-card-meta"><span>' + (c.due_day ? 'ครบกำหนดทุกวันที่ ' + c.due_day : 'ยังไม่ตั้งวันครบกำหนด') + '</span><span>' + (c.installment_mode === 'full_hold' ? 'กันวงเงินเต็มยอดผ่อน' : 'กินวงเงินรายงวด') + '</span></div></article>';
+        cardFace(c, st) +
+        '<div class="cd-card-body"><div class="cd-card-bal">' +
+          '<span>' + (credit ? 'จ่ายเกิน · เครดิตคงเหลือในบัตร' : 'ยอดค้างบนบัตร') + '</span><b' + (credit ? ' class="cd-pos"' : '') + '>' + (credit ? '+' + fmt(-st.balance, cur) : fmt(st.balance, cur)) + '</b>' +
+          (st.unbilled ? '<small>+ งวดผ่อนที่ยังไม่เรียกเก็บ ' + fmt(st.unbilled, cur) + '</small>' : '') + '</div>' +
+          (st.limit ? '<div class="cd-ring ' + lvl + '" style="--u:' + up + '" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + up + '" aria-label="ใช้วงเงิน ' + pct(u) + '"><b>' + pct(u) + '</b><small>ใช้วงเงิน</small></div>' : '') + '</div>' +
+        (st.limit ? '<div class="cd-bar" aria-hidden="true"><i style="width:' + up + '%" class="' + (lvl === 'ok' ? '' : lvl) + '"></i></div>' +
+          '<div class="cd-card-meta"><span>วงเงิน ' + fmt(st.limit, cur) + '</span><span>คงเหลือ ' + fmt(st.available, cur) + '</span></div>' : '<div class="cd-card-meta"><span>ยังไม่ได้ตั้งวงเงิน</span></div>') +
+        '<div class="cd-card-meta"><span>' + (c.due_day ? '📅 ครบกำหนดทุกวันที่ ' + c.due_day : 'ยังไม่ตั้งวันครบกำหนด') + '</span><span>' + (c.installment_mode === 'full_hold' ? 'กันวงเงินเต็มยอดผ่อน' : 'กินวงเงินรายงวด') + '</span></div></article>';
     };
     return head + '<div class="cd-cards">' + act.map(tile).join('') + '</div>' +
       (arch.length ? '<details class="cd-more"><summary>บัตรในคลัง (' + arch.length + ')</summary><div class="cd-cards">' + arch.map(tile).join('') + '</div></details>' : '');
@@ -579,7 +594,7 @@
     var acts = canWrite() ? '<div class="cd-acts cd-acts-wrap">' + btn('pay-new', '💸 จ่ายบัตร', { 'data-card': id, cls: 'cd-primary' }) + btn('adj-new', '± ปรับยอด/กระทบยอด', { 'data-card': id }) +
       btn('plan-new', '+ แผนผ่อนบนบัตรนี้', { 'data-card': id }) + btn('card-edit', '✎ แก้ไข', { 'data-id': id }) +
       btn('card-status', c.status === 'active' ? '🗄 เก็บเข้าคลัง' : '↩ นำออกจากคลัง', { 'data-id': id }) + btn('card-del', '🗑 ลบ', { 'data-id': id, cls: 'cd-danger' }) + '</div>' : '';
-    openModal(c.name + (c.last4 ? ' •••• ' + c.last4 : ''), '<div class="cd-kpis cd-kpis-s">' + kpi('ยอดค้างบนบัตร', fmt(st.balance, cur), 'ณ วันนี้') + kpi('งวดผ่อนยังไม่เรียกเก็บ', fmt(st.unbilled, cur)) +
+    openModal(c.name + (c.last4 ? ' •••• ' + c.last4 : ''), '<div class="cd-face-wrap" style="--cc:' + esc(c.color) + '">' + cardFace(c, st) + '</div><div class="cd-kpis cd-kpis-s">' + kpi('ยอดค้างบนบัตร', fmt(st.balance, cur), 'ณ วันนี้') + kpi('งวดผ่อนยังไม่เรียกเก็บ', fmt(st.unbilled, cur)) +
       kpi('วงเงินที่ใช้', st.limit ? fmt(st.used, cur) + ' / ' + fmt(st.limit, cur) : '-', st.limit ? pct(st.utilization) + (c.installment_mode === 'full_hold' ? ' · กันวงเงินเต็มยอดผ่อน' : ' · นับเฉพาะงวดที่เรียกเก็บ') : '', st.overLimit ? 'bad' : '') +
       kpi('วงเงินคงเหลือ', st.available === null ? '-' : fmt(st.available, cur)) + '</div>' +
       '<p class="cd-help">ตัดรอบ ' + (c.statement_day ? 'วันที่ ' + c.statement_day : '-') + ' · ครบกำหนด ' + (c.due_day ? 'วันที่ ' + c.due_day : '-') + ' · APR ' + bp(c.apr_bp) + (c.notes ? ' · ' + esc(c.notes) : '') + '</p>' + acts +

@@ -91,19 +91,57 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 /* cards */
 .cd-cards{display:grid;grid-template-columns:1fr;gap:12px}
 @media(min-width:620px){.cd-cards{grid-template-columns:1fr 1fr}}
-.cd-card{--cc:#e8be46;position:relative;padding:16px;border-radius:18px;cursor:pointer;background:linear-gradient(140deg,color-mix(in srgb,var(--cc) 22%,transparent),rgba(18,19,26,.95) 55%);
-  border:1px solid color-mix(in srgb,var(--cc) 45%,transparent);transition:transform .2s var(--cd-ease),box-shadow .2s;overflow:hidden}
-.cd-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.35)}
+.cd-card{--cc:#e8be46;position:relative;padding:12px 12px 14px;border-radius:22px;cursor:pointer;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(18,19,26,.92));
+  border:1px solid rgba(255,255,255,.07);transition:transform .25s var(--cd-ease),box-shadow .25s;outline-offset:3px}
+.cd-card:hover{transform:translateY(-3px);box-shadow:0 18px 40px rgba(0,0,0,.4)}
 .cd-card.cd-archived{opacity:.6;filter:saturate(.4)}
-.cd-card-top{display:flex;gap:10px;align-items:center}
-.cd-card-top>div{flex:1;min-width:0}
-.cd-card-top b{display:block;font-size:16px}
-.cd-card-top small{color:var(--cd-muted);font-size:12px;letter-spacing:.04em}
-.cd-card-ico{font-size:22px;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(0,0,0,.25)}
-.cd-card-bal{margin:12px 0 8px}
+
+/* realistic card face (ISO ID-1 ratio 85.6 × 53.98 mm) */
+.cd-face{position:relative;aspect-ratio:1.586;border-radius:16px;overflow:hidden;color:#fff;isolation:isolate;padding:5.5% 6.5%;
+  display:grid;grid-template-rows:auto 1fr auto auto;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--cc) 72%,#000) 0%,color-mix(in srgb,var(--cc) 38%,#0b0c10) 55%,#0b0c10 100%);
+  box-shadow:0 14px 34px color-mix(in srgb,var(--cc) 30%,transparent),0 2px 0 rgba(255,255,255,.14) inset,0 0 0 1px rgba(255,255,255,.08) inset;
+  text-shadow:0 1px 2px rgba(0,0,0,.45);transition:transform .45s var(--cd-ease)}
+.cd-face>i{position:absolute;pointer-events:none;z-index:-1}
+.cd-face-band{inset:-40% -10%;background:linear-gradient(115deg,transparent 46%,color-mix(in srgb,var(--cc) 55%,#fff) 46%,color-mix(in srgb,var(--cc) 70%,#fff) 64%,transparent 64%);opacity:.38}
+.cd-face-orb{width:62%;aspect-ratio:1;left:-22%;top:-38%;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--cc) 75%,#fff),transparent 70%);opacity:.45}
+.cd-face-sheen{inset:0;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.22) 45%,transparent 60%);background-size:250% 100%;background-position:120% 0;transition:background-position .9s var(--cd-ease)}
+.cd-card:hover .cd-face-sheen,.cd-card:focus-visible .cd-face-sheen{background-position:-20% 0}
+.cd-card:hover .cd-face{transform:perspective(900px) rotateX(4deg) rotateY(-5deg)}
+.cd-face-top{display:flex;align-items:center;gap:8px}
+.cd-face-bank{flex:1;min-width:0;font-weight:700;font-size:clamp(12px,3.4vw,15px);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-face-nfc{width:22px;height:22px;opacity:.85;flex:0 0 auto}
+.cd-face .cd-badge{text-shadow:none}
+.cd-chip{align-self:center;width:13%;min-width:38px;aspect-ratio:1.3;border-radius:6px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,#f7e3a1,#c99b3b 45%,#f1d488 70%,#b5862d);box-shadow:0 1px 2px rgba(0,0,0,.4),inset 0 0 0 1px rgba(90,60,10,.35)}
+.cd-chip i{position:absolute;background:rgba(90,60,10,.4)}
+.cd-chip i:nth-child(1){left:33%;top:0;bottom:0;width:1px}.cd-chip i:nth-child(2){right:33%;top:0;bottom:0;width:1px}
+.cd-chip i:nth-child(3){top:50%;left:0;right:0;height:1px}
+.cd-face-num{display:flex;justify-content:space-between;gap:4%;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:clamp(15px,4.6vw,20px);letter-spacing:.12em;margin:2% 0 4%}
+.cd-face-num span:last-child{font-weight:700}
+.cd-face-bot{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.cd-face-bot>div{min-width:0}
+.cd-face-bot small{display:block;font-size:9px;letter-spacing:.2em;opacity:.7}
+.cd-face-bot b{display:block;font-size:clamp(13px,3.8vw,16px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-face-cur{flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:99px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.18)}
+.cd-face-wrap{max-width:380px;margin:0 auto 14px}
+
+/* details under the face */
+.cd-card-body{display:flex;align-items:center;gap:12px;margin:14px 4px 8px}
+.cd-card-bal{flex:1;min-width:0}
 .cd-card-bal span{color:var(--cd-muted);font-size:12px;display:block}
-.cd-card-bal b{font-size:24px;font-variant-numeric:tabular-nums}
+.cd-card-bal b{font-size:24px;font-variant-numeric:tabular-nums;display:block;line-height:1.25}
+.cd-card-bal b.cd-pos{color:#45d99a}
 .cd-card-bal small{display:block;color:var(--cd-muted);font-size:12px}
+.cd-ring{--u:0;--rc:var(--cd-gold);flex:0 0 auto;width:74px;height:74px;border-radius:50%;display:grid;place-content:center;text-align:center;position:relative;
+  background:conic-gradient(var(--rc) calc(var(--u) * 1%),rgba(255,255,255,.08) 0)}
+.cd-ring::before{content:"";position:absolute;inset:7px;border-radius:50%;background:#14151c}
+.cd-ring>*{position:relative}
+.cd-ring b{font-size:15px;line-height:1.1;font-variant-numeric:tabular-nums}
+.cd-ring small{font-size:9.5px;color:var(--cd-muted)}
+.cd-ring.warn{--rc:#ff9f43}.cd-ring.bad{--rc:#ff5d73}
+.cd-card>.cd-bar,.cd-card>.cd-card-meta{margin-left:4px;margin-right:4px}
+@media(prefers-reduced-motion:reduce){.cd-face,.cd-face-sheen{transition:none}.cd-card:hover .cd-face{transform:none}}
 .cd-card-meta{display:flex;justify-content:space-between;gap:8px;color:var(--cd-muted);font-size:12px;margin-top:6px;flex-wrap:wrap}
 .cd-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;flex:1}
 .cd-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cd-gold),var(--cd-gold2));transition:width .6s var(--cd-ease)}

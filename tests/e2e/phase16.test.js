@@ -334,6 +334,8 @@ const addM = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const t
     ok(await mode(page) === "demo" && await vis(page, ".cd-demo-b"), "demo data shown with DEMO banner");
     await ws(page, "THB");
     ok((await page.$$(".cd-card")).length === 2 && (await page.$$('[data-act="card-new"]')).length === 0, "demo cards, no add buttons");
+    ok((await page.$$(".cd-card .cd-face .cd-chip")).length === 2 && (await page.$$(".cd-card .cd-ring")).length === 2, "each card renders a card face (chip) + utilisation ring");
+    ok(await page.$$eval(".cd-face-num", es => es.every(e => /^(••••){3}(\d{4}|••••)$/.test(e.textContent.replace(/\s/g, "")))), "card face shows only •••• + last 4 digits");
     await tab(page, "planner"); ok((await txt(page, ".cd-panel")).includes("หมดหนี้ใน"), "demo planner");
     await page.click(".cd-strat-i"); ok(true, "demo interactions work");
     ok((await calls(page, "rpc:debt_save_card")).length === 0, "demo never writes");

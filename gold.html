@@ -43,6 +43,8 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 <link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Planner">
 <meta name="application-name" content="Planner">
+<link rel="stylesheet" href="planner-nav.css?v=20261119-saas27">
+<script src="planner-icons.js?v=20261119-saas27"></script>
 </head>
 <body>
 <div class="gold-container">
@@ -423,13 +425,12 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 
 </div>
 
-<script src="gold.js?v=20261116-saas21"></script>
+<script src="gold.js?v=20261119-saas27"></script>
 <script src="kfp-access.js?v=20261117-saas23"></script>
 <script src="kfp-badge.js?v=20261115-saas18"></script>
 <script src="kfp-notice.js?v=20261117-saas22"></script>
 <script src="ui-numflow.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
-<script src="floating-nav.js?v=20261113-saas5" data-target="index.html" data-icon="🏠" data-label="กลับหน้าหลัก"></script>
 <script>
   // PWA update: versioned registration + immediate update check.
   if ('serviceWorker' in navigator) {
@@ -443,5 +444,6 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     });
   }
 </script>
+<script src="planner-nav.js?v=20261119-saas27" data-active="gold"></script>
 </body>
 </html>

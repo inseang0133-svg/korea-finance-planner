@@ -64,7 +64,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     await seed(page, {});
     await open(page);
     ok(await attr(page, "data-plan-state") === "preview", "plan state = preview");
-    ok(await vis(page, ".tool-work") && await vis(page, 'button[onclick^="exportExcel("]') && await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)') && await vis(page, ".kfp-fab"), "work, export, charts, gold nav all visible");
+    ok(await vis(page, ".tool-work") && await vis(page, 'button[onclick^="exportExcel("]') && await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)') && await vis(page, '.pn-item[data-k="gold"]:visible') && !(await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible')), "work, export, charts, gold nav all visible");
     ok(!(await vis(page, '.kfp-locked-note[data-feature-off="advanced_statistics"]')), "no upgrade notes in preview");
     await open(page, "gold.html");
     ok(await vis(page, ".gold-hero") && !(await vis(page, "#kfpGoldUpsell")), "gold preview content (no upsell)");
@@ -82,7 +82,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     ok(!(await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)')) && !(await vis(page, "#salaryChart")) && !(await vis(page, "#savingChartBlock")), "charts hidden");
     ok(await vis(page, '.kfp-locked-card[data-feature-off="advanced_statistics"]'), "upgrade note in their place");
     ok(!(await vis(page, "#statsGrid")), "statistics card hidden on Free");
-    ok(!(await vis(page, ".kfp-fab")), "floating gold button hidden");
+    ok(await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible'), "gold tab shows a lock (no gold_portfolio)");
     await page.selectOption("#filterYear", String(new Date().getFullYear() - 1)); await page.waitForTimeout(200);
     const note1 = await page.textContent("#salaryHistory");
     ok(note1.includes("ซ่อนประวัติที่เก่ากว่า 6 เดือน") && (await page.$$("#salaryHistory .history-item")).length === 0, "last year's records hidden with note");
@@ -118,7 +118,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     ok(await vis(page, 'button[onclick^="exportExcel("]'), "Export visible");
     // (canvases themselves stay blank here: Chart.js CDN is blocked in tests → check the plan-gated containers)
     ok(await vis(page, '.card[data-feature="advanced_statistics"]:not(#pieCard)') && await vis(page, '[data-feature="advanced_statistics"] .chart-box'), "chart cards visible");
-    ok(!(await vis(page, ".kfp-fab")), "gold button hidden");
+    ok(await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible'), "gold tab locked");
     await page.selectOption("#filterYear", String(new Date().getFullYear() - 1)); await page.waitForTimeout(200);
     ok(!(await page.textContent("#salaryHistory")).includes("ซ่อนประวัติ") && (await page.$$("#salaryHistory .history-item")).length > 0, "full salary history");
     await page.click("#kfpAuthButton"); await page.waitForTimeout(300);
@@ -136,7 +136,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     page = await newPage(browser);
     await seed(page, memberSeed(), { "__mock_plan_u-real": "premium" });
     await open(page);
-    ok(await vis(page, ".kfp-fab") && await vis(page, ".tool-work"), "gold button + work visible");
+    ok(await vis(page, '.pn-item[data-k="gold"]:visible') && !(await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible')) && await vis(page, ".tool-work"), "gold tab unlocked + work visible");
     await open(page, "gold.html");
     ok(await vis(page, ".gold-hero") && !(await vis(page, "#kfpGoldUpsell")), "gold portfolio shown");
     ok((await page.textContent("#lotSummary")).includes("1 รอบ"), "member's own gold lot rendered");
@@ -165,7 +165,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     await seed(page, memberSeed({ "kfp:u:u-real:__kfp_ent_cache_v1": JSON.stringify({ at: Date.now(), ent: { user_id: "u-real", plan: "premium", plan_name: "Finance Premium",
       features: { gold_portfolio: true, work_records: true, export: true, cloud_sync: true, advanced_statistics: true }, limits: {} } }) }), { "__mock_plan_u-real": "free" });
     await open(page);
-    ok(await attr(page, "data-plan") === "free" && !(await vis(page, ".tool-work")) && !(await vis(page, ".kfp-fab")), "server answer (free) wins over edited cache");
+    ok(await attr(page, "data-plan") === "free" && !(await vis(page, ".tool-work")) && await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible'), "server answer (free) wins over edited cache");
     ok(JSON.parse(await page.evaluate(() => localStorage.getItem("__kfp_ent_cache_v1"))).ent.plan === "free", "cache overwritten with server answer");
     page = await newPage(browser);
     await seed(page, memberSeed({ "kfp:u:u-real:__kfp_ent_cache_v1": JSON.stringify({ at: Date.now(), ent: { user_id: "someone-else", plan: "premium", features: { gold_portfolio: true }, limits: {} } }) }), { "__mock_ent_mode": "error" });
@@ -176,7 +176,7 @@ async function shot(page, name, full) { if (OUT) await page.screenshot({ path: p
     page = await newPage(browser);
     await seed(page, memberSeed(), { "__mock_ent_mode": "missing" });
     await open(page);
-    ok(await attr(page, "data-plan-state") === "unconfigured" && await vis(page, ".tool-work") && await vis(page, ".kfp-fab"), "everything visible");
+    ok(await attr(page, "data-plan-state") === "unconfigured" && await vis(page, ".tool-work") && !(await vis(page, '.pn-item[data-k="gold"] .pn-lock:visible')), "everything visible");
 
     console.log("V9 pricing page");
     page = await newPage(browser);

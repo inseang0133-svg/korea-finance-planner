@@ -833,12 +833,12 @@ async function fetchGold(){
 async function manualRefreshGold(){
   const btn=$("refreshGoldBtn"), note=$("refreshNotice");
   if(!btn || btn.disabled) return;
-  const oldText=btn.textContent;
+  const oldHtml=btn.innerHTML;
   btn.disabled=true; btn.textContent="⏳ กำลังอัปเดต...";
   if(note){ note.className="refresh-notice pending"; note.textContent="กำลังดึงราคาล่าสุด…"; }
   let res;
   try{ res=await fetchGold(); }catch(e){ res={ok:false,error:e?.message}; }
-  btn.disabled=false; btn.textContent=oldText;
+  btn.disabled=false; btn.innerHTML=oldHtml;
   if(!note) return;
   const t=new Date().toLocaleTimeString("th-TH",{timeZone:DISPLAY_TIMEZONE,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
   if(res?.ok){

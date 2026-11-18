@@ -111,8 +111,16 @@
       clearTimeout(load._w);
       S.access = r.access || { mode: 'locked' }; S.data = r.data; S.offline = !!r.offline; S.cachedAt = r.cachedAt || null; S.error = null;
       if (S.access.mode !== 'guest' && S.access.mode !== 'locked') S.demo = false;
-      render();
+      render(); quickFromHash();
     }, function (e) { S.error = API.message(e); S.access = { mode: 'error' }; render(); });
+  }
+  /* quick action from the app's "+ บันทึก" menu (credit-debt.html#quick=pay) — same write gate as the buttons */
+  function quickFromHash() {
+    var m = /quick=(pay|card|plan)/.exec(location.hash || ''); if (!m) return;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+    if (S.access.mode === 'guest' || S.access.mode === 'locked') return;   // intro / upgrade screen already explains
+    if (!canWrite()) { toast('โหมดอ่านอย่างเดียว — ต่ออายุ Premium เพื่อแก้ไข', 'warn'); return; }
+    if (m[1] === 'pay') payForm({}); else if (m[1] === 'card') cardForm(); else planForm(null);
   }
   function runF(p, ok) { return run(p, ok, true); }
   function run(p, ok, rethrow) {

@@ -168,7 +168,7 @@ async function expectFree(page, label, clickFn) {
     await closeModal(page);
     ok(await page.evaluate(() => requireAuth("ทดสอบ API")) === false && await modalOpen(page), "requireAuth() API returns false + opens modal");
     await closeModal(page);
-    await page.evaluate(() => { const b = document.createElement("button"); b.id = "optIn"; b.textContent = "x"; b.setAttribute("data-requires-auth", "ฟีเจอร์ใหม่"); b.onclick = () => { window.__optin = 1; }; document.body.appendChild(b); });
+    await page.evaluate(() => { const b = document.createElement("button"); b.id = "optIn"; b.textContent = "x"; b.setAttribute("data-requires-auth", "ฟีเจอร์ใหม่"); b.onclick = () => { window.__optin = 1; }; document.body.insertBefore(b, document.querySelector(".pn-spacer")); });
     await expectGated(page, "data-requires-auth opt-in", () => page.click("#optIn"));
     ok(!(await page.evaluate(() => window.__optin)), "opt-in handler not run");
 

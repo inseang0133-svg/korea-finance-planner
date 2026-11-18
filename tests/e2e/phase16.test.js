@@ -389,10 +389,10 @@ const addM = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const t
     ok(cal16.vis && cal16.x > 50, "a half-hidden tab is nudged into view, never reset to the start (" + cal16.x + ")");
     await shot(page, "d20-pinned", false);
 
-    console.log("D21 Admin Console has the home bubble back to index");
+    console.log("D21 Admin Console has the app navigation back to index");
     await page.goto(`${BASE}/admin.html`); await page.waitForTimeout(1500);
-    ok(await vis(page, ".kfp-fab"), "home bubble on admin page");
-    await page.click(".kfp-fab"); await page.waitForTimeout(1200);
+    ok(await vis(page, '.pn-item[data-k="home"]:visible'), "home tab on admin page");
+    await page.click('.pn-item[data-k="home"]:visible'); await page.waitForTimeout(1500);
     ok(/index\.html$/.test(page.url()), "tapping it opens index.html");
 
     console.log("D19 desktop layout");

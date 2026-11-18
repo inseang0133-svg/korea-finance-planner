@@ -87,6 +87,7 @@
     var m = String((e && (e.message || e.error)) || e || "");
     for (var k in ERR) if (m.indexOf(k) >= 0) return ERR[k];
     if (/reason required/.test(m)) return ERR.reason_required;
+    if (/Could not find the function public\.(admin_support|admin_announce)/.test(m)) return "ยังไม่ได้ติดตั้งระบบข้อความ — รัน migration 20261119001900_support_chat.sql ใน Supabase ก่อน";
     return "ทำรายการไม่สำเร็จ (" + m.slice(0, 120) + ")";
   }
   function toast(msg, kind) {

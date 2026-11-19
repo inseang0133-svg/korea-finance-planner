@@ -102,7 +102,8 @@ async function addLot(page, q = "0.5", cost = "31000") {
     ok(!("gold2goReceiveBaht" in (await server_(page)).settings), "auto prices never stored on the server");
     await page.evaluate(() => { window.kfpAuth.open("account"); });
     await page.waitForTimeout(300);
-    await page.click("#kfpUploadCloudBtn"); await page.waitForTimeout(500);
+    await page.evaluate(() => localStorage.setItem("salary", String(Number(localStorage.getItem("salary") || 0) + 1)));   // something to sync
+    await page.click("#kfpUploadCloudBtn"); await page.waitForTimeout(800);
     const up = (await calls(page, "upsert:user_data")).pop();
     ok(up && up.args.data.salary && !("kfp_gold_lots_v1" in up.args.data) && !("kfp_gold_settings_v1" in up.args.data), "user_data upload never contains gold (Premium too)");
 

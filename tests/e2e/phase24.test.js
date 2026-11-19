@@ -63,7 +63,7 @@ async function tipInside(page) {
 // everything the person owns in storage, minus the tour's own flags
 const userData = page => page.evaluate(() => {
   const L = window.__kfpRealLocalStorage, out = {};
-  for (let i = 0; i < L.length; i++) { const k = L.key(i); if (!/kfp_tour|__kfp_ent_cache|rateUpdatedAt|^rate$|kfp_exchange|kfp_gold_(market|daily|intraday|usd|news|thai|last|rec)|sb-|__all_local/.test(k)) out[k] = L.getItem(k); }
+  for (let i = 0; i < L.length; i++) { const k = L.key(i); if (!/kfp_tour|__kfp_cloud_|__kfp_ent_cache|rateUpdatedAt|^rate$|kfp_exchange|kfp_gold_(market|daily|intraday|usd|news|thai|last|rec)|sb-|__all_local/.test(k)) out[k] = L.getItem(k); }
   return out;
 });
 
@@ -183,7 +183,9 @@ const userData = page => page.evaluate(() => {
     for (let i = 0; i < 6 && !/จบแล้ว/.test(await title(page)); i++) await next(page);
     ok(/จบแล้ว/.test(await title(page)) && !(await vis(page, ".tl-modal.open")), "tour done, pop-up closed again");
     await page.click('.kt-tip [data-k="close"]'); await settle(page, 400);
-    ok(JSON.stringify(await userData(page)) === JSON.stringify(data0), "no user data changed by the tour");
+    { const d1 = await userData(page); const diff = Object.keys({ ...data0, ...d1 }).filter(k => data0[k] !== d1[k]);
+      if (diff.length) console.log("    changed keys:", diff.join(", "));
+      ok(!diff.length, "no user data changed by the tour"); }
     ok(page.errors.length === 0, "no page errors");
     await page.close();
 

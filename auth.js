@@ -221,6 +221,28 @@
     }
   }
 
+  // "ซิงก์ตอนนี้": the automatic sync, right away (falls back to the plain upload without kfp-cloud-sync.js)
+  async function syncNowClick() {
+    const cs = window.kfpCloudSync;
+    if (!cs || !KS) return uploadCloudData();
+    const btn = $("kfpUploadCloudBtn");
+    const plan = window.kfpPlan;
+    if (plan && !plan.canUseFeature("cloud_sync")) {
+      setAuthStatus("☁️ Cloud Sync มีในแพ็กเกจ Finance Plus ขึ้นไป · ข้อมูลของคุณยังอยู่ในเครื่องนี้ครบ", "error");
+      return false;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = "⏳ กำลังซิงก์..."; }
+    try {
+      const ok = await cs.syncNow();
+      const st = cs.status();
+      setAuthStatus(ok ? `☁️ ซิงก์แล้ว · ${new Date().toLocaleString("th-TH", { dateStyle: "short", timeStyle: "medium" })}`
+        : st.locked ? "☁️ Cloud Sync ไม่อยู่ในแพ็กเกจปัจจุบัน · ข้อมูลอยู่ในเครื่องนี้" : "❌ ซิงก์ไม่สำเร็จ · ระบบจะลองใหม่อัตโนมัติ", ok ? "ok" : "error");
+      return ok;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "☁️ ซิงก์ตอนนี้"; }
+    }
+  }
+
   function saveGuestBackup(data) {
     try { localStorage.setItem(GUEST_BACKUP_KEY, JSON.stringify(data || {})); } catch (_) {}
   }
@@ -735,8 +757,8 @@
 
             <div class="kfp-locked-note" data-feature-off="cloud_sync">☁️ <b>Cloud Sync</b> (สำรองและใช้ข้อมูลข้ามเครื่อง) มีในแพ็กเกจ Finance Plus ขึ้นไป · ตอนนี้ข้อมูลของคุณเก็บไว้ในเครื่องนี้ · <a href="pricing.html#plus">ดูแพ็กเกจ</a></div>
             <div class="kfp-cloud-upload" data-feature="cloud_sync">
-              <button id="kfpUploadCloudBtn" type="button">☁️ อัปโหลดข้อมูลขึ้น Cloud</button>
-              <p class="kfp-small">ระบบจะไม่อัปโหลดข้อมูลเองอีกต่อไป · กดปุ่มนี้เท่านั้นจึงจะส่งข้อมูลเครื่องนี้ขึ้น Cloud</p>
+              <button id="kfpUploadCloudBtn" type="button">☁️ ซิงก์ตอนนี้</button>
+              <p class="kfp-small"><span id="kfpCloudLast" aria-live="polite">ซิงก์อัตโนมัติเมื่อข้อมูลเปลี่ยน</span> · ข้อมูลที่แก้ในเครื่องนี้จะขึ้น Cloud เอง และข้อมูลจากเครื่องอื่นจะอัปเดตบนหน้านี้โดยไม่ต้องรีโหลด</p>
             </div>
 
             <div class="kfp-auth-row"><button id="kfpLogoutBtn" class="kfp-auth-danger" type="button">🚪 Logout</button><button id="kfpCloseBtn" class="kfp-auth-secondary" type="button">ปิด</button></div>
@@ -766,7 +788,7 @@
     $("kfpSavePassBtn").onclick = changePassword;
     $("kfpChangeEmailBtn").onclick = () => toggleSub("kfpChangeEmailForm");
     $("kfpSaveEmailBtn").onclick = changeEmail;
-    $("kfpUploadCloudBtn").onclick = uploadCloudData;
+    $("kfpUploadCloudBtn").onclick = syncNowClick;
     $("kfpImportDeviceBtn").onclick = importDeviceData;
     $("kfpDiscardDeviceBtn").onclick = discardDeviceData;
     $("kfpLogoutBtn").onclick = logout;
@@ -843,7 +865,7 @@
         "โหลดข้อมูล Cloud ช้าเกินไป"
       ).catch(e => {
         console.warn("KFP cloud:", e);
-        return null;
+        return undefined;                 // undefined = could not ask the Cloud · null = no row yet
       });
 
       const [profile, row] = await Promise.all([profilePromise, cloudPromise]);
@@ -858,7 +880,15 @@
       const cloud = row?.data && typeof row.data === "object" ? row.data : {};
 
       const seen = localStorage.getItem(CLOUD_SEEN_KEY);
-      if (hasData(cloud) && KS && seen && row?.updated_at && seen === row.updated_at) {
+      if (KS && window.kfpCloudSync && row !== undefined) {
+        // automatic Cloud Sync: merge with what changed on this device, redraw in place (no reload)
+        const r = window.kfpCloudSync.reconcile(row, "open");
+        if (r.action === "applied" || r.action === "merged") {
+          try { window.dispatchEvent(new CustomEvent("kfp:cloud-loaded")); } catch (_) {}
+          try { if (typeof window.__kfpRefreshGoldFromCloud === "function") window.__kfpRefreshGoldFromCloud(); } catch (_) {}
+        }
+        if (!row) notifyCloudLoaded();
+      } else if (hasData(cloud) && KS && seen && row?.updated_at && seen === row.updated_at) {
         // Cloud has not changed since this device last loaded/uploaded it:
         // keep local edits instead of silently replacing them on every reload.
         setAuthStatus("💾 ใช้ข้อมูลในเครื่องนี้ (ยังไม่มีข้อมูลใหม่บน Cloud) · อย่าลืมอัปโหลดเมื่อแก้ไข", "");
@@ -1153,6 +1183,7 @@
 
   async function logout(){
     if (!currentUser) return;
+    try { if (KS && window.kfpCloudSync) await window.kfpCloudSync.flush(4000); } catch (_) {}
     try { await supabase.auth.signOut(); } catch (_) {}
 
     // Logout must NEVER upload current LocalStorage to Cloud.
@@ -1190,6 +1221,7 @@
       ? "แตะอีกครั้งเพื่อยืนยัน · ข้อมูลที่ยังไม่ได้อัปโหลดขึ้น Cloud จะหายจากเครื่องนี้"
       : "⚠️ แพ็กเกจ Free ไม่มีสำเนาบน Cloud — ข้อมูลจะหายถาวร · แตะอีกครั้งเพื่อยืนยัน")) return;
     const uid = currentUser.id;
+    try { if (window.kfpCloudSync) await window.kfpCloudSync.flush(4000); } catch (_) {}
     try { await supabase.auth.signOut(); } catch (_) {}
     KS.wipeUser(uid);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -1281,6 +1313,7 @@
     user: () => currentUser,
     profile: () => currentProfile,
     client: () => supabase,
+    dataKeys: () => DATA_KEYS.slice(),
     isLegacy: () => !!currentUser && isLegacyEmail(currentUser.email),
     isPreview: () => (KS ? KS.isPreview() : !currentUser)
   };

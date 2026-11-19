@@ -118,6 +118,9 @@
   var PREFIX = sess ? NS_USER + sess.id + ":" : "";
 
   /* ---------- storage objects ---------- */
+  // kfp-cloud-sync.js listens to a member's own writes (key name only) to upload them automatically
+  var watchers = [];
+  function notify(k) { for (var i = 0; i < watchers.length; i++) { try { watchers[i](k); } catch (_) {} } }
   function makeMember() {
     function listOwn() {
       var out = [];
@@ -129,8 +132,8 @@
     }
     return {
       getItem: function (k) { k = String(k); if (isInternal(k)) return null; return real.getItem(isShared(k) ? k : PREFIX + k); },
-      setItem: function (k, v) { k = String(k); if (isInternal(k)) return; real.setItem(isShared(k) ? k : PREFIX + k, String(v)); },
-      removeItem: function (k) { k = String(k); if (isInternal(k)) return; real.removeItem(isShared(k) ? k : PREFIX + k); },
+      setItem: function (k, v) { k = String(k); if (isInternal(k)) return; real.setItem(isShared(k) ? k : PREFIX + k, String(v)); if (!isShared(k)) notify(k); },
+      removeItem: function (k) { k = String(k); if (isInternal(k)) return; real.removeItem(isShared(k) ? k : PREFIX + k); if (!isShared(k)) notify(k); },
       key: function (i) { var l = listOwn(); return i >= 0 && i < l.length ? l[i] : null; },
       get length() { return listOwn().length; },
       clear: function () { realKeys().forEach(function (k) { if (k.indexOf(PREFIX) === 0) real.removeItem(k); }); }
@@ -232,6 +235,7 @@
     userId: sess ? sess.id : null,
     isPreview: function () { return MODE === "preview"; },
     isMember: function () { return MODE === "member"; },
+    onChange: function (fn) { if (typeof fn === "function" && MODE === "member") watchers.push(fn); },
     isShared: isShared,
     isInternal: isInternal,
     isPersonalBare: isPersonalBare,

@@ -22,7 +22,7 @@
     <!-- Phase 3: storage isolation must run before every other script -->
     <script src="supabase-config.js?v=20261114-saas13"></script>
     <script src="kfp-demo-data.js?v=20261113-saas5"></script>
-    <script src="kfp-storage.js?v=20261119-saas32"></script>
+    <script src="kfp-storage.js?v=20261120-saas33"></script>
     <!-- Guests land on the Product Showcase; the live demo app stays reachable with ?demo=1 (remembered for this tab) -->
     <script>(function(){try{if(!window.kfpStorage||!kfpStorage.isPreview())return;var q=new URLSearchParams(location.search);
       if(q.get("demo")==="1"){sessionStorage.setItem("kfp_demo","1");return;}
@@ -35,7 +35,8 @@
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-    <script src="auth.js?v=20261119-saas32"></script>
+    <script src="auth.js?v=20261120-saas33"></script>
+    <script src="kfp-cloud-sync.js?v=20261120-saas33"></script>
     <script src="pwa-persistence.js?v=20261119-saas30"></script>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
@@ -305,6 +306,6 @@ if ('serviceWorker' in navigator) {
 -->
 <script src="planner-nav.js?v=20261119-saas32" data-active="home"></script>
 <script src="kfp-support.js?v=20261119-saas31"></script>
-<script src="kfp-tour.js?v=20261119-saas32"></script>
+<script src="kfp-tour.js?v=20261120-saas33"></script>
 </body>
 </html>

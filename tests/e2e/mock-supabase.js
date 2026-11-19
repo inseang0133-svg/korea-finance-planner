@@ -32,6 +32,7 @@
       features: { salary: true, salary_history: true, expenses: true, work_records: true, advanced_statistics: true, planning: true, monthly_digest: true, export: true, cloud_sync: true, gold_portfolio: true, credit_debt: true },
       limits: { salary_history_months: null, expense_history_months: null, salary_records_max: null, expense_items_max: null, grace_days: 7 } }
   ];
+  var PLAN_FEATURES = {}; PLANS.forEach(function (p) { PLAN_FEATURES[p.id] = p.features; });
   var PRICES = [
     { plan_id: "plus", billing_interval: "month", currency: "THB", amount_minor: 12900 },
     { plan_id: "plus", billing_interval: "year", currency: "THB", amount_minor: 129000 },
@@ -117,6 +118,18 @@
       q.update = function (v) { log("update:" + table, v); q._u = v; return q; };
       q.upsert = function (v) {
         log("upsert:" + table, v);
+        // test controls: __mock_cloud_fail = 1 (network down) · plan without cloud_sync → RLS refusal (like the real policy)
+        if (table === "user_data") {
+          var fail = sessionStorage.getItem("__mock_cloud_fail") === "1";
+          var upid = (session && session.user.id) || v.user_id, uplan = sessionStorage.getItem("__mock_plan_" + upid) || "premium";
+          var refuse = !fail && !(PLAN_FEATURES[uplan] || {}).cloud_sync;
+          if (fail || refuse) {
+            var er = { error: fail ? { message: "Failed to fetch" } : { code: "42501", message: 'new row violates row-level security policy for table "user_data"' }, data: null };
+            var ch0 = { select: function () { return ch0; }, maybeSingle: function () { return Promise.resolve(er); }, single: function () { return Promise.resolve(er); },
+                        then: function (a, b) { return Promise.resolve(er).then(a, b); } };
+            return ch0;
+          }
+        }
         var at = new Date(Date.now() + Math.floor(Math.random() * 1000)).toISOString();
         if (table === "user_data") sessionStorage.setItem("__mock_cloud_" + v.user_id, JSON.stringify({ user_id: v.user_id, data: v.data, updated_at: at }));
         var r = { error: null, data: { updated_at: at } };
@@ -126,6 +139,8 @@
       };
       q.maybeSingle = function () {
         if (table === "user_data") {
+          log("select:user_data", { f: q._f });
+          if (sessionStorage.getItem("__mock_cloud_fail") === "1") return Promise.resolve({ data: null, error: { message: "Failed to fetch" } });
           var row = sessionStorage.getItem("__mock_cloud_" + q._f.user_id);
           return Promise.resolve({ data: row ? JSON.parse(row) : null, error: null });
         }

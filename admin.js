@@ -687,7 +687,8 @@
   }, true);
 
   /* ---------------------------------------------------------- messages (Phase 21) */
-  var MQ = { cur: null, timer: null, convTimer: null, sig: "" };
+  var MQ = { cur: null, timer: null, convTimer: null, sig: "", swept: false, urls: {} };
+  var IMG_BUCKET = "support-images";
   var QUICK_REPLIES = ["ขอบคุณที่แจ้งนะครับ ทีมงานกำลังตรวจสอบให้", "แก้ไขเรียบร้อยแล้วครับ ลองปิดแอปแล้วเปิดใหม่อีกครั้งได้เลย",
                        "รบกวนส่งภาพหน้าจอเพิ่มเติมได้ไหมครับ", "ขอบคุณสำหรับคำแนะนำครับ จะนำไปพัฒนาต่อ"];
   function setMsgCount(n) { var c = $("msgTabCount"); c.textContent = n > 99 ? "99+" : String(n); c.hidden = !n; }
@@ -711,6 +712,54 @@
           '<span class="sp-meta"><time>' + esc(rel(x.last_message_at)) + "</time>" + (x.unread ? '<i class="sp-n">' + nf(x.unread) + "</i>" : (x.status === "closed" ? pill("", "ปิดแล้ว") : "")) + "</span></button></li>";
       }).join("") : '<li class="empty">ยังไม่มีข้อความ' + ($("msgQ").value || $("msgF").value !== "all" ? "ที่ตรงกับตัวกรอง" : "") + "</li>";
     } catch (e) { $("msgThreads").innerHTML = '<li class="empty">' + esc(errText(e)) + "</li>"; }
+    if (!MQ.swept) { MQ.swept = true; sweepImages(); }
+  }
+
+  // Pictures: Supabase only deletes files through the Storage API, so the console does the clean-up:
+  // ask the server which files are due (closed conversations, > 30 days, never-sent uploads) → delete them.
+  function mb(n) { return n >= 1073741824 ? (n / 1073741824).toFixed(2) + " GB" : (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + " MB"; }
+  async function sweepImages() {
+    var c = client(); if (!ME.canWrite || !c || !c.storage) return null;
+    var r;
+    try { r = await rpc("admin_support_image_sweep", { p_limit: 500 }); } catch (_) { return null; }   // database without migration 2000
+    var removed = 0;
+    for (var i = 0; i < r.paths.length; i += 100) {
+      var part = r.paths.slice(i, i + 100);
+      try { var x = await c.storage.from(IMG_BUCKET).remove(part); if (!x.error) removed += (x.data || []).length; } catch (_) {}
+      part.forEach(function (p) { delete MQ.urls[p]; });
+    }
+    if (removed) { try { r = await rpc("admin_support_image_sweep", { p_limit: 1 }); } catch (_) {} }
+    var el = $("msgStore");
+    el.textContent = "รูปในระบบ " + nf(r.files) + " ไฟล์ · " + mb(r.bytes) + " / " + mb(r.quota_bytes) + (removed ? " · เพิ่งลบ " + nf(removed) + " ไฟล์" : "");
+    el.classList.toggle("warn", r.bytes >= r.upload_stop_bytes * 0.8); el.hidden = false;
+    return removed;
+  }
+  async function signImages() {
+    var nodes = [].slice.call($("msgConv").querySelectorAll("[data-sp-img]"));
+    var c = client(), now = Date.now(), need = [];
+    nodes.forEach(function (b) { var p = b.dataset.spImg, e = MQ.urls[p]; if ((!e || e.exp < now + 300000) && need.indexOf(p) < 0) need.push(p); });
+    if (need.length && c && c.storage) {
+      try {
+        var r = await c.storage.from(IMG_BUCKET).createSignedUrls(need, 3600);
+        (r.data || []).forEach(function (x) { if (x && x.signedUrl && !x.error) MQ.urls[x.path] = { u: x.signedUrl, exp: now + 3600000 }; });
+      } catch (_) {}
+    }
+    nodes.forEach(function (b) {
+      var e = MQ.urls[b.dataset.spImg], im = b.querySelector("img");
+      if (e) im.src = e.u; else b.classList.add("err");
+      im.onerror = function () { b.classList.add("err"); };
+    });
+  }
+  function openPic(src) {
+    var dlg = $("spLb");
+    if (!dlg) {
+      dlg = document.createElement("dialog"); dlg.id = "spLb"; dlg.className = "sp-lb"; dlg.setAttribute("aria-label", "รูปขนาดเต็ม");
+      dlg.innerHTML = '<img alt="รูปจากสมาชิก (ขนาดเต็ม)"><form method="dialog"><button class="btn sm" type="submit" autofocus>ปิด</button></form>';
+      dlg.addEventListener("click", function (e) { if (e.target === dlg || e.target.tagName === "IMG") dlg.close(); });
+      document.body.appendChild(dlg);
+    }
+    dlg.querySelector("img").src = src;
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute("open", "");
   }
   async function openThread(uid, quiet) {
     MQ.cur = uid; $("spWrap").classList.add("conv-open");
@@ -739,8 +788,11 @@
       var day = d(m.created_at);
       if (day !== lastDay) { lastDay = day; html += '<div class="sp-day">' + esc(day) + "</div>"; }
       var mine = m.sender === "admin";
-      html += '<div class="sp-row ' + (mine ? "me" : "them") + '"><div class="sp-bub">' + (mine ? '<small class="sp-from">' + esc(m.staff || "ทีมงาน") + "</small>" : "") +
-        '<p></p><time>' + esc(new Date(m.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })) +
+      var pic = m.image ? '<button type="button" class="sp-img" data-sp-img="' + esc(m.image) + '" aria-label="ดูรูปขนาดเต็ม"' +
+          (m.image_w && m.image_h ? ' style="aspect-ratio:' + (m.image_w | 0) + " / " + (m.image_h | 0) + '"' : "") + '><img alt="รูปจากสมาชิก"></button>'
+        : m.image_removed ? '<div class="sp-img-gone">รูปถูกลบแล้ว (ปิดเรื่อง / ครบ 30 วัน)</div>' : "";
+      html += '<div class="sp-row ' + (mine ? "me" : "them") + '"><div class="sp-bub' + (pic ? " has-img" : "") + '">' + (mine ? '<small class="sp-from">' + esc(m.staff || "ทีมงาน") + "</small>" : "") +
+        pic + '<p></p><time>' + esc(new Date(m.created_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })) +
         (mine && t.user_read_at && t.user_read_at >= m.created_at ? " · อ่านแล้ว" : "") + "</time></div></div>";
     });
     if (t.status === "closed") html += '<div class="sp-day">ปิดเรื่องแล้ว · สมาชิกพิมพ์ใหม่ได้เสมอ</div>';
@@ -753,12 +805,20 @@
     var ps = $("msgConv").querySelectorAll(".sp-bub p");
     t.messages.forEach(function (m, i) { ps[i].textContent = m.body; });                 // member text: textContent only
     var box = $("spMsgs"); box.scrollTop = box.scrollHeight;
+    box.onclick = function (e) { var b = e.target.closest("[data-sp-img]"); if (b && !b.classList.contains("err")) { var im = b.querySelector("img"); if (im.src) openPic(im.src); } };
+    signImages();
     if ($("spText")) { $("spText").value = draft || ""; }
     $("spBack").onclick = function () { $("spWrap").classList.remove("conv-open"); MQ.cur = null; clearInterval(MQ.convTimer); };
     $("spProfile").onclick = function () { openUser(u.user_id); };
     if ($("spStatus")) $("spStatus").onclick = async function () {
       var b = this; busy(b, true);
-      try { await rpc("admin_support_set_status", { p_user: u.user_id, p_status: b.dataset.st }); toast(b.dataset.st === "closed" ? "ปิดเรื่องแล้ว" : "เปิดเรื่องอีกครั้งแล้ว"); MQ.sig = ""; openThread(u.user_id, true); loadMessages(true); }
+      try {
+        var res = await rpc("admin_support_set_status", { p_user: u.user_id, p_status: b.dataset.st });
+        var nimg = (res && res.images_removed) | 0;
+        if (nimg) await sweepImages();                                                    // delete the files right away
+        toast(b.dataset.st === "closed" ? "ปิดเรื่องแล้ว" + (nimg ? " · ลบรูป " + nf(nimg) + " รูป" : "") : "เปิดเรื่องอีกครั้งแล้ว");
+        MQ.sig = ""; openThread(u.user_id, true); loadMessages(true);
+      }
       catch (e) { toast(errText(e), "bad"); busy(b, false); }
     };
     if ($("spForm")) {

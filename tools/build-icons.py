@@ -84,6 +84,8 @@ I={
 'megaphone':f'<path {D} d="M4 10v4a1.6 1.6 0 0 0 1.6 1.6H8l8.4 4V4.4L8 8.4H5.6A1.6 1.6 0 0 0 4 10Z"/><path {S} d="M4 10v4a1.6 1.6 0 0 0 1.6 1.6H8l8.4 4V4.4L8 8.4H5.6A1.6 1.6 0 0 0 4 10Z"/><path {S} d="M8 15.6V20M19.2 9.2a3.6 3.6 0 0 1 0 5.6"/>',
 'inbox':f'<path {D} d="M3.6 13.2h4.6l1.4 2.4h4.8l1.4-2.4h4.6V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2Z"/><path {S} d="M3.6 13.2 6 5.6A2 2 0 0 1 7.9 4.2h8.2A2 2 0 0 1 18 5.6l2.4 7.6V18a2 2 0 0 1-2 2H5.6a2 2 0 0 1-2-2Z"/><path {S} d="M3.6 13.2h4.6l1.4 2.4h4.8l1.4-2.4h4.6"/>',
 'reply':f'<path {S} d="M9.6 6.4 4.4 11.6l5.2 5.2"/><path {S} d="M4.6 11.6h9.2a6 6 0 0 1 6 6v.8"/>',
+'image':f'<rect {D} x="3.6" y="4.4" width="16.8" height="15.2" rx="3"/><rect {S} x="3.6" y="4.4" width="16.8" height="15.2" rx="3"/><circle {S} cx="9" cy="9.6" r="1.7"/><path {S} d="m4 16.8 4.4-4 3.2 2.8 3.6-3.6 5.2 4.8"/>',
+'image-off':f'<rect {D} x="3.6" y="4.4" width="16.8" height="15.2" rx="3"/><path {S} d="M6.6 4.4h10.8a3 3 0 0 1 3 3v8.8M18.6 19.4a3 3 0 0 1-1.2.2H6.6a3 3 0 0 1-3-3V7.4a3 3 0 0 1 1-2.2"/><path {S} d="m4 16.8 4.4-4 3.2 2.8M3.4 3.4l17.2 17.2"/>',
 }
 out=['<svg xmlns="http://www.w3.org/2000/svg" style="display:none">']
 for k,v in I.items(): out.append(f'<symbol id="pi-{k}" viewBox="0 0 24 24">{v}</symbol>')

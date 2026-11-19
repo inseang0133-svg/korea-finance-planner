@@ -47,3 +47,23 @@ begin
   end if;
 end $$;
 grant execute on function public.test_login(uuid) to anon, authenticated;
+
+-- Supabase Storage (only the parts migration 2000 uses). Uploads are simulated by inserting rows as the
+-- "authenticated" role, so the storage RLS policies are exercised exactly like the Storage API does.
+create schema if not exists storage;
+grant usage on schema storage to anon, authenticated, service_role;
+create table if not exists storage.buckets (
+  id text primary key, name text not null, owner uuid, created_at timestamptz default now(), updated_at timestamptz default now(),
+  public boolean default false, avif_autodetection boolean default false, file_size_limit bigint, allowed_mime_types text[], owner_id text
+);
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, owner uuid,
+  created_at timestamptz default now(), updated_at timestamptz default now(), last_accessed_at timestamptz default now(),
+  metadata jsonb, version text, owner_id text, user_metadata jsonb, unique (bucket_id, name)
+);
+alter table storage.buckets enable row level security;
+alter table storage.objects enable row level security;
+grant all on storage.buckets, storage.objects to anon, authenticated, service_role;
+create or replace function storage.foldername(name text) returns text[] language plpgsql immutable as $$
+declare _parts text[]; begin select string_to_array(name, '/') into _parts; return _parts[1:array_length(_parts, 1) - 1]; end $$;
+grant execute on function storage.foldername(text) to anon, authenticated, service_role;

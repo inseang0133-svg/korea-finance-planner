@@ -9,7 +9,7 @@
 <meta name="referrer" content="no-referrer">
 <!-- Phase 12: strict CSP for the admin console (GitHub Pages cannot send headers, so it is a meta tag).
      No inline scripts on this page; data may only go to Supabase. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'; manifest-src 'self'">
 <title>Admin Console · PLANNER</title>
 <script src="kfp-debug.js?v=20261114-saas14"></script>
 <script src="supabase-config.js?v=20261114-saas13"></script>
@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kfp-access.css?v=20261117-saas23">
-<link rel="stylesheet" href="admin.css?v=20261119-saas28">
+<link rel="stylesheet" href="admin.css?v=20261119-saas31">
 <link rel="stylesheet" href="kfp-motion.css?v=20261114-saas15">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
 <script src="auth.js?v=20261119-saas30"></script>
@@ -29,7 +29,7 @@
 <meta name="application-name" content="Planner">
 <link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
 <script src="planner-icons.js?v=20261119-saas28"></script>
-<link rel="stylesheet" href="kfp-support.css?v=20261119-saas28">
+<link rel="stylesheet" href="kfp-support.css?v=20261119-saas31">
 </head>
 <body data-no-preview-ui>
 <!-- Hiding this page is NOT the protection: every admin_* function checks the role in the database. -->
@@ -124,7 +124,7 @@
 
     <!-- MESSAGES (Phase 21) -->
     <section id="view-messages" role="tabpanel" aria-labelledby="tab-messages" hidden>
-      <div class="kfa-h"><h2>ข้อความจากสมาชิก</h2><small id="msgInfo" aria-live="polite"></small><button class="btn sm sp" type="button" id="msgRefresh">↻ รีเฟรช</button></div>
+      <div class="kfa-h"><h2>ข้อความจากสมาชิก</h2><small id="msgInfo" aria-live="polite"></small><small id="msgStore" class="sp-store" hidden></small><button class="btn sm sp" type="button" id="msgRefresh">↻ รีเฟรช</button></div>
       <div class="sp-wrap" id="spWrap">
         <aside class="sp-list" aria-label="รายการบทสนทนา">
           <form class="tools" id="msgFilters" role="search">
@@ -190,10 +190,10 @@
   </form>
 </dialog>
 
-<script src="admin.js?v=20261119-saas28"></script>
+<script src="admin.js?v=20261119-saas31"></script>
 <script src="kfp-access.js?v=20261119-saas30"></script>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="planner-nav.js?v=20261119-saas30" data-active="none"></script>
-<script src="kfp-support.js?v=20261119-saas28"></script>
+<script src="kfp-support.js?v=20261119-saas31"></script>
 </body>
 </html>

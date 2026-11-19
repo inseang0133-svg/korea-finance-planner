@@ -157,9 +157,53 @@
       return q;
     }
 
+    // Storage (Phase 23 pictures) · store: sessionStorage __mock_storage {path:{url,size,type,at}} · __mock_storage_fail = rls|net
+    var storage = { from: function (bucket) {
+      var load = function () { return JSON.parse(sessionStorage.getItem("__mock_storage") || "{}"); };
+      var keep = function (x) { sessionStorage.setItem("__mock_storage", JSON.stringify(x)); };
+      var rank = function () { return { owner: 3, admin: 2, viewer: 1 }[sessionStorage.getItem("__mock_admin_role") || ""] || 0; };
+      var ok = function (d) { return { data: d, error: null }; }, no = function (m, c) { return { data: null, error: { message: m, statusCode: String(c || 400) } }; };
+      return {
+        upload: function (path, blob, opts) {
+          log("storage:upload", { bucket: bucket, path: path, size: blob.size, type: opts && opts.contentType, cacheControl: opts && opts.cacheControl });
+          var fail = sessionStorage.getItem("__mock_storage_fail");
+          if (fail === "net") return Promise.resolve(no("Failed to fetch", 0));
+          if (!session) return Promise.resolve(no("Unauthorized", 403));
+          var me = session.user.id, all = load(), day = Date.now() - 86400000;
+          var mine = Object.keys(all).filter(function (k) { return k.indexOf(me + "/") === 0 && all[k].at > day; }).length;
+          if (fail === "rls" || bucket !== "support-images" || path.indexOf(me + "/") !== 0 || !/^[^/]+\/[0-9a-f-]{36}\.(webp|jpg|png)$/.test(path) || mine >= 10)
+            return Promise.resolve(no("new row violates row-level security policy", 403));
+          if (all[path]) return Promise.resolve(no("The resource already exists", 409));
+          if (blob.size > 1048576) return Promise.resolve(no("The object exceeded the maximum allowed size", 413));
+          if (["image/jpeg", "image/png", "image/webp"].indexOf(opts && opts.contentType) < 0) return Promise.resolve(no("mime type not supported", 415));
+          return new Promise(function (r) {
+            var fr = new FileReader();
+            fr.onload = function () { all = load(); all[path] = { url: fr.result, size: blob.size, type: opts.contentType, at: Date.now() }; keep(all); r(ok({ path: path })); };
+            fr.readAsDataURL(blob);
+          });
+        },
+        createSignedUrls: function (paths, ttl) {
+          log("storage:sign", { paths: paths, ttl: ttl });
+          var all = load(), me = session && session.user.id;
+          return Promise.resolve(ok(paths.map(function (p) {
+            var can = rank() >= 1 || (me && p.indexOf(me + "/") === 0);
+            return all[p] && can ? { path: p, signedUrl: all[p].url, error: null } : { path: p, signedUrl: null, error: "Object not found" };
+          })));
+        },
+        remove: function (paths) {
+          log("storage:remove", { paths: paths });
+          if (rank() < 2) return Promise.resolve(ok([]));
+          var all = load(), gone = paths.filter(function (p) { return all[p]; });
+          gone.forEach(function (p) { delete all[p]; }); keep(all);
+          return Promise.resolve(ok(gone.map(function (p) { return { name: p }; })));
+        }
+      };
+    } };
+
     return {
       auth: auth,
       from: query,
+      storage: sessionStorage.getItem("__mock_storage_mode") === "missing" ? undefined : storage,
       // bench control: sessionStorage __mock_rpc_delay = ms (simulated network round trip for every RPC)
       rpc: function (fn, args) {
         var d = +sessionStorage.getItem("__mock_rpc_delay") || 0, p = this.rpcNow(fn, args);
@@ -193,7 +237,7 @@
           return Promise.resolve({ data: gone.length, error: null });
         }
         if (fn === "get_my_debt_access" || fn === "export_my_debt" || fn.indexOf("debt_") === 0) return Promise.resolve(window.__mockDebt(fn, args || {}, session));
-        if (/^(get_my_support_unread|get_my_support|support_send|support_mark_read)$/.test(fn) || fn.indexOf("admin_support_") === 0 || fn.indexOf("admin_announce") === 0)
+        if (/^(get_my_support_unread|get_my_support|support_send|support_send_image|support_mark_read)$/.test(fn) || fn.indexOf("admin_support_") === 0 || fn.indexOf("admin_announce") === 0)
           return Promise.resolve(window.__mockSupport(fn, args || {}, session));
         if (fn === "is_admin" || fn.indexOf("admin_") === 0) return Promise.resolve(window.__mockAdmin(fn, args || {}, session));
         if (fn === "export_my_gold") {
@@ -253,11 +297,19 @@
     };
     var adminUnread = function (uid) { var t = st.threads[uid] || {}; return st.messages.filter(function (m) { return m.user_id === uid && m.sender === "user" && (!t.admin_read_at || m.created_at > t.admin_read_at); }).length; };
     var body = function (b, max) { b = String(b || "").trim(); return b.length >= 1 && b.length <= (max || 2000) ? b : null; };
-    var pub = function (m) { return { id: m.id, sender: m.sender, body: m.body, created_at: m.created_at }; };
+    var pics = sessionStorage.getItem("__mock_support_images") !== "off";   // off = database without migration 2000
+    var pub = function (m) {
+      var o = { id: m.id, sender: m.sender, body: m.body, created_at: m.created_at };
+      if (m.image) { if (m.removed || m.created_at < new Date(Date.now() - 30 * 86400000).toISOString()) o.image_removed = true; else { o.image = m.image; o.image_w = m.w; o.image_h = m.h; } }
+      return o;
+    };
+    var store = function () { return JSON.parse(sessionStorage.getItem("__mock_storage") || "{}"); };
     if (fn === "get_my_support_unread") return ok(unread(me));
     if (fn === "get_my_support") {
       var t = st.threads[me] || {};
+      var used = Object.keys(store()).filter(function (k) { return k.indexOf(me + "/") === 0 && store()[k].at > Date.now() - 86400000; }).length;
       return ok({ status: t.status || "open", user_read_at: t.user_read_at || null, ann_read_at: t.ann_read_at || null, unread: unread(me),
+        images: pics ? { per_day: 10, max_bytes: 1048576, keep_days: 30, left_today: Math.max(0, 10 - used) } : undefined,
         messages: st.messages.filter(function (m) { return m.user_id === me; }).map(pub),
         announcements: st.anns.filter(live).map(function (x) { return { id: x.id, title: x.title, body: x.body, kind: x.kind, created_at: x.created_at, expires_at: x.expires_at }; }) });
     }
@@ -267,6 +319,17 @@
       var ts = now(), m = { id: "m" + st.seq, user_id: me, sender: "user", body: b, created_at: ts };
       st.threads[me] = Object.assign(st.threads[me] || {}, { status: "open", last_message_at: ts, user_read_at: ts });
       st.messages.push(m); save(); return ok(pub(m));
+    }
+    if (fn === "support_send_image") {
+      if (!pics) return no("Could not find the function public.support_send_image", "PGRST202");
+      if (sessionStorage.getItem("__mock_support_fail") === "1") return no("rate_limited", "54000");
+      var ib = String(a.p_body || "").trim(); if (ib.length > 2000) return no("invalid_message", "22023");
+      if (String(a.p_path || "").indexOf(me + "/") !== 0) return no("invalid_image", "22023");
+      if (!store()[a.p_path]) return no("image_not_found", "22023");
+      if (st.messages.some(function (x) { return x.image === a.p_path; })) return no("invalid_image", "22023");
+      var ti = now(), mi = { id: "m" + st.seq, user_id: me, sender: "user", body: ib, created_at: ti, image: a.p_path, w: a.p_w, h: a.p_h };
+      st.threads[me] = Object.assign(st.threads[me] || {}, { status: "open", last_message_at: ti, user_read_at: ti });
+      st.messages.push(mi); save(); return ok(pub(mi));
     }
     if (fn === "support_mark_read") { var tr = now(); st.threads[me] = Object.assign(st.threads[me] || {}, { user_read_at: tr, ann_read_at: tr }); save(); return ok(0); }
     if (rank < 1) return no("forbidden");
@@ -278,7 +341,7 @@
       var rows = Object.keys(st.threads).filter(function (u) { return st.threads[u].last_message_at; }).map(function (u) {
         var t = st.threads[u], ms = st.messages.filter(function (m) { return m.user_id === u; }), last = ms[ms.length - 1];
         return Object.assign({ user_id: u, status: t.status || "open", last_message_at: t.last_message_at, unread: adminUnread(u),
-          last: last ? { sender: last.sender, body: last.body.slice(0, 140), created_at: last.created_at } : null }, who(u));
+          last: last ? { sender: last.sender, body: !last.body && last.image ? "[รูปภาพ]" : last.body.slice(0, 140), image: !!last.image, created_at: last.created_at } : null }, who(u));
       });
       var f = a.p_filter || "all", q = String(a.p_q || "").toLowerCase();
       var fl = rows.filter(function (r) { return (f === "all" || (f === "unread" && r.unread > 0) || (f === "open" && r.status === "open") || (f === "closed" && r.status === "closed"))
@@ -302,7 +365,22 @@
       st.threads[a.p_user] = Object.assign(st.threads[a.p_user] || {}, { last_message_at: ts2, admin_read_at: ts2, status: (st.threads[a.p_user] || {}).status || "open" });
       st.messages.push(rm); save(); return ok(pub(rm));
     }
-    if (fn === "admin_support_set_status") { if (!st.threads[a.p_user]) return no("user_not_found", "22023"); st.threads[a.p_user].status = a.p_status; save(); return ok({ user_id: a.p_user, status: a.p_status }); }
+    if (fn === "admin_support_set_status") {
+      if (!st.threads[a.p_user]) return no("user_not_found", "22023");
+      st.threads[a.p_user].status = a.p_status; var nimg = 0;
+      if (a.p_status === "closed") st.messages.forEach(function (x) { if (x.user_id === a.p_user && x.image && !x.removed) { x.removed = true; nimg++; } });
+      save(); return ok({ user_id: a.p_user, status: a.p_status, images_removed: nimg });
+    }
+    if (fn === "admin_support_image_sweep") {
+      if (!pics) return no("Could not find the function public.admin_support_image_sweep", "PGRST202");
+      var all = store(), old = new Date(Date.now() - 30 * 86400000).toISOString();
+      var paths = Object.keys(all).filter(function (k) {
+        var m = st.messages.filter(function (x) { return x.image === k; })[0];
+        return m ? (m.removed || m.created_at <= old) : all[k].at < Date.now() - 86400000;
+      });
+      var bytes = Object.keys(all).reduce(function (n, k) { return n + all[k].size; }, 0);
+      return ok({ paths: paths, files: Object.keys(all).length, bytes: bytes, quota_bytes: 1073741824, upload_stop_bytes: 838860800 });
+    }
     if (fn === "admin_announce") {
       var tt = body(a.p_title, 120), ab = body(a.p_body); if (!tt || !ab) return no("invalid_message", "22023");
       var x = { id: "a" + now(), title: tt, body: ab, kind: a.p_kind || "info", created_at: new Date(Date.now() + st.seq).toISOString(), expires_at: a.p_expires_at || null, deleted_at: null };

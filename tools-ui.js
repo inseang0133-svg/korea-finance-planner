@@ -251,7 +251,7 @@
 
   function vConfirm() {
     var p = S.pend, s = settings(), r = calcWork(p.type, p.reg, p.ot, s), rate = curRate(), thb = r.krw * rate;
-    var exists = records().some(function (x) { return x.date === p.date; });
+    var exists = !p.tour && records().some(function (x) { return x.date === p.date; });
     S.calc = r;
     var rows = [
       ["📅 วันที่", thDate(p.date)], ["🏷 ประเภท", TYPE_NAMES[p.type]],
@@ -267,6 +267,7 @@
   }
 
   function saveWork() {
+    if (S.pend && S.pend.tour) return;                     // the guided tour's on-screen example is never saved
     var p = S.pend, r = S.calc || calcWork(p.type, p.reg, p.ot, settings()), rate = curRate();
     var rec = { date: p.date, type: r.type, reg: r.reg, ot: r.ot, wage: r.wage, regMul: r.regMul, otMul: r.otMul, regInc: r.regInc, otInc: r.otInc, krw: r.krw, rate: rate, thb: +(r.krw * rate).toFixed(2) };
     var list = records().filter(function (x) { return x.date !== p.date; });
@@ -623,6 +624,29 @@
   // หลังดึงข้อมูลจาก Cloud
   var prevRefresh = window.__kfpRefreshFromCloud;
   window.__kfpRefreshFromCloud = function () { if (typeof prevRefresh === "function") prevRefresh.apply(this, arguments); try { window.kfpExpenseDecorate(); } catch (_) {} };
+
+  // Guided tour (kfp-tour.js): show this pop-up's real screens. Nothing here saves — the example day
+  // lives only in memory (marked tour:true, refused by saveWork) and is dropped when the tour closes the pop-up.
+  window.kfpToolsTour = {
+    open: function (kind) {
+      if (panel && !panel.hidden && S.kind === kind) return true;
+      if (kind === "work" && mode() !== "KRW") return false;
+      open(kind, kind === "expense" && mode() === "THB" ? "THB" : "KRW"); return true;
+    },
+    view: function (v, params) { if (!panel || panel.hidden) return false; S.delConfirm = false; go(v, params); return true; },
+    example: function (p) {
+      if (!panel || panel.hidden || S.kind !== "work") return false;
+      p = p || {};
+      S.pend = { date: todayStr(), type: p.type || "normal", reg: p.reg == null ? 8 : p.reg, ot: p.ot == null ? 2 : p.ot, tour: true };
+      S.backTo = "wmenu"; go(p.view || "wtype"); return true;
+    },
+    close: function () { if (panel && !panel.hidden) { if (S.pend && S.pend.tour) S.pend = null; close(); } },
+    isOpen: function () { return !!panel && !panel.hidden; },
+    current: function () { return panel && !panel.hidden ? S.view : null; },
+    settings: function () { return settings(); },
+    rate: function () { return curRate(); },
+    calc: function (type, reg, ot) { return calcWork(type, reg, ot, settings()); }
+  };
 
   window.kfpOpenTool = function (k) { var b = d.querySelector('[data-open-tool="' + k + '"]'); if (b) b.click(); };
   window.addEventListener("load", function () { try { window.kfpExpenseDecorate(); } catch (_) {} });

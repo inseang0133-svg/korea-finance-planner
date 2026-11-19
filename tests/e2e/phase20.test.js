@@ -109,7 +109,7 @@ const EMOJI_LEFT = () => {   // known emoji still shown as text in the rendered 
     await page.goto(`${BASE}/index.html`); await settle(page, 1500);
     await page.click(".pn .pn-add"); await settle(page, 600);
     ok(await vis(page, "#pnSheet.on") && await page.getAttribute(".pn .pn-add", "aria-expanded") === "true", "+ opens the quick sheet");
-    ok((await page.$$eval("#pnSheet .pn-act:not([hidden])", e => e.length)) === 5, "5 quick actions (expense · attendance · gold round · card payment · contact admin)");
+    ok((await page.$$eval("#pnSheet .pn-act:not([hidden])", e => e.length)) === 6, "6 quick actions (expense · attendance · gold round · card payment · contact admin · how to use)");
     ok(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("pn-act")), "focus moves into the sheet");
     await page.keyboard.press("Escape"); await settle(page, 400);
     ok(!(await vis(page, "#pnSheet.on")) && await page.evaluate(() => document.activeElement.classList.contains("pn-add")), "Escape closes it and returns focus to +");

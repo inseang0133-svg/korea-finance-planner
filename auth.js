@@ -37,7 +37,9 @@
     // Phase 9: gold (kfp_gold_lots_v1 / kfp_gold_settings_v1) is NOT part of user_data any more —
     // it syncs through the Premium-only table user_gold_data (kfp-gold-sync.js).
     "kfp_work_settings_v1", "kfp_work_records_v1", "kfp_work_deductions_v1",
-    "kfp_work_received_v1", "kfp_expenses_v1"
+    "kfp_work_received_v1", "kfp_expenses_v1",
+    // guided tour: which "วิธีใช้งานเว็บไซต์" topics this member finished/skipped (travels with Cloud Sync)
+    "kfp_tour_v1"
   ];
 
   const ARRAY_KEYS = new Set(["salaryRecords", "kfp_work_records_v1", "kfp_work_deductions_v1", "kfp_expenses_v1"]);

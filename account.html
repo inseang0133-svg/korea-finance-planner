@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex">
 <title>แพ็กเกจและการชำระเงิน · PLANNER</title>
 <script src="supabase-config.js?v=20261114-saas13"></script>
-<script src="kfp-storage.js?v=20261114-saas13"></script>
+<script src="kfp-storage.js?v=20261119-saas32"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="kfp-notice.css?v=20261117-saas22">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-<script src="auth.js?v=20261119-saas30"></script>
+<script src="auth.js?v=20261119-saas32"></script>
 <style>
 :root{--bg:#06070a;--card:rgba(20,21,29,.92);--line:rgba(255,255,255,.09);--gold:#e8be46;--gold-l:#ffe08a;--text:#f5f2ea;--muted:#a6a296;--dim:#77746b;
   --green:#3ddc97;--red:#ff6b7a;--amber:#ffb547;--blue:#7cb8ff;--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
@@ -154,6 +154,7 @@ dialog[open]{animation:pop .35s var(--spring)}
 <link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
 <script src="planner-icons.js?v=20261119-saas28"></script>
 <link rel="stylesheet" href="kfp-support.css?v=20261119-saas31">
+<link rel="stylesheet" href="kfp-tour.css?v=20261119-saas32">
 </head>
 <body data-no-preview-ui>
 <main class="wrap">
@@ -167,34 +168,40 @@ dialog[open]{animation:pop .35s var(--spring)}
   <div id="acStatus" class="status" role="status" aria-live="polite"></div>
   <div id="alerts"></div>
 
-  <section class="card ks-card" id="supportCard" aria-labelledby="supportH">
+  <section class="card ks-card" id="supportCard" data-tour="account-support" aria-labelledby="supportH">
     <h2 id="supportH"><svg class="pi" aria-hidden="true" focusable="false"><use href="assets/icons/planner-icons.svg#pi-chat"/></svg> ข้อความ &amp; ติดต่อแอดมิน <span class="ks-pill" id="supportCount" hidden></span></h2>
     <p class="hint">ติชม แจ้งปัญหา หรือสอบถามทีมงานได้โดยตรง — ประกาศสำคัญจากทีมงานก็อยู่ในแชทนี้ · ใช้ได้ทุกแพ็กเกจ</p>
     <div class="row"><button class="btn gold" type="button" data-support-open><svg class="pi" aria-hidden="true" focusable="false"><use href="assets/icons/planner-icons.svg#pi-chat"/></svg> เปิดแชทกับแอดมิน</button></div>
   </section>
 
-  <section class="card" id="planCard" aria-labelledby="planH" aria-busy="true">
+  <section class="card" id="helpCard" data-tour="account-help" aria-labelledby="helpH">
+    <h2 id="helpH"><svg class="pi" aria-hidden="true" focusable="false"><use href="assets/icons/planner-icons.svg#pi-compass"/></svg> วิธีใช้งานเว็บไซต์</h2>
+    <p class="hint">ทัวร์แนะนำทีละขั้นตอน ไฮไลต์ตำแหน่งจริงบนหน้าจอ พร้อมอธิบายว่าแต่ละช่องใช้กรอกอะไร คำนวณอย่างไร และผลลัพธ์ไปแสดงที่ไหน — ไม่แก้ไขข้อมูลของคุณ</p>
+    <div class="row"><button class="btn gold" type="button" data-tour-open="help">เปิดคู่มือการใช้งาน</button><button class="btn" type="button" data-tour-open="account">แนะนำหน้านี้</button></div>
+  </section>
+
+  <section class="card" id="planCard" data-tour="account-plan" aria-labelledby="planH" aria-busy="true">
     <h2 id="planH">💎 แพ็กเกจปัจจุบัน</h2>
     <div id="planBody"><div class="sk" style="width:46%"></div><div class="sk" style="width:30%"></div><div class="sk"></div><div class="sk" style="width:80%"></div></div>
   </section>
 
-  <section class="card" id="manageCard" aria-labelledby="manageH" hidden>
+  <section class="card" id="manageCard" data-tour="account-manage" aria-labelledby="manageH" hidden>
     <h2 id="manageH">⚙️ จัดการแพ็กเกจ</h2>
     <div id="manageBody"></div>
   </section>
 
-  <section class="card" id="addonCard" aria-labelledby="addons" hidden>
+  <section class="card" id="addonCard" data-tour="account-addons" aria-labelledby="addons" hidden>
     <h2 id="addons">🧩 Add-on ของฉัน</h2>
     <div id="addonBody"></div>
   </section>
 
-  <section class="card" id="historyCard" aria-labelledby="historyH" hidden>
+  <section class="card" id="historyCard" data-tour="account-history" aria-labelledby="historyH" hidden>
     <h2 id="historyH">🧾 ประวัติการชำระเงิน <small id="historyCount"></small></h2>
     <ul class="pays" id="payList"></ul>
     <div class="more" id="moreBox" hidden><button class="btn" type="button" id="moreBtn">โหลดเพิ่ม</button></div>
   </section>
 
-  <section class="card" id="dataCard" aria-labelledby="dataH" hidden>
+  <section class="card" id="dataCard" data-tour="account-data" aria-labelledby="dataH" hidden>
     <h2 id="dataH">📦 ข้อมูลของฉัน</h2>
     <p class="hint">ดาวน์โหลดข้อมูลทั้งหมดของบัญชีนี้เป็นไฟล์ JSON ได้ทุกแพ็กเกจ (รวมถึงหลังแพ็กเกจหมดอายุ) — เงินเดือน รายจ่าย บันทึกงาน การแบ่งเงิน และพอร์ตทองที่เก็บไว้บน Cloud · ไฟล์นี้มีข้อมูลส่วนตัว เก็บไว้ในที่ปลอดภัย</p>
     <div class="row"><button class="btn" type="button" id="exportMyData">⬇️ ดาวน์โหลดข้อมูลของฉัน (JSON)</button></div>
@@ -653,7 +660,8 @@ dialog[open]{animation:pop .35s var(--spring)}
 <script src="kfp-notice.js?v=20261117-saas22"></script>
 <script src="kfp-motion.js?v=20261114-saas15"></script>
 <script src="kfp-bfcache.js?v=20261114-saas15"></script>
-<script src="planner-nav.js?v=20261119-saas30" data-active="account"></script>
+<script src="planner-nav.js?v=20261119-saas32" data-active="account"></script>
 <script src="kfp-support.js?v=20261119-saas31"></script>
+<script src="kfp-tour.js?v=20261119-saas32"></script>
 </body>
 </html>

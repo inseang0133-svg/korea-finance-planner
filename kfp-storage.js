@@ -41,7 +41,8 @@
     "kfp_gold_market_history_v1": 1, "kfp_gold_daily_history_v2": 1, "kfp_gold_intraday_history_v2": 1,
     "kfp_gold_usd_ticks_v3": 1, "kfp_gold_usd_daily_v3": 1, "kfp_gold_rec_cursor_v1": 1,
     "kfp_gold_news_v1": 1, "kfp_gold_thai_prices_v1": 1, "kfp_gold_last_market": 1,
-    "kfp_fab_pos_v1": 1, "__all_local_storage__": 1
+    "kfp_fab_pos_v1": 1, "__all_local_storage__": 1,
+    "kfp_tour_guest_v1": 1                                   // guided-tour flags of a guest on this device (no personal data)
   };
   SHARED_EXACT[AUTH_USER_KEY] = 1;
   // kfp:* = ที่เก็บภายในของไฟล์นี้ (namespace ของทุกบัญชี) → หน้าเว็บเข้าถึงผ่าน localStorage ไม่ได้

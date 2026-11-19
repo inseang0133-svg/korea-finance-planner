@@ -10,7 +10,7 @@
     <!-- Phase 3: storage isolation must run before every other script -->
     <script src="supabase-config.js?v=20261114-saas13"></script>
     <script src="kfp-demo-data.js?v=20261113-saas5"></script>
-    <script src="kfp-storage.js?v=20261114-saas13"></script>
+    <script src="kfp-storage.js?v=20261119-saas32"></script>
     <link rel="stylesheet" href="kfp-access.css?v=20261117-saas23">
     <link rel="stylesheet" href="kfp-badge.css?v=20261115-saas18">
 <link rel="stylesheet" href="kfp-notice.css?v=20261117-saas22">
@@ -29,7 +29,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 <!-- Optional cloud login layer. Existing gold logic remains unchanged. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
 <script src="pwa-persistence.js?v=20261119-saas30"></script>
-<script src="auth.js?v=20261119-saas30"></script>
+<script src="auth.js?v=20261119-saas32"></script>
 <script src="kfp-gold-sync.js?v=20261114-saas13"></script>
 <style>
     .gold2go-market-strip{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
@@ -46,11 +46,12 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
 <link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
 <script src="planner-icons.js?v=20261119-saas28"></script>
 <link rel="stylesheet" href="kfp-support.css?v=20261119-saas31">
+<link rel="stylesheet" href="kfp-tour.css?v=20261119-saas32">
 </head>
 <body>
 <div class="gold-container">
 
-  <section class="gold-card gold-hero">
+  <section class="gold-card gold-hero" data-tour="gold-hero">
     <div class="hero-top">
       <div>
         <div class="eyebrow">GOLD PORTFOLIO</div>
@@ -59,14 +60,14 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       </div>
     </div>
 
-    <div class="market-status">
+    <div class="market-status" data-tour="gold-market">
       <span id="marketDot" class="status-dot offline"></span>
       <span id="marketStatus">กำลังโหลดราคาทอง...</span>
       <span class="status-sep">•</span>
       <span id="marketUpdated">-</span>
     </div>
 
-    <div class="buy-calc" id="buyCalc">
+    <div class="buy-calc" id="buyCalc" data-tour="gold-buycalc">
       <div class="buy-calc-title">🧮 ตั้งราคาซื้อ · แปลงราคา troy oz → ทองแท่ง 96.5%</div>
       <div class="buy-calc-row">
         <label for="buyCalcOz">ราคาทองที่ต้องการ (USD / troy oz)</label>
@@ -78,7 +79,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
   </section>
 
   <section class="gold-card">
-    <div class="chart-wrap">
+    <div class="chart-wrap" data-tour="gold-chart">
       <div class="chart-toolbar chart-toolbar-main">
         <div class="chart-tabs">
           <button class="chart-tab active" data-range="1D">1D</button>
@@ -122,7 +123,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
         <div id="chartTooltipOz" class="chart-tooltip" aria-live="polite"></div>
       </div>
     </div>
-    <div class="section-head">
+    <div class="section-head" data-tour="gold-prices-head">
       <div>
         <h2>📈 ราคาทอง & ราคา GOLD2go</h2>
         <p>ราคาตลาดโลกใช้ดูแนวโน้ม · P/L ของพอร์ตหลักจะอิง <b>GOLD2go รับซื้อ 96.5%</b></p>
@@ -131,7 +132,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     </div>
     <div id="refreshNotice" class="refresh-notice" role="status" aria-live="polite"></div>
 
-    <div class="market-grid">
+    <div class="market-grid" data-tour="gold-prices">
       <div class="market-box">
         <span>Gold Spot</span>
         <strong id="spotUsd">-</strong>
@@ -196,7 +197,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     </div>
   </section>
 
-  <section class="gold-card">
+  <section class="gold-card" data-tour="gold-lot-card">
     <div class="section-head">
       <div>
         <h2>➕ บันทึกรอบซื้อ</h2>
@@ -204,7 +205,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       </div>
     </div>
 
-    <form id="lotForm" class="lot-form">
+    <form id="lotForm" class="lot-form" data-tour="gold-lot-form">
       <div class="form-row">
         <div>
           <label for="buyDate">วันที่ซื้อ</label>
@@ -255,13 +256,13 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
         <input id="note" type="text" maxlength="160" placeholder="เช่น ซื้อรอบเงินเดือน / ซื้อหลังราคาลง">
       </div>
 
-      <div id="lotPreview" class="lot-preview">กรอกข้อมูลเพื่อดูน้ำหนักทองและต้นทุนเฉลี่ย</div>
+      <div id="lotPreview" class="lot-preview" data-tour="gold-lot-preview">กรอกข้อมูลเพื่อดูน้ำหนักทองและต้นทุนเฉลี่ย</div>
 
       <button class="primary-gold-btn" type="submit">💾 บันทึกรอบนี้</button>
     </form>
   </section>
 
-  <section class="gold-stats-grid">
+  <section class="gold-stats-grid" data-tour="gold-stats">
     <div class="gold-stat">
       <span>ทองทั้งหมด</span>
       <strong id="totalGold">0.0000 g</strong>
@@ -284,7 +285,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     </div>
   </section>
 
-  <section class="gold-stats-grid compact">
+  <section class="gold-stats-grid compact" data-tour="gold-stats2">
     <div class="gold-stat">
       <span>🟢 กำไรรวมของรอบที่บวก</span>
       <strong id="positivePL">฿0</strong>
@@ -304,7 +305,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     </div>
   </section>
 
-  <section class="gold-card">
+  <section class="gold-card" data-tour="gold-lots-card">
     <div class="section-head">
       <div>
         <h2>📋 รายการซื้อแต่ละรอบ</h2>
@@ -327,10 +328,10 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       <div id="lotPageHint" class="lot-page-hint">แสดง 3 รอบล่าสุด</div>
     </div>
 
-    <div id="lotsList" class="lots-list"></div>
+    <div id="lotsList" class="lots-list" data-tour="gold-lots"></div>
   </section>
 
-  <section class="gold-card">
+  <section class="gold-card" data-tour="gold-sim-card">
     <div class="section-head">
       <div>
         <h2>📊 จำลองขาย</h2>
@@ -338,7 +339,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       </div>
     </div>
 
-    <div class="simulate-grid">
+    <div class="simulate-grid" data-tour="gold-simulate">
       <button class="simulate-btn" data-percent="25">ขาย 25%</button>
       <button class="simulate-btn" data-percent="50">ขาย 50%</button>
       <button class="simulate-btn" data-percent="75">ขาย 75%</button>
@@ -349,7 +350,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
       เลือกสัดส่วนเพื่อจำลองการขาย
     </div>
 
-    <div class="override-box gold2go-quote-box">
+    <div class="override-box gold2go-quote-box" data-tour="gold-valuation">
       <div class="quote-head">
         <div>
           <label for="valuationSource">แหล่งราคาที่ใช้คำนวณ P/L</label>
@@ -411,7 +412,7 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     </div>
   </section>
 
-  <section class="gold-card" id="newsCard" hidden>
+  <section class="gold-card" id="newsCard" hidden data-tour="gold-news">
     <div class="section-head">
       <div>
         <h2>📰 ข่าวทอง &amp; เศรษฐกิจ</h2>
@@ -445,7 +446,8 @@ setTimeout(function(){document.documentElement.classList.remove("kfp-restoring")
     });
   }
 </script>
-<script src="planner-nav.js?v=20261119-saas30" data-active="gold"></script>
+<script src="planner-nav.js?v=20261119-saas32" data-active="gold"></script>
 <script src="kfp-support.js?v=20261119-saas31"></script>
+<script src="kfp-tour.js?v=20261119-saas32"></script>
 </body>
 </html>

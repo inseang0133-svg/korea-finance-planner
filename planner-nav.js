@@ -22,7 +22,8 @@
     { q: "work", icon: "attendance", t: "บันทึกการเข้างาน", s: "ชั่วโมงปกติ · OT · วันหยุด", tier: "PLUS" },
     { q: "gold", icon: "gold", t: "บันทึกรอบซื้อทอง", s: "น้ำหนัก · ราคา · ต้นทุน", tier: "PREMIUM" },
     { q: "pay", icon: "coins", t: "บันทึกชำระบัตร / หนี้", s: "ตัดยอดบัตรหรือค่างวด", tier: "PREMIUM" },
-    { q: "support", icon: "chat", t: "ติดต่อแอดมิน / Feedback", s: "แชท ติชม แจ้งปัญหา", sep: true }
+    { q: "support", icon: "chat", t: "ติดต่อแอดมิน / Feedback", s: "แชท ติชม แจ้งปัญหา", sep: true },
+    { q: "help", icon: "compass", t: "วิธีใช้งานเว็บไซต์", s: "ทัวร์แนะนำทีละขั้นตอนบนหน้าจอจริง" }
   ];
   var FEAT = { work: "work_records", gold: "gold_portfolio", pay: "credit_debt" };
 
@@ -40,15 +41,16 @@
     document.body.classList.add("pn-on");
     var bar = document.createElement("nav");
     bar.className = "pn"; bar.setAttribute("aria-label", "เมนูหลัก");
-    bar.innerHTML = '<div class="pn-bar pn-glass"><span class="pn-lens' + (ACTIVE === "none" ? " pn-none" : "") + '" aria-hidden="true"></span>' +
+    bar.innerHTML = '<div class="pn-bar pn-glass" data-tour="nav-bar"><span class="pn-lens' + (ACTIVE === "none" ? " pn-none" : "") + '" aria-hidden="true"></span>' +
       ITEMS.map(function (it) { return item(it, false); }).join("") + "</div>" +
-      '<button type="button" class="pn-add pn-glass" aria-label="บันทึกด่วน" aria-haspopup="true" aria-expanded="false" aria-controls="pnSheet">' + ico("plus") + "</button>";
+      '<button type="button" class="pn-add pn-glass" data-tour="nav-add" aria-label="บันทึกด่วน" aria-haspopup="true" aria-expanded="false" aria-controls="pnSheet">' + ico("plus") + "</button>";
     var side = document.createElement("aside");
     side.className = "pn-side pn-glass"; side.setAttribute("aria-label", "เมนูหลัก");
     side.innerHTML = '<a class="pn-brand" href="index.html"><img src="assets/brand/planner-logo-sm.png" alt="" width="360" height="291"><span><b>PLANNER</b><small>Personal Finance Control Center</small></span></a>' +
-      '<button type="button" class="pn-side-add" aria-haspopup="true" aria-expanded="false" aria-controls="pnSheet">' + ico("plus", "pi-sm") + "บันทึกด่วน</button>" +
-      '<nav class="pn-list" aria-label="หน้า"><span class="pn-lens' + (ACTIVE === "none" ? " pn-none" : "") + '" aria-hidden="true"></span>' + ITEMS.map(function (it) { return item(it, true); }).join("") + "</nav>" +
-      '<div class="pn-foot"><a class="pn-item" data-k="support" href="account.html#support">' + ico("chat", "pi-sm") + "<span>ข้อความถึงแอดมิน</span></a>" +
+      '<button type="button" class="pn-side-add" data-tour="nav-add" aria-haspopup="true" aria-expanded="false" aria-controls="pnSheet">' + ico("plus", "pi-sm") + "บันทึกด่วน</button>" +
+      '<nav class="pn-list" data-tour="nav-side" aria-label="หน้า"><span class="pn-lens' + (ACTIVE === "none" ? " pn-none" : "") + '" aria-hidden="true"></span>' + ITEMS.map(function (it) { return item(it, true); }).join("") + "</nav>" +
+      '<div class="pn-foot"><a class="pn-item" data-k="support" data-tour="nav-support" href="account.html#support">' + ico("chat", "pi-sm") + "<span>ข้อความถึงแอดมิน</span></a>" +
+      '<a class="pn-item" data-k="help" data-tour="nav-help" href="index.html#help" data-tour-open="help">' + ico("compass", "pi-sm") + "<span>วิธีใช้งานเว็บไซต์</span></a>" +
       '<a class="pn-item" href="pricing.html"' + (ACTIVE === "pricing" ? ' aria-current="page"' : "") + ">" + ico("crown", "pi-sm") + "<span>แพ็กเกจและราคา</span></a>" +
       '<a class="pn-item" href="showcase.html">' + ico("sparkle", "pi-sm") + "<span>รู้จัก PLANNER</span></a></div>";
     var scrim = document.createElement("div"); scrim.className = "pn-scrim";
@@ -231,6 +233,7 @@
     if (q === "gold") { if (ACTIVE === "gold") { focusLot(); return; } go("gold.html#quick=gold", 0); return; }
     if (q === "pay") { go("credit-debt.html#quick=pay", 0); return; }
     if (q === "support") { if (window.kfpSupport) window.kfpSupport.open(); else go("account.html#support", 0); return; }
+    if (q === "help") { if (window.KfpTour) window.KfpTour.openHelp(); else go("index.html#help", 0); return; }
   }
   function focusLot() {
     var f = document.getElementById("lotForm"); if (!f || !f.offsetParent) return;

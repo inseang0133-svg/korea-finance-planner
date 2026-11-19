@@ -22,7 +22,7 @@
     <!-- Phase 3: storage isolation must run before every other script -->
     <script src="supabase-config.js?v=20261114-saas13"></script>
     <script src="kfp-demo-data.js?v=20261113-saas5"></script>
-    <script src="kfp-storage.js?v=20261114-saas13"></script>
+    <script src="kfp-storage.js?v=20261119-saas32"></script>
     <!-- Guests land on the Product Showcase; the live demo app stays reachable with ?demo=1 (remembered for this tab) -->
     <script>(function(){try{if(!window.kfpStorage||!kfpStorage.isPreview())return;var q=new URLSearchParams(location.search);
       if(q.get("demo")==="1"){sessionStorage.setItem("kfp_demo","1");return;}
@@ -35,7 +35,7 @@
     <script>try{document.documentElement.setAttribute("data-mode",localStorage.getItem("kfp_mode_v1")==="THB"?"THB":"KRW")}catch(e){}</script>
     <!-- Cloud login layer -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0/dist/umd/supabase.js"></script>
-    <script src="auth.js?v=20261119-saas30"></script>
+    <script src="auth.js?v=20261119-saas32"></script>
     <script src="pwa-persistence.js?v=20261119-saas30"></script>
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/brand/favicon-32.png">
@@ -46,6 +46,7 @@
 <link rel="stylesheet" href="planner-nav.css?v=20261119-saas28">
 <script src="planner-icons.js?v=20261119-saas28"></script>
 <link rel="stylesheet" href="kfp-support.css?v=20261119-saas31">
+<link rel="stylesheet" href="kfp-tour.css?v=20261119-saas32">
 </head>
 <body>
 
@@ -59,14 +60,14 @@
 
     <div class="card" id="salaryCard">
 
-        <div class="mode-switch" id="modeSwitch" role="tablist" aria-label="สกุลเงินของเงินเดือน" data-on="KRW">
+        <div class="mode-switch" id="modeSwitch" data-tour="mode" role="tablist" aria-label="สกุลเงินของเงินเดือน" data-on="KRW">
             <button type="button" role="tab" data-mode="KRW" class="on" aria-selected="true"><b>₩</b> วอน <small>KRW</small></button>
             <button type="button" role="tab" data-mode="THB" aria-selected="false"><b>฿</b> บาท <small>THB</small></button>
             <i class="mode-pill" aria-hidden="true"></i>
         </div>
 
         <div class="only-krw">
-        <label>เงินเดือนสุทธิ (KRW)</label>
+        <label data-tour="salary-label">เงินเดือนสุทธิ (KRW)</label>
         <input
             type="number"
             id="salary"
@@ -76,20 +77,20 @@
     -
 </p>
 
-        <label>อัตราแลกเปลี่ยน (1 KRW = ? THB)</label>
+        <label data-tour="rate-label">อัตราแลกเปลี่ยน (1 KRW = ? THB)</label>
         <input
             type="number"
             step="0.0001"
             id="rate"
             value="0.0240"
             oninput="updateSalaryPreview(); convertCurrency(); renderQuickConvert();">
-            <button class="btn-secondary" onclick="updateExchangeRate()">
+            <button class="btn-secondary" onclick="updateExchangeRate()" data-tour="rate-update">
         🔄 อัปเดตค่าเงินล่าสุด
         </button>
         </div>
 
         <div class="only-thb">
-        <label>เงินเดือนสุทธิ (THB)</label>
+        <label data-tour="salary-thb-label">เงินเดือนสุทธิ (THB)</label>
         <input
             type="number"
             id="salaryThb"
@@ -97,7 +98,7 @@
             placeholder="เช่น 45000">
         </div>
 
-        <div class="btn-row">
+        <div class="btn-row" data-tour="calc">
             <button onclick="calculate()">
                 คำนวณ
             </button>
@@ -105,15 +106,15 @@
                 📅 บันทึกเงินเดือนเดือนนี้
             </button>
         </div>
-        <div class="tool-row" id="toolRow">
-            <button type="button" class="tool-btn tool-work" data-open-tool="work" aria-haspopup="dialog" data-feature="work_records">
+        <div class="tool-row" id="toolRow" data-tour="tools">
+            <button type="button" class="tool-btn tool-work" data-open-tool="work" aria-haspopup="dialog" data-feature="work_records" data-tour="work-record">
                 <span class="ti" aria-hidden="true">🗂️</span> บันทึกการเข้างาน
             </button>
-            <button type="button" class="tool-btn tool-exp" data-open-tool="expense" aria-haspopup="dialog">
+            <button type="button" class="tool-btn tool-exp" data-open-tool="expense" aria-haspopup="dialog" data-tour="expense">
                 <span class="ti" aria-hidden="true">💸</span> รายจ่าย
             </button>
         </div>
-        <a id="debtEntry" class="kfp-debt-entry" href="credit-debt.html" aria-label="Smart Credit &amp; Debt — บัตรเครดิตและหนี้ (Finance Premium)">
+        <a id="debtEntry" class="kfp-debt-entry" data-tour="debt-entry" href="credit-debt.html" aria-label="Smart Credit &amp; Debt — บัตรเครดิตและหนี้ (Finance Premium)">
             <span class="kde-ico" aria-hidden="true">💳</span>
             <span class="kde-txt"><b>Smart Credit &amp; Debt</b><small>บัตรเครดิต · หนี้ผ่อน · แผนปลดหนี้ (฿/₩)</small></span>
             <span class="kde-tag">PREMIUM</span><span class="kde-go" aria-hidden="true">›</span>
@@ -123,13 +124,13 @@
 
     </div>
 
-    <div class="results-head">
+    <div class="results-head" data-tour="results-head">
         <h2 class="results-title">💸 การแบ่งเงินเดือน</h2>
-        <button type="button" class="btn-manage" id="btnManageAlloc" aria-haspopup="dialog">⚙️ จัดการ</button>
+        <button type="button" class="btn-manage" id="btnManageAlloc" data-tour="alloc-manage" aria-haspopup="dialog">⚙️ จัดการ</button>
     </div>
-    <div class="results" id="results"></div>
+    <div class="results" id="results" data-tour="results"></div>
 
-    <div class="card kfp-pie-off" id="pieCard" data-feature="advanced_statistics">
+    <div class="card kfp-pie-off" id="pieCard" data-tour="pie" data-feature="advanced_statistics">
         <h2>🥧 สัดส่วนการเงิน</h2>
         <div class="pie-chart-container">
             <canvas id="pieChart"></canvas>
@@ -138,7 +139,7 @@
         <div class="pie-legend" id="pieLegend" role="list"></div>
     </div>
 
-    <div class="card">
+    <div class="card" data-tour="salary-records">
         <h2>📅 บันทึกเงินเดือนรายเดือน</h2>
         <label>เดือน</label>
         <input type="month" id="salaryMonth">
@@ -155,14 +156,14 @@
                 </select>
         </div>
 
-        <div id="salaryHistory" style="margin-top: 15px;"></div>
+        <div id="salaryHistory" style="margin-top: 15px;" data-tour="salary-history"></div>
     </div>
 
-    <div class="card kfp-locked-card" data-feature-off="advanced_statistics">
+    <div class="card kfp-locked-card" data-feature-off="advanced_statistics" data-tour="stats-locked">
         <div class="kfp-locked-note">📊 <b>สถิติการเงิน กราฟ สัญญาจ้างเกาหลี และเป้าหมายเงินเก็บ</b> มีในแพ็กเกจ Finance Plus · <a href="pricing.html#plus">ดูแพ็กเกจ</a></div>
     </div>
 
-    <div class="card" data-feature="advanced_statistics">
+    <div class="card" data-feature="advanced_statistics" data-tour="stats">
         <h2>📊 สถิติการเงิน</h2>
         <button onclick="exportExcel()" style="margin-bottom: 20px;" data-feature="export">📁 Export Excel</button>
         
@@ -179,7 +180,7 @@
         </div>
     </div>
 
-    <div class="card" data-krw-only data-feature="planning">
+    <div class="card" data-krw-only data-feature="planning" data-tour="contract">
     <h2>สัญญาทำงานเกาหลี</h2>
 
     <label>วันที่เริ่มงาน</label>
@@ -215,7 +216,7 @@
     </button>
 </div>
 
-    <div class="card" data-krw-only>
+    <div class="card" data-krw-only data-tour="converter">
         <h2>💱 ตัวแปลงสกุลเงิน</h2>
         <label>แปลงจาก</label>
         <select id="convertType" onchange="convertCurrency()">
@@ -234,7 +235,7 @@
         <div id="convertResult">-</div>
     </div>
 
-    <div class="card" data-krw-only>
+    <div class="card" data-krw-only data-tour="remit">
         <h2>🏦 คำนวณเงินส่งกลับบ้าน</h2>
         <label>ต้องการให้ปลายทางได้รับ (บาท)</label>
         <input type="number" id="receiveTHB" oninput="calculateRemit()">
@@ -251,7 +252,7 @@
         <div id="remitResult">-</div>
     </div>
 
-    <div class="card" data-feature="planning">
+    <div class="card" data-feature="planning" data-tour="goal">
         <h2>🎯 เป้าหมายเงินเก็บ</h2>
         <label>เป้าหมาย (บาท)</label>
         <input type="number" id="goal" value="2000000">
@@ -274,7 +275,7 @@
 <script src="alloc-ui.js?v=20261109-fix2"></script>
 <script src="ui-charts.js?v=20261109-fix2"></script>
 <script src="ui-fx.js?v=20261109-fix2"></script>
-<script src="tools-ui.js?v=20261115-saas18"></script>
+<script src="tools-ui.js?v=20261119-saas32"></script>
 <script src="kfp-digest.js?v=20261115-saas18"></script>
 <script src="kfp-access.js?v=20261119-saas30"></script>
 <script src="kfp-badge.js?v=20261119-saas30"></script>
@@ -302,7 +303,8 @@ if ('serviceWorker' in navigator) {
     }
 </script>
 -->
-<script src="planner-nav.js?v=20261119-saas30" data-active="home"></script>
+<script src="planner-nav.js?v=20261119-saas32" data-active="home"></script>
 <script src="kfp-support.js?v=20261119-saas31"></script>
+<script src="kfp-tour.js?v=20261119-saas32"></script>
 </body>
 </html>

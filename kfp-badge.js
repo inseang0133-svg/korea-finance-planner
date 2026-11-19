@@ -26,7 +26,7 @@
   }
 
   function render(info) {
-    var show = info && (info.state === "ready" || info.state === "offline") && PLAN[info.plan];
+    var show = info && (info.state === "ready" || info.state === "offline" || info.state === "cached") && PLAN[info.plan];
     var key = show ? info.plan + "|" + (info.adminRole || "") : "";
     if (key === last) return;
     last = key;

@@ -155,7 +155,16 @@
       save();
       setInterval(save, SNAPSHOT_MS);
       window.addEventListener("pagehide", save, {capture:true});
-      window.addEventListener("beforeunload", save, {capture:true});
+      // No beforeunload listener (it disables the instant back/forward cache). Instead, a deletion is
+      // written to the backup straight away, so a reload or tab switch right after it (import / wipe /
+      // logout) can never bring removed data back from an older snapshot.
+      try {
+        const proto = Storage.prototype, rm = proto.removeItem, cl = proto.clear;
+        let queued = false;
+        const soon = () => { if (queued) return; queued = true; queueMicrotask(() => { queued = false; save(); }); };
+        proto.removeItem = function (k) { const r = rm.call(this, k); if (this === LS) soon(); return r; };
+        proto.clear = function () { const r = cl.call(this); if (this === LS) soon(); return r; };
+      } catch (_) {}
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "hidden") save();
       });

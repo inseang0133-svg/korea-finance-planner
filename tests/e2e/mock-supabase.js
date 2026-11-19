@@ -160,7 +160,12 @@
     return {
       auth: auth,
       from: query,
+      // bench control: sessionStorage __mock_rpc_delay = ms (simulated network round trip for every RPC)
       rpc: function (fn, args) {
+        var d = +sessionStorage.getItem("__mock_rpc_delay") || 0, p = this.rpcNow(fn, args);
+        return d ? new Promise(function (r) { setTimeout(function () { r(p); }, d); }) : p;
+      },
+      rpcNow: function (fn, args) {
         log("rpc:" + fn, args);
         if (fn === "is_username_available") return Promise.resolve({ data: S.taken.indexOf(args.p_username) < 0, error: null });
         if (fn === "touch_activity") return Promise.resolve({ data: null, error: null });

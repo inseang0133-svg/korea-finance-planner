@@ -82,13 +82,15 @@ const EMOJI_LEFT = () => {   // known emoji still shown as text in the rendered 
     ok((await page.$eval("#salary", e => e.value)) !== null && (await page.$$eval("input", is => is.every(i => !/[\u{1F300}-\u{1FAFF}]/u.test(i.value || "") || i.classList.contains("al-emoji")))), "input values untouched");
     await shot(page, "n2-mobile");
 
-    console.log("N3 tap → spring → navigate");
+    console.log("N3 tap → lens moves in the same frame → navigate with no artificial wait");
+    await page.evaluate(() => { window.__lensMoved = false; const l = document.querySelector(".pn .pn-lens");
+      new MutationObserver(() => { window.__lensMoved = true; sessionStorage.setItem("__lens_moved", "1"); }).observe(l, { attributes: true, attributeFilter: ["style"] }); });
     { const g = await page.$eval('.pn .pn-item[data-k="gold"]', e => { const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
-      await page.mouse.click(g.x, g.y); }
-    await page.waitForTimeout(150);
-    const mid = await page.evaluate(() => { const l = document.querySelector(".pn .pn-lens").getBoundingClientRect(), g = document.querySelector('.pn .pn-item[data-k="gold"]').getBoundingClientRect(); return Math.abs((l.left + l.width / 2) - (g.left + g.width / 2)); });
-    ok(file(page) === "index.html" && mid < 60, "lens springs toward the tapped tab before the page changes");
-    await page.waitForURL(/gold\.html/, { timeout: 4000 }).catch(() => {});
+      const t0 = Date.now(); await page.mouse.click(g.x, g.y);
+      await page.waitForURL(/gold\.html/, { timeout: 4000 }).catch(() => {});
+      const ms = Date.now() - t0;
+      ok(file(page) === "gold.html" && ms < 600, "navigation starts at once (" + ms + " ms to commit, was ≥ 260 ms delay)"); }
+    ok(await page.evaluate(() => sessionStorage.getItem("__lens_moved") === "1"), "the lens was moved toward the tapped tab before leaving");
     await settle(page, 1200);
     ok(file(page) === "gold.html" && await page.getAttribute('.pn .pn-item[data-k="gold"]', "aria-current") === "page", "gold page opens with the gold tab active");
 

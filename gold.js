@@ -1547,6 +1547,9 @@ function ensureChart(){
   if(chart) return true;
   const el = $("goldChartOz"); if(!el) return false;
   if(!window.LightweightCharts){
+    // the chart library loads async (it no longer blocks the page): draw as soon as it arrives
+    const lib = document.getElementById("lwcLib");
+    if(lib && !lib.__kfpHook){ lib.__kfpHook = 1; lib.addEventListener("load", () => { clearTimeout(chartRetryTimer); chartRetryTimer = null; renderChart(); }); }
     const hint = $("chartHint"); if(hint) hint.textContent = "กำลังโหลดระบบกราฟ…";
     setChartEmpty("กำลังโหลดระบบกราฟ…");
     scheduleChartRetry();

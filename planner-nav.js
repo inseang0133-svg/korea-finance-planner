@@ -68,10 +68,38 @@
   }
 
   /* ---------- navigation with a visible spring before the page changes ---------- */
+  // Leave right away: the lens starts its spring in this frame and keeps moving on screen while the next
+  // page (served from this device by the service worker) loads — no artificial wait.
   function go(href, delay) {
     if (reduce || !delay) { location.href = href; return; }
-    setTimeout(function () { location.href = href; }, delay);
+    requestAnimationFrame(function () { location.href = href; });
   }
+
+  /* ---------- warm the other tabs: once this page is idle, fetch only what the other tabs need and the
+     service-worker cache does not have yet (after an update, or the very first visit) — at most once per tab session ---------- */
+  function warmTabs() {
+    var sw = navigator.serviceWorker && navigator.serviceWorker.controller, c = navigator.connection;
+    if (!sw || !window.caches || (c && (c.saveData || /2g/.test(c.effectiveType || "")))) return;
+    var mark = "__pn_warm_" + (document.querySelector('script[src*="planner-nav.js"]') || {}).src;
+    try { if (sessionStorage.getItem(mark)) return; sessionStorage.setItem(mark, "1"); } catch (_) {}
+    var seen = {}, here = location.pathname.split("/").pop() || "index.html";
+    var pages = ITEMS.map(function (i) { return i.href; }).filter(function (h) { return h !== here; });
+    var missing = function (u) { return caches.match(u).then(function (r) { return !r; }, function () { return true; }); };
+    pages.reduce(function (p, href) {
+      return p.then(function () {
+        return caches.match(href).then(function (hit) { return hit ? hit.text() : fetch(href, { credentials: "same-origin" }).then(function (r) { return r.ok ? r.text() : ""; }); })
+          .then(function (html) {
+            var urls = [], re = /(?:src|href)="([^"#:]+\.(?:js|css|svg|png)(?:\?v=[^"]+)?)"/g, m;
+            while ((m = re.exec(html))) if (!seen[m[1]]) { seen[m[1]] = 1; urls.push(m[1]); }
+            return urls.reduce(function (q, u) {        // one at a time: never compete with what the user is doing
+              return q.then(function () { return missing(u).then(function (need) { return need ? fetch(u, { credentials: "same-origin" }).then(function (r) { return r.blob(); }) : null; }); }).catch(function () {});
+            }, Promise.resolve());
+          }).catch(function () {});
+      });
+    }, Promise.resolve());
+  }
+  function whenIdle(fn) { (window.requestIdleCallback || function (f) { setTimeout(f, 1200); })(fn, { timeout: 4000 }); }
+  window.addEventListener("load", function () { setTimeout(function () { whenIdle(warmTabs); }, 1500); });
   function modified(e) { return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1; }
 
   /* ---------- bottom bar: lens + press-and-slide ---------- */

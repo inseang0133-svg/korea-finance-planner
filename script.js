@@ -907,12 +907,26 @@ async function updateExchangeRate(){
     finally{ __kfpRateBusy = false; }
 }
 
-function exportExcel() {
+// The Excel writer (~900 KB) is only downloaded when someone actually exports — it no longer slows every home visit.
+const KFP_XLSX_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+function kfpLoadXlsx() {
+    if (window.XLSX) return Promise.resolve();
+    if (!kfpLoadXlsx.p) kfpLoadXlsx.p = new Promise((ok, no) => {
+        const s = document.createElement("script"); s.src = KFP_XLSX_URL; s.async = true;
+        s.onload = ok; s.onerror = () => { kfpLoadXlsx.p = null; s.remove(); no(new Error("xlsx_load_failed")); };
+        document.head.appendChild(s);
+    });
+    return kfpLoadXlsx.p;
+}
+
+async function exportExcel() {
     const records = JSON.parse(localStorage.getItem("salaryRecords") || "[]");
     if (records.length === 0) {
         alert("ไม่มีข้อมูลที่จะส่งออก");
         return;
     }
+    try { await kfpLoadXlsx(); }
+    catch (_) { alert("โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วลองอีกครั้ง"); return; }
 
     const cats = kfpLoadAlloc();
     const anyKrw = records.some(item => kfpRecKrw(item) > 0);

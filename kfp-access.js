@@ -197,7 +197,7 @@
   var ENT_CACHE_KEY = "__kfp_ent_cache_v1";          // per-account (namespaced by kfp-storage.js)
   var ENT_TIMEOUT_MS = 8000;
   var html = document.documentElement;
-  // state: preview | loading | ready | offline | unconfigured
+  // state: preview | loading | cached (last server answer, until the live one arrives) | ready | offline | unconfigured
   var PLAN = { state: isPreview() ? "preview" : "loading", ent: null };
 
   function canUseFeature(key) {
@@ -455,7 +455,11 @@
     });
   }
   buildGoldGate();
-  renderFeaturesByPlan(null, isPreview() ? "preview" : "loading");
+  // Instant paint: show the last answer the SERVER gave this account (≤ 7 days, same user) right away as
+  // state "cached", then replace it with the live answer a moment later. Display only — every server call
+  // (gold sync, debt RPCs, admin, billing) still waits for state "ready" and the server enforces access itself.
+  var WARM = !isPreview() ? readCache() : null;
+  renderFeaturesByPlan(WARM, isPreview() ? "preview" : (WARM ? "cached" : "loading"));
   if (!isPreview()) {
     window.addEventListener("kfp:auth-ready", loadEntitlements);
     loadEntitlements();                                         // if auth.js was already ready

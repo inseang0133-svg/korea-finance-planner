@@ -322,7 +322,7 @@
     const b = document.createElement("b"); b.textContent = "💎 " + (info.planName || info.plan); el.appendChild(b);
     if (why || until) el.appendChild(document.createTextNode(" · " + [why, until ? "ถึง " + until : ""].filter(Boolean).join(" · ")));
     if (info.plan !== "premium") { const a = document.createElement("a"); a.href = "pricing.html"; a.textContent = "อัปเกรด"; el.appendChild(a); }
-    if (info.state === "ready" || info.state === "offline") { const m = document.createElement("a"); m.href = "account.html"; m.id = "kfpBillingLink"; m.textContent = "แพ็กเกจและใบเสร็จ"; el.appendChild(m); }
+    if (info.state === "ready" || info.state === "offline" || info.state === "cached") { const m = document.createElement("a"); m.href = "account.html"; m.id = "kfpBillingLink"; m.textContent = "แพ็กเกจและใบเสร็จ"; el.appendChild(m); }
     el.hidden = false;
     renderDebtLink(info, el);
     renderAdminButton(info, el);
@@ -340,7 +340,7 @@
   // Smart Credit & Debt (Premium; read-only after expiry) — navigation only, the page asks the server for the mode
   function renderDebtLink(info, el) {
     let a = document.getElementById("kfpDebtLink");
-    if (!info || (info.state !== "ready" && info.state !== "offline") || !currentUser) { if (a) a.remove(); return; }
+    if (!info || (info.state !== "ready" && info.state !== "offline" && info.state !== "cached") || !currentUser) { if (a) a.remove(); return; }
     if (!a) { a = document.createElement("a"); a.id = "kfpDebtLink"; a.href = "credit-debt.html"; el.insertAdjacentElement("afterend", a); }
     const has = !!(info.features && info.features.credit_debt);
     a.innerHTML = '<span aria-hidden="true">💳</span><span>Smart Credit &amp; Debt · บัตรเครดิตและหนี้</span><small>' + (has ? "เปิด ›" : "PREMIUM") + "</small>";
@@ -359,7 +359,7 @@
         '</span></span><small>' + r.sub + '</small></span><span class="kab-go">' + ICON_ARROW + "</span>";
       if (!cur) el.insertAdjacentElement("afterend", a);
     };
-    if (!info || (info.state !== "ready" && info.state !== "offline")) { if (old) old.remove(); return; }
+    if (!info || (info.state !== "ready" && info.state !== "offline" && info.state !== "cached")) { if (old) old.remove(); return; }
     if (info.adminRole) { draw(info.adminRole); return; }
     // older database (no admin_role in get_my_entitlements yet): ask is_admin once
     if (info.state !== "ready" || !supabase) { if (old) old.remove(); return; }

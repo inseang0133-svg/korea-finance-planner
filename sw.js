@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-pwa-20261119-saas28';
-const API_CACHE_NAME = 'korea-finance-api-20261119-saas28';
+const CACHE_NAME = 'korea-finance-pwa-20261119-saas30';
+const API_CACHE_NAME = 'korea-finance-api-20261119-saas30';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',
@@ -52,35 +52,88 @@ async function updateApiCache(request,key) {
     if(response&&response.ok){const cache=await caches.open(API_CACHE_NAME);await cache.put(key,response.clone());}
   } catch(_){}
 }
+// Precache with cache:'reload' so a new service worker never stores a stale copy from the HTTP cache.
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME)
+    .then(cache=>Promise.all(ASSETS.map(a=>cache.add(new Request(a,{cache:'reload'})).catch(()=>{}))))
+    .then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(
     keys.filter(key=>key!==CACHE_NAME&&key!==API_CACHE_NAME).map(key=>caches.delete(key))
   )).then(()=>self.clients.claim()));
 });
+
+// ---- speed: app pages open from this device, then refresh quietly in the background ----
+const APP_PAGES=new Set(['index.html','gold.html','credit-debt.html','account.html','pricing.html','showcase.html']);
+function pageKey(url){ const f=url.pathname.split('/').pop()||'index.html'; return APP_PAGES.has(f)?f:null; }
+// Cache writes only ever store a body that is ALREADY downloaded: Cache API operations queue behind each other,
+// so streaming a slow network body into cache.put() would make the next instant cache hit wait for it.
+// Bodies are always read to the end (an unread network body keeps its connection busy).
+async function buffered(response){
+  const buf=await response.arrayBuffer();
+  const init={status:response.status,statusText:response.statusText,headers:response.headers};
+  return { save:()=>new Response(buf,init), give:()=>new Response(buf,init) };
+}
+async function store(cache,key,response){
+  try{ const b=await buffered(response); await cache.put(key,b.save()); return b.give(); }catch(_){ return null; }
+}
+const lastCheck=new Map();                         // background refresh of the same file at most once a minute
+async function revalidate(cache,key,request){
+  const k=typeof key==='string'?key:key.url, now=Date.now();
+  if(lastCheck.has(k)&&now-lastCheck.get(k)<60000) return null;
+  lastCheck.set(k,now);
+  try{
+    const r=await fetch(typeof request==='string'?request:request.url,{cache:'no-store',credentials:'same-origin'});
+    if(r&&r.ok&&r.type==='basic') return await store(cache,key,r);
+    return r;
+  }catch(_){ lastCheck.delete(k); return null; }
+}
+
 self.addEventListener('fetch',event=>{
   const request=event.request;
   if(!isGet(request))return;
-  // Admin Console is never cached (always the live version, nothing kept on shared devices).
-  try{ if(/\/admin\.(html|js|css)$/.test(new URL(request.url).pathname)) return; }catch(_){}
+  let url; try{ url=new URL(request.url); }catch(_){ return; }
+  // Admin Console + sign-in callback are never cached (always live; nothing kept on shared devices).
+  if(url.origin===self.location.origin&&/\/(admin\.(html|js|css)|auth-callback\.html)$/.test(url.pathname)) return;
 
-  // Local HTML/CSS/JS: NETWORK FIRST. This prevents an installed PWA from
-  // continuing to run an old gold.js/gold.css after a deployment.
-  if(request.mode==='navigate'||request.destination==='document'||isLocalAsset(request)){
-    event.respondWith((async()=>{
-      const cache=await caches.open(CACHE_NAME);
-      try{
-        const response=await fetch(request,{cache:'no-store'});
-        if(response&&response.ok)await cache.put(request,response.clone());
-        return response;
-      }catch(_){
-        const cached=await cache.match(request)||await cache.match(new URL(request.url).pathname);
-        return cached||Response.error();
-      }
-    })());
-    return;
+  if(url.origin===self.location.origin){
+    // 1) App pages (index/gold/credit-debt/account/pricing/showcase): stale-while-revalidate.
+    //    Open instantly from the cache; the fresh copy is stored for the next visit. A new deployment
+    //    (new sw.js) re-precaches everything, so updates land on the next tab switch.
+    const key=(request.mode==='navigate'||request.destination==='document')?pageKey(url):null;
+    if(key){
+      event.respondWith((async()=>{
+        const cache=await caches.open(CACHE_NAME);
+        const cached=await cache.match(key);
+        if(cached){ event.waitUntil(revalidate(cache,key,request)); return cached; }
+        lastCheck.delete(key);
+        return (await revalidate(cache,key,request))||(await cache.match(key))||Response.error();
+      })());
+      return;
+    }
+    // 2) Versioned files (?v=…) never change → cache first, by exact URL.
+    if(url.searchParams.has('v')){
+      event.respondWith((async()=>{
+        const cache=await caches.open(CACHE_NAME);
+        const hit=await cache.match(request);
+        if(hit) return hit;
+        try{ const r=await fetch(request); if(r&&r.ok&&r.type==='basic') return (await store(cache,request,r))||r; return r; }
+        catch(_){ return (await cache.match(request,{ignoreSearch:true}))||Response.error(); }
+      })());
+      return;
+    }
+    // 3) Other local files (icons, logo, manifest, other pages): cache first, refresh in background.
+    if(request.mode==='navigate'||request.destination==='document'||isLocalAsset(request)||url.pathname.includes('/assets/')||url.pathname.endsWith('.ico')){
+      event.respondWith((async()=>{
+        const cache=await caches.open(CACHE_NAME);
+        const hit=await cache.match(request,{ignoreSearch:true});
+        if(hit){ event.waitUntil(revalidate(cache,request,request)); return hit; }
+        lastCheck.delete(request.url);
+        return (await revalidate(cache,request,request))||Response.error();
+      })());
+      return;
+    }
   }
 
   // APIs: NETWORK FIRST (6s timeout) -> cache only when the network fails.

@@ -191,7 +191,7 @@ async function login(page, id, pw) {
     await page.waitForSelector("#kfpAuthButton"); await settle(page, 1200);
     ok(await page.inputValue("#salary") === "1800000", "imported data now used by the account");
     R = await real(page);
-    ok(!Object.keys(R).some(k => k.startsWith("kfp:device:")), "device stash consumed");
+    ok(!Object.keys(R).some(k => k.startsWith("kfp:device:")), "device stash consumed " + JSON.stringify(Object.keys(R).filter(k => k.startsWith("kfp:device:"))));
     ok(JSON.parse(R["kfp:u:u-real:__kfp_sys_before_import"]).data.salary === "2650000", "previous account data backed up before import");
 
     console.log("P9 PWA backup never resurrects old personal keys (R4); namespaced keys still restore");

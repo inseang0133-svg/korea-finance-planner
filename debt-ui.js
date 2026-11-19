@@ -42,7 +42,7 @@
   function monthName(ym) { try { return new Date(ym + '-01T00:00:00').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }); } catch (_) { return ym; } }
   function pct(x) { return x === null || x === undefined ? '-' : (Math.round(x * 1000) / 10) + '%'; }
   function bp(x) { return (Math.round(D.int(x)) / 100).toString().replace(/\.0+$/, '') + '%'; }
-  function canWrite() { return S.access.mode === 'full' && !S.demo; }
+  function canWrite() { return S.access.mode === 'full' && !S.demo && !S.warm; }   // warm (cached) paint is read-only until the live answer arrives
   function viewData() { return S.demo ? demoData() : S.data; }
   function cards(cur) { return viewData().credit_cards.filter(function (c) { return !cur || c.currency === cur; }); }
   function plans(cur) { return viewData().installment_plans.filter(function (p) { return !cur || p.currency === cur; }); }
@@ -102,17 +102,24 @@
 
   /* ------------------------------------------------------------ load */
   function load(quiet) {
-    if (!quiet) { S.access = { mode: 'loading' }; render(); }
+    if (!quiet) {
+      // instant paint from this account's last snapshot (same data the offline view uses), then refresh live
+      var warm = !S.live && API.cached && API.cached();             // only before the first live answer of this page
+      if (warm && warm.access && warm.access.mode && !/^(guest|locked|loading|error|offline)$/.test(warm.access.mode)) {
+        S.access = warm.access; S.data = warm.data; S.cachedAt = warm.cachedAt; S.warm = true; S.demo = false; render();
+      } else { S.access = { mode: 'loading' }; render(); }
+    }
     return API.load().then(function (r) {
       if (r.pending) {                                   // signed in on this device, auth still starting → wait for kfp:auth-ready
         clearTimeout(load._w); load._w = setTimeout(function () { if (S.access.mode === 'loading') { S.error = 'เชื่อมต่อบัญชีไม่สำเร็จ'; S.access = { mode: 'error' }; render(); } }, 12000);
         return;
       }
       clearTimeout(load._w);
-      S.access = r.access || { mode: 'locked' }; S.data = r.data; S.offline = !!r.offline; S.cachedAt = r.cachedAt || null; S.error = null;
+      S.access = r.access || { mode: 'locked' }; S.data = r.data; S.offline = !!r.offline; S.cachedAt = r.cachedAt || null; S.error = null; S.warm = false; S.live = true;
       if (S.access.mode !== 'guest' && S.access.mode !== 'locked') S.demo = false;
       render(); quickFromHash();
-    }, function (e) { S.error = API.message(e); S.access = { mode: 'error' }; render(); });
+    }, function (e) { if (S.warm && API.code(e) === 'network') { S.offline = true; S.access = Object.assign({}, S.access, { mode: 'offline', was: S.access.mode }); S.warm = false; render(); return; }
+      S.error = API.message(e); S.access = { mode: 'error' }; render(); });
   }
   /* quick action from the app's "+ บันทึก" menu (credit-debt.html#quick=pay) — same write gate as the buttons */
   function quickFromHash() {

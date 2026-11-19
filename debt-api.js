@@ -106,6 +106,7 @@
 
   window.kfpDebtApi = {
     EMPTY: EMPTY, uuid: uuid, message: message, code: code, load: load, isPreview: isPreview,
+    cached: function () { if (isPreview()) return null; var c = readCache(); return c ? { access: c.access, data: normalize(c.data), cachedAt: c.at } : null; },
     saveCard: function (p) { return rpc('debt_save_card', { p: p }); },
     setCardStatus: function (id, st, v) { return rpc('debt_set_card_status', { p_id: id, p_status: st, p_base_version: v }); },
     deleteCard: function (id) { return rpc('debt_delete_card', { p_id: id }); },

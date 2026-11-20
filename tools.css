@@ -55,7 +55,7 @@ html[data-mode="THB"] .tool-row .tool-work{display:none}
 .tl-mbtn.gold .tl-chev{color:#1a1300}
 
 /* สเต็ป */
-.tl-steps{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 18px;padding:0}
+.tl-steps{list-style:none;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;margin:0 0 18px;padding:0}
 .tl-steps li{display:grid;justify-items:center;gap:4px;font-size:11.5px;color:var(--muted);position:relative}
 .tl-steps li i{font-style:normal;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);transition:.3s}
 .tl-steps li::before{content:"";position:absolute;top:13px;left:-50%;width:100%;height:2px;background:rgba(255,255,255,.09);z-index:0}
@@ -87,6 +87,22 @@ html[data-mode="THB"] .tool-row .tool-work{display:none}
 .tl-modal .tl-card .tl-stepper button{margin:0;width:64px;min-height:56px;border-radius:16px;font-size:26px;font-weight:500;background:rgba(232,190,70,.12) !important;color:var(--gold-light) !important;border:1px solid rgba(232,190,70,.4) !important;box-shadow:none !important}
 .tl-modal .tl-card .tl-stepper button:active{transform:scale(.92)}
 .tl-sval{text-align:center;display:grid}
+.tl-modal .tl-card .tl-stepper button{display:grid;place-items:center;align-content:center;gap:0;line-height:1}
+.tl-modal .tl-card .tl-stepper button small{font-size:11px;font-weight:600;opacity:.75;margin-top:2px}
+.tl-modal .tl-card .tl-stepper button:disabled{opacity:.35}
+.tl-modal .tl-card .tl-chip.none{font-size:15px}
+.tl-modal .tl-card .tl-chip:disabled{opacity:.3;pointer-events:none}
+.tl-modal .tl-card .tl-def{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:0 0 6px;min-height:46px;border-radius:14px;font-size:14.5px;font-weight:600;
+  background:transparent !important;color:var(--gold-light) !important;border:1px dashed rgba(232,190,70,.55) !important;box-shadow:none !important}
+.tl-modal .tl-card .tl-def i{font-style:normal;font-size:17px}
+.tl-modal .tl-card .tl-def.on{border-style:solid !important;background:rgba(232,190,70,.1) !important;color:#f5f2ea !important}
+.tl-modal .tl-card .tl-def.on i{color:var(--gold)}
+.tl-hint.def{font-size:12px;margin:0 0 12px}
+.tl-defs{display:grid;gap:2px;margin:6px 0 12px;padding:12px 14px;border-radius:14px;background:rgba(232,190,70,.07);border:1px solid rgba(232,190,70,.25)}
+.tl-defs span{font-size:12px;color:var(--muted)}
+.tl-defs b{font-size:15px;color:var(--gold-light)}
+.tl-defs small{font-size:11.5px;color:var(--muted)}
+.tl-rrow b small{font-weight:400;color:var(--muted);font-size:11.5px}
 .tl-sval b{font-size:36px;line-height:1.05;color:var(--gold-light);text-shadow:0 0 26px rgba(232,190,70,.5);font-variant-numeric:tabular-nums}
 .tl-sval small{color:var(--muted);font-size:12px}
 .tl-hint{margin:0 0 12px;text-align:center;font-size:13px;color:var(--muted)}
@@ -148,6 +164,7 @@ html[data-mode="THB"] .tool-row .tool-work{display:none}
 /* สรุปรายได้ */
 .tl-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
 .tl-kpis.two{grid-template-columns:1fr 1fr;margin-bottom:0}
+.tl-kpis.four{grid-template-columns:repeat(4,1fr)}
 .tl-kpis>div{display:grid;justify-items:center;gap:1px;padding:12px 6px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08)}
 .tl-kpis small{font-size:11.5px;color:var(--muted);text-align:center}
 .tl-kpis b{font-size:22px;color:var(--gold-light);font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere;text-align:center}

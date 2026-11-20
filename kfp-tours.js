@@ -164,7 +164,7 @@
   /* ================================================================ 4. บันทึกการเข้างาน */
   var WORK_FX = function () {
     var s = settings();
-    return [["รายได้ปกติ", "ชั่วโมงปกติ × ค่าแรง/ชม. × ตัวคูณปกติ (" + x(s.normal) + ")"], ["รายได้ OT", "ชั่วโมง OT × ค่าแรง/ชม. × ตัวคูณ OT (" + x(s.ot) + ")"], ["รวมต่อวัน", "รายได้ปกติ + รายได้ OT (ปัดเป็นวอนเต็ม)"]];
+    return [["รายได้ปกติ", "ชั่วโมงปกติ × ค่าแรง/ชม. × ตัวคูณปกติ (" + x(s.normal) + ")"], ["รายได้ OT", "ชั่วโมง OT × ค่าแรง/ชม. × ตัวคูณ OT (" + x(s.ot) + ")"], ["เงินเพิ่มกลางคืน", "ชั่วโมง 22:00–06:00 × ค่าแรง/ชม. × " + num(s.night)], ["รวมต่อวัน", "รายได้ปกติ + รายได้ OT + เงินเพิ่มกลางคืน (ปัดเป็นวอนเต็ม)"]];
   };
   T.register({
     id: "work", icon: "attendance", page: "home", feature: "work_records", featurePlan: "Finance Plus",
@@ -196,14 +196,17 @@
         note: "หน้าจอนี้เป็นตัวอย่างระหว่างแนะนำ ยังไม่มีการบันทึก" },
       { section: "ขั้นตอนบันทึก", when: canWork, before: function () { return workExample("whours"); }, union: [".tl-modal.open .tl-chips", ".tl-modal.open .tl-stepper"],
         title: "2 · ชั่วโมงทำงานปกติ",
-        facts: [["กรอก", "ชั่วโมงทำงานปกติของวันนั้น <b>ไม่รวม OT</b>"], ["รูปแบบ", "แตะตัวเลขสำเร็จรูป หรือปุ่ม − / + ทีละ 0.5 ชั่วโมง (0–24)"], ["ใช้คำนวณ", "รายได้ปกติ"]] },
+        facts: [["กรอก", "ชั่วโมงทำงานปกติของวันนั้น <b>ไม่รวม OT</b>"], ["รูปแบบ", "แตะตัวเลขสำเร็จรูป หรือปุ่ม − / + ทีละ 0.5 ชั่วโมง"], ["ค่าเริ่มต้น", "กด <b>☆ ตั้งเป็นค่าเริ่มต้น</b> ครั้งหน้าจะเลือกไว้ให้ กดถัดไปได้เลย"]] },
       { section: "ขั้นตอนบันทึก", when: canWork, before: function () { return workExample("wot"); }, union: [".tl-modal.open .tl-chips", ".tl-modal.open .tl-stepper"],
         title: "3 · ชั่วโมง OT",
-        facts: function () { return [["กรอก", "ชั่วโมงล่วงเวลา ถ้าไม่มีเลือก 0"], ["ตัวคูณ", "วันปกติใช้ OT " + x(settings().ot) + " · เสาร์-อาทิตย์/วันหยุดใช้ตัวคูณของวันนั้น"],
-                ["ใช้คำนวณ", "รายได้ OT"]]; } },
+        facts: function () { return [["กรอก", "ชั่วโมงล่วงเวลา ไม่มีกด <b>ไม่มี</b> · มีเศษเช่น 2.5 ใช้ − / +"], ["ตัวคูณ", "วันปกติใช้ OT " + x(settings().ot) + " · เสาร์-อาทิตย์/วันหยุดใช้ตัวคูณของวันนั้น"],
+                ["ค่าเริ่มต้น", "ตั้งได้เหมือนชั่วโมงปกติ"]]; } },
+      { section: "ขั้นตอนบันทึก", when: canWork, before: function () { return workExample("wnight"); }, union: [".tl-modal.open .tl-chips", ".tl-modal.open .tl-stepper"],
+        title: "4 · ชั่วโมงกลางคืน",
+        facts: function () { return [["กรอก", "ชั่วโมงที่ทำช่วง 22:00–06:00 (นับอยู่ในชั่วโมงปกติ/OT แล้ว) · ไม่มีกด <b>ไม่มี</b>"], ["ได้เพิ่ม", "ค่าแรง × " + num(settings().night) + " ต่อชั่วโมง (야간근로수당)"]]; } },
       { section: "ค่าแรง", when: canWork, before: function () { return workView("wset"); },
         target: function () { return ["sWage", "sOt"].map(function (id) { var i = d.getElementById(id); return i && i.closest(".tl-field"); }); },
-        title: "4 · ค่าแรงและตัวคูณ (ตั้งค่า)",
+        title: "5 · ค่าแรงและตัวคูณ (ตั้งค่า)",
         facts: function () {
           var s = settings();
           return [["ค่าแรง", "<b>" + fmt(s.wage) + " ₩</b> ต่อชั่วโมง (ค่าที่ตั้งไว้ตอนนี้)"], ["ตัวคูณ", "ปกติ " + x(s.normal) + " · OT " + x(s.ot) + " · Weekend " + x(s.weekend) + " · Holiday " + x(s.holiday) + " (ช่องถัดลงไป)"],
@@ -211,7 +214,7 @@
         } },
       { section: "คำนวณ", when: canWork, before: function () { return workExample("wconfirm"); },
         target: function () { var rows = d.querySelectorAll(".tl-modal.open .tl-receipt .tl-rrow"), t = d.querySelector(".tl-modal.open .tl-total"); return rows.length > 4 ? [rows[4], t] : [t]; },
-        title: "5 · ระบบคำนวณรายได้",
+        title: "6 · ระบบคำนวณรายได้",
         formula: WORK_FX,
         example: function () {
           var t = tools(); if (!t) return "";
@@ -219,11 +222,11 @@
           return "ตัวอย่าง วันปกติ 8 ชม. + OT 2 ชม.: 8 × " + fmt(s.wage) + " × " + num(s.normal) + " = " + fmt(r.regInc) + " ₩ · 2 × " + fmt(s.wage) + " × " + num(s.ot) + " = " + fmt(r.otInc) + " ₩ → <b>รวม " + fmt(r.krw) + " ₩</b>";
         },
         note: "เสาร์-อาทิตย์และวันหยุดใช้ตัวคูณของวันนั้นแทนทั้งชั่วโมงปกติและ OT" },
-      { section: "คำนวณ", when: canWork, before: function () { return workExample("wconfirm"); }, union: [".tl-modal.open .tl-total", ".tl-modal.open .tl-rrow.dim"], title: "6 · แปลงเป็นเงินบาท",
+      { section: "คำนวณ", when: canWork, before: function () { return workExample("wconfirm"); }, union: [".tl-modal.open .tl-total", ".tl-modal.open .tl-rrow.dim"], title: "7 · แปลงเป็นเงินบาท",
         formula: [["≈ บาท", "รวม (KRW) × เรต"]],
         example: function () { var t = tools(); if (!t) return ""; var r = t.calc("normal", 8, 2), rt = t.rate(); return fmt(r.krw) + " ₩ × " + rt.toFixed(4) + " ≈ <b>" + fmt(r.krw * rt, 2) + " ฿</b>"; },
         note: "เรตมาจากช่องอัตราแลกเปลี่ยนบนหน้าหลัก และถูก<b>ล็อกไว้กับวันนั้น</b>ตอนบันทึก" },
-      { section: "คำนวณ", when: canWork, before: function () { return workExample("wconfirm"); }, target: ".tl-modal.open .tl-actions", title: "7 · บันทึก แล้วข้อมูลไปไหน",
+      { section: "คำนวณ", when: canWork, before: function () { return workExample("wconfirm"); }, target: ".tl-modal.open .tl-actions", title: "8 · บันทึก แล้วข้อมูลไปไหน",
         text: "<p>กด <b>บันทึก</b> แล้ววันนั้นจะไปอยู่ใน<b>ประวัติการทำงาน</b> และถูกรวมใน<b>สรุปรายได้</b>ของเดือนทันที · บันทึกวันเดิมซ้ำ = อัปเดตทับ</p>",
         flow: ["บันทึก", "ประวัติการทำงาน", "สรุปรายได้ประจำเดือน"] },
       { when: canWork, before: function () { return workView("wcal", { calMode: "hist", calYM: ym() }); }, union: [".tl-modal.open .tl-cal", ".tl-modal.open .tl-legend"],

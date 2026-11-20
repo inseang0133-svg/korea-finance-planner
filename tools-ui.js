@@ -19,7 +19,8 @@
   var THAI_MONTHS = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
   var TYPE_NAMES = { normal: "🏭 วันปกติ", weekend: "🗓 เสาร์ / อาทิตย์", holiday: "🎌 วันหยุด", day_off: "💤 วันหยุดงาน" };
   var TYPE_DESC = { normal: "ชั่วโมงปกติ + OT", weekend: "คิดตัวคูณ Weekend ทั้งวัน", holiday: "คิดตัวคูณ Holiday ทั้งวัน", day_off: "ไม่มีรายได้" };
-  var DEFAULT_SET = { wage: 10320, normal: 1, ot: 1.5, weekend: 1.5, holiday: 1.5 };
+  var DEFAULT_SET = { wage: 10320, normal: 1, ot: 1.5, weekend: 1.5, holiday: 1.5, night: 0.5 };
+  var DEFAULT_HOURS = { defReg: 8, defOt: 0, defNight: 0 };   // ชั่วโมงที่เลือกไว้ให้ก่อน (ผู้ใช้ตั้งเองด้วยปุ่ม “ตั้งเป็นค่าเริ่มต้น”)
 
   /* ---------------- helpers ---------------- */
   var esc = function (s) { return window.kfpEsc ? window.kfpEsc(s) : String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]; }); };
@@ -53,7 +54,16 @@
     try { if (typeof kfpClearDeleted === "function") kfpClearDeleted(key); } catch (_) {}
     try { if (typeof kfpPersistNow === "function") kfpPersistNow(); } catch (_) {}
   }
-  function settings() { var s = load(K_SET, null) || {}; var nd = Math.round(num(s.notifyDay)); return { wage: num(s.wage) > 0 ? num(s.wage) : DEFAULT_SET.wage, normal: s.normal > 0 ? +s.normal : DEFAULT_SET.normal, ot: s.ot > 0 ? +s.ot : DEFAULT_SET.ot, weekend: s.weekend > 0 ? +s.weekend : DEFAULT_SET.weekend, holiday: s.holiday > 0 ? +s.holiday : DEFAULT_SET.holiday, notifyDay: nd >= 1 && nd <= 31 ? nd : 0 }; }
+  function hoursOk(v, lo) { if (v == null || v === "" || typeof v === "boolean") return false; v = num(v); return v >= lo && v <= 24 && Math.round(v * 2) === v * 2; }
+  function settings() {
+    var s = load(K_SET, null) || {}; var nd = Math.round(num(s.notifyDay));
+    return { wage: num(s.wage) > 0 ? num(s.wage) : DEFAULT_SET.wage, normal: s.normal > 0 ? +s.normal : DEFAULT_SET.normal, ot: s.ot > 0 ? +s.ot : DEFAULT_SET.ot, weekend: s.weekend > 0 ? +s.weekend : DEFAULT_SET.weekend, holiday: s.holiday > 0 ? +s.holiday : DEFAULT_SET.holiday,
+      night: s.night != null && num(s.night) >= 0 && s.night !== "" ? num(s.night) : DEFAULT_SET.night,
+      notifyDay: nd >= 1 && nd <= 31 ? nd : 0,
+      defReg: hoursOk(s.defReg, 0.5) ? +s.defReg : DEFAULT_HOURS.defReg, defOt: hoursOk(s.defOt, 0) ? +s.defOt : DEFAULT_HOURS.defOt, defNight: hoursOk(s.defNight, 0) ? +s.defNight : DEFAULT_HOURS.defNight };
+  }
+  // keep everything already saved (defaults, notify day …) and change only the given fields
+  function saveSettings(patch) { var cur = load(K_SET, null); cur = cur && typeof cur === "object" ? cur : {}; store(K_SET, Object.assign({}, cur, patch)); }
   function records() { var r = load(K_REC, []); return Array.isArray(r) ? r : []; }
   function deductions() { var r = load(K_DED, []); return Array.isArray(r) ? r : []; }
   function expenses() { var r = load(K_EXP, []); return Array.isArray(r) ? r : []; }
@@ -62,15 +72,20 @@
   function mode() { return (typeof kfpGetMode === "function" ? kfpGetMode() : "KRW"); }
 
   /* ---------------- คำนวณรายได้ 1 วัน (พอร์ตจาก work.py) ---------------- */
-  function calcWork(type, reg, ot, s) {
-    var out = { type: type, reg: reg, ot: ot, wage: s.wage, regMul: 0, otMul: 0, regInc: 0, otInc: 0, krw: 0 };
+  // ตามสลิปเงินเดือนเกาหลี: 기본급 = ชม.ปกติ × ค่าแรง · 연장 = OT × ค่าแรง × 1.5 · 휴일 = ชม.วันหยุด × ค่าแรง × 1.5
+  // 야간 (22:00–06:00) = ชม.กลางคืน × ค่าแรง × 0.5 — เป็น “เงินเพิ่ม” บนชั่วโมงที่นับอยู่ในปกติ/OT แล้ว
+  function calcWork(type, reg, ot, s, night) {
+    night = Math.max(0, Math.min(num(night), num(reg) + num(ot)));
+    var out = { type: type, reg: reg, ot: ot, night: 0, wage: s.wage, regMul: 0, otMul: 0, nightMul: 0, regInc: 0, otInc: 0, nightInc: 0, krw: 0 };
     if (type === "day_off") return out;
+    out.night = night; out.nightMul = s.night;
+    out.nightInc = roundKrw(night * s.wage * s.night);
     if (type === "normal") { out.regMul = s.normal; out.otMul = s.ot; }
     else if (type === "weekend") { out.regMul = out.otMul = s.weekend; }
     else { out.regMul = out.otMul = s.holiday; }
     out.regInc = roundKrw(reg * s.wage * out.regMul);
     out.otInc = roundKrw(ot * s.wage * out.otMul);
-    out.krw = out.regInc + out.otInc;
+    out.krw = out.regInc + out.otInc + out.nightInc;
     return out;
   }
 
@@ -177,6 +192,7 @@
       case "wtype": h = vType(); break;
       case "whours": h = vHours(); break;
       case "wot": h = vOt(); break;
+      case "wnight": h = vNight(); break;
       case "wconfirm": h = vConfirm(); break;
       case "wcal": h = vCal(); break;
       case "wdetail": h = vDetail(); break;
@@ -211,7 +227,7 @@
   }
 
   function steps(n) {
-    var labels = ["ประเภท", "ชั่วโมง", "OT", "ยืนยัน"];
+    var labels = ["ประเภท", "ชั่วโมง", "OT", "กลางคืน", "ยืนยัน"];
     return '<ol class="tl-steps">' + labels.map(function (l, i) {
       return '<li class="' + (i + 1 < n ? "done" : i + 1 === n ? "now" : "") + '"><i>' + (i + 1 < n ? "✓" : i + 1) + "</i><span>" + l + "</span></li>";
     }).join("") + "</ol>";
@@ -226,39 +242,60 @@
     return h;
   }
 
-  function stepper(kind, cur, opts) {
-    var chips = opts.map(function (v) { return '<button type="button" class="tl-chip' + (+v === cur ? " sel" : "") + '" data-act="' + kind + '-set" data-v="' + v + '">' + v + "</button>"; }).join("");
+  // o: { zero: "ไม่มี" (label for 0), max: hours, def: saved default, defLabel }
+  function stepper(kind, cur, opts, o) {
+    o = o || {};
+    var lbl = function (v) { return +v === 0 && o.zero ? o.zero : hrs(v); };
+    var chips = opts.map(function (v) {
+      var off = o.max != null && +v > o.max;
+      return '<button type="button" class="tl-chip' + (+v === cur ? " sel" : "") + (+v === 0 && o.zero ? " none" : "") + '" data-act="' + kind + '-set" data-v="' + v + '"' + (off ? " disabled" : "") + ">" + lbl(v) + "</button>";
+    }).join("");
+    var isDef = +cur === +o.def;
     return '<div class="tl-chips">' + chips + "</div>" +
-      '<div class="tl-stepper"><button type="button" data-act="' + kind + '-adj" data-v="-0.5" aria-label="ลด 0.5">−</button>' +
-      '<div class="tl-sval"><b id="tlSv">' + hrs(cur) + '</b><small>ชั่วโมง</small></div>' +
-      '<button type="button" data-act="' + kind + '-adj" data-v="0.5" aria-label="เพิ่ม 0.5">+</button></div>';
+      '<div class="tl-stepper"><button type="button" data-act="' + kind + '-adj" data-v="-0.5" aria-label="ลด 0.5 ชั่วโมง"' + (cur <= (o.min || 0) ? " disabled" : "") + '>−<small>0.5</small></button>' +
+      '<div class="tl-sval"><b id="tlSv">' + (cur === 0 && o.zero ? o.zero : hrs(cur)) + "</b><small>" + (cur === 0 && o.zero ? (o.zeroSub || "") : "ชั่วโมง") + "</small></div>" +
+      '<button type="button" data-act="' + kind + '-adj" data-v="0.5" aria-label="เพิ่ม 0.5 ชั่วโมง"' + (o.max != null && cur >= o.max ? " disabled" : "") + '>+<small>0.5</small></button></div>' +
+      '<button type="button" class="tl-def' + (isDef ? " on" : "") + '" data-act="' + kind + '-def" aria-pressed="' + isDef + '">' +
+      (isDef ? '<i aria-hidden="true">★</i> ค่าเริ่มต้นของคุณ · ' + (cur === 0 && o.zero ? o.zero : hrs(cur) + " ชม.")
+             : '<i aria-hidden="true">☆</i> ตั้ง ' + (cur === 0 && o.zero ? "“" + o.zero + "”" : hrs(cur) + " ชม.") + " เป็นค่าเริ่มต้น") + "</button>" +
+      (isDef ? "" : '<p class="tl-hint def">ค่าเริ่มต้นตอนนี้: ' + (+o.def === 0 && o.zero ? o.zero : hrs(o.def) + " ชม.") + " · ครั้งหน้าจะเลือกไว้ให้ กดถัดไปได้เลย</p>");
   }
 
   function vHours() {
     var p = S.pend;
     return head("⏱", "ชั่วโมงทำงานปกติ", "📅 " + thDate(p.date) + " · " + TYPE_NAMES[p.type], "wtype") + steps(2) +
-      stepper("h", p.reg, [6, 7, 7.5, 8, 8.5, 9, 10, 11, 12]) +
+      stepper("h", p.reg, [6, 7, 7.5, 8, 8.5, 9, 10, 11, 12], { def: settings().defReg, min: 0.5 }) +
       '<button type="button" class="tl-primary" data-act="h-next">ถัดไป ›</button>';
   }
 
   function vOt() {
     var p = S.pend;
     return head("⏰", "ชั่วโมง OT", "📅 " + thDate(p.date) + " · ปกติ " + hrs(p.reg) + " ชม.", "whours") + steps(3) +
-      stepper("o", p.ot, [0, 1, 2, 2.5, 3, 4, 5]) +
-      '<p class="tl-hint">ถ้าไม่มี OT ให้เลือก 0 ชั่วโมง</p>' +
+      stepper("o", p.ot, [0, 1, 2, 3, 4, 5, 6, 7, 8], { zero: "ไม่มี", zeroSub: "ไม่มี OT", def: settings().defOt }) +
+      '<p class="tl-hint">มีเศษครึ่งชั่วโมง เช่น 2.5 · กดเลขใกล้เคียงแล้วใช้ − / + ทีละ 0.5</p>' +
       '<button type="button" class="tl-primary" data-act="o-next">ถัดไป ›</button>';
   }
 
+  function nightMax(p) { return num(p.reg) + num(p.ot); }
+  function vNight() {
+    var p = S.pend, s = settings(), mx = nightMax(p);
+    if (p.night > mx) p.night = mx;
+    return head("🌃", "ชั่วโมงกลางคืน", "📅 " + thDate(p.date) + " · ทำงานรวม " + hrs(mx) + " ชม.", "wot") + steps(4) +
+      stepper("n", p.night, [0, 1, 2, 3, 4, 5, 6, 7, 8], { zero: "ไม่มี", zeroSub: "ไม่มีกะกลางคืน", def: s.defNight, max: mx }) +
+      '<p class="tl-hint">ชั่วโมงที่ทำช่วง <b>22:00–06:00</b> (นับอยู่ในชั่วโมงปกติ/OT แล้ว) ' + (s.night > 0 ? "ได้เงินเพิ่มอีก ×" + hrs(s.night) + " ของค่าแรง" : "· ตอนนี้ตั้งเงินเพิ่มกลางคืนเป็น 0 (แก้ได้ที่ตั้งค่า)") + "</p>" +
+      '<button type="button" class="tl-primary" data-act="n-next">ถัดไป ›</button>';
+  }
+
   function vConfirm() {
-    var p = S.pend, s = settings(), r = calcWork(p.type, p.reg, p.ot, s), rate = curRate(), thb = r.krw * rate;
+    var p = S.pend, s = settings(), r = calcWork(p.type, p.reg, p.ot, s, p.night), rate = curRate(), thb = r.krw * rate;
     var exists = !p.tour && records().some(function (x) { return x.date === p.date; });
     S.calc = r;
     var rows = [
       ["📅 วันที่", thDate(p.date)], ["🏷 ประเภท", TYPE_NAMES[p.type]],
       ["⏱ ชั่วโมงปกติ", hrs(r.reg) + " ชม."], ["⏰ OT", hrs(r.ot) + " ชม."],
       ["💵 ค่าแรง", fmt(r.wage) + " ₩/ชม."], ["💰 รายได้ปกติ", fmt(r.regInc) + " ₩"], ["🌙 รายได้ OT", fmt(r.otInc) + " ₩"]
-    ];
-    return head("📋", "ตรวจสอบก่อนบันทึก", exists ? "⚠️ วันนี้มีบันทึกอยู่แล้ว — จะอัปเดตทับ" : "", "wot") + steps(4) +
+    ].concat(nightRows(r));
+    return head("📋", "ตรวจสอบก่อนบันทึก", exists ? "⚠️ วันนี้มีบันทึกอยู่แล้ว — จะอัปเดตทับ" : "", p.type === "day_off" ? "wtype" : "wnight") + steps(5) +
       '<div class="tl-receipt">' + rows.map(function (x) { return '<div class="tl-rrow"><span>' + x[0] + "</span><b>" + x[1] + "</b></div>"; }).join("") +
       '<div class="tl-total"><span>รวม</span><b>' + fmt(r.krw) + ' ₩</b><em>≈ ' + fmt2(thb) + ' ฿</em></div>' +
       '<div class="tl-rrow dim"><span>💱 เรต</span><b>1 KRW = ' + rate.toFixed(4) + " THB</b></div></div>" +
@@ -266,10 +303,15 @@
       '<button type="button" class="tl-ghost" data-act="close">ยกเลิก</button></div>';
   }
 
+  function nightRows(r) {
+    return num(r.night) > 0 ? [["🌃 กลางคืน", hrs(r.night) + " ชม."], ["✨ เงินเพิ่มกลางคืน", fmt(r.nightInc) + " ₩ <small>(" + hrs(r.night) + " × " + fmt(r.wage) + " × " + hrs(r.nightMul) + ")</small>"]] : [];
+  }
+
   function saveWork() {
     if (S.pend && S.pend.tour) return;                     // the guided tour's on-screen example is never saved
-    var p = S.pend, r = S.calc || calcWork(p.type, p.reg, p.ot, settings()), rate = curRate();
+    var p = S.pend, r = S.calc || calcWork(p.type, p.reg, p.ot, settings(), p.night), rate = curRate();
     var rec = { date: p.date, type: r.type, reg: r.reg, ot: r.ot, wage: r.wage, regMul: r.regMul, otMul: r.otMul, regInc: r.regInc, otInc: r.otInc, krw: r.krw, rate: rate, thb: +(r.krw * rate).toFixed(2) };
+    if (r.night > 0) { rec.night = r.night; rec.nightMul = r.nightMul; rec.nightInc = r.nightInc; }
     var list = records().filter(function (x) { return x.date !== p.date; });
     list.push(rec);
     list.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
@@ -318,7 +360,7 @@
     var rows = [
       ["🏷 ประเภท", TYPE_NAMES[r.type] || r.type], ["⏱ ชั่วโมงปกติ", hrs(r.reg) + " ชม."], ["⏰ OT", hrs(r.ot) + " ชม."],
       ["💵 ค่าแรง", fmt(r.wage) + " ₩/ชม."], ["💰 รายได้ปกติ", fmt(r.regInc) + " ₩"], ["🌙 รายได้ OT", fmt(r.otInc) + " ₩"]
-    ];
+    ].concat(nightRows(r));
     var confirm = S.delConfirm;
     return head("📋", "รายละเอียดการทำงาน", "📅 " + thDate(r.date) + " (" + DOW[dayOfWeek(r.date)] + ")", "wcal") +
       '<div class="tl-receipt">' + rows.map(function (x) { return '<div class="tl-rrow"><span>' + x[0] + "</span><b>" + x[1] + "</b></div>"; }).join("") +
@@ -335,14 +377,14 @@
     var ded = deductions().filter(function (x) { return x.ym === ym; });
     var rcv = received()[ym];
     var days = recs.filter(function (r) { return r.type !== "day_off"; }).length;
-    var reg = 0, ot = 0, gk = 0, gt = 0;
-    recs.forEach(function (r) { reg += num(r.reg); ot += num(r.ot); gk += num(r.krw); gt += num(r.thb); });
+    var reg = 0, ot = 0, nt_ = 0, gk = 0, gt = 0;
+    recs.forEach(function (r) { reg += num(r.reg); ot += num(r.ot); nt_ += num(r.night); gk += num(r.krw); gt += num(r.thb); });
     var dk = 0, dt = 0; ded.forEach(function (x) { dk += num(x.krw); dt += num(x.thb); });
     var nk = gk - dk, nt = gt - dt;
     var nextOk = addMonth(ym, 1) <= ymOf(todayStr());
 
     var h = head("📊", "สรุปรายได้", "", "wmenu") + monthNav(ym, nextOk, "sum");
-    h += '<div class="tl-kpis"><div><small>วันทำงาน</small><b>' + days + '</b><em>วัน</em></div><div><small>ชั่วโมงปกติ</small><b>' + hrs(reg) + '</b><em>ชม.</em></div><div><small>OT รวม</small><b>' + hrs(ot) + '</b><em>ชม.</em></div></div>';
+    h += '<div class="tl-kpis' + (nt_ > 0 ? " four" : "") + '"><div><small>วันทำงาน</small><b>' + days + '</b><em>วัน</em></div><div><small>ชั่วโมงปกติ</small><b>' + hrs(reg) + '</b><em>ชม.</em></div><div><small>OT รวม</small><b>' + hrs(ot) + '</b><em>ชม.</em></div>' + (nt_ > 0 ? '<div><small>กลางคืน</small><b>' + hrs(nt_) + '</b><em>ชม.</em></div>' : "") + "</div>";
     h += '<div class="tl-sec"><h3>💰 รายได้ก่อนหัก</h3><div class="tl-big">' + fmt(gk) + ' <u>₩</u></div><div class="tl-sub">≈ ' + fmt2(gt) + ' ฿</div></div>';
 
     h += '<div class="tl-sec"><h3>🧾 หักภาษีและสิ่งจำเป็น</h3>';
@@ -380,6 +422,9 @@
       f("sWage", "💵", "ค่าแรง / ชั่วโมง", s.wage, 1, "₩") + f("sNormal", "⏱", "Normal multiplier", s.normal, 0.05, "×") +
       f("sOt", "⏰", "OT multiplier", s.ot, 0.05, "×") + f("sWeekend", "🗓", "Weekend multiplier", s.weekend, 0.05, "×") +
       f("sHoliday", "🎌", "Holiday multiplier", s.holiday, 0.05, "×") +
+      f("sNight", "🌃", "เงินเพิ่มกลางคืน 22:00–06:00 (บวกเพิ่ม)", s.night, 0.05, "×") +
+      '<p class="tl-hint left">ตามสลิปเงินเดือน: 야간근로수당 = ชั่วโมงกลางคืน × ค่าแรง × 0.5 · ใส่ 0 ถ้าบริษัทไม่จ่าย</p>' +
+      '<div class="tl-defs"><span>ค่าเริ่มต้นตอนบันทึก</span><b>ปกติ ' + hrs(s.defReg) + ' ชม. · OT ' + (s.defOt ? hrs(s.defOt) + " ชม." : "ไม่มี") + " · กลางคืน " + (s.defNight ? hrs(s.defNight) + " ชม." : "ไม่มี") + "</b><small>เปลี่ยนได้ที่ปุ่ม ☆ ตั้งเป็นค่าเริ่มต้น ในหน้าบันทึกแต่ละขั้น</small></div>" +
       '<div data-feature="monthly_digest"><label class="tl-field"><span>🔔 วันที่แจ้งเตือนสรุปรายได้ประจำเดือน</span><div class="tl-inp"><input id="sNotify" type="number" inputmode="numeric" step="1" min="1" max="31" placeholder="เช่น 10 · เว้นว่าง = ไม่แจ้งเตือน" value="' + (s.notifyDay || "") + '"><em>ของเดือน</em></div></label>' +
       '<p class="tl-hint left">วันนั้น (หรือวันแรกที่เปิดเว็บหลังจากนั้น) จะเด้งสรุปรายได้ ชั่วโมง วันทำงาน OT เสาร์-อาทิตย์ และวันหยุดของ<b>เดือนที่แล้วทั้งเดือน</b> · เดือนละครั้ง</p></div>' +
       '<p class="tl-hint left" data-feature-off="monthly_digest">🔔 แจ้งเตือนสรุปรายได้ประจำเดือนแบบป๊อปอัพ มีใน <a href="pricing.html#premium">Finance Premium</a></p>' +
@@ -516,12 +561,18 @@
 
   function startPending(date, backTo) {
     var ex = records().filter(function (r) { return r.date === date; })[0];
-    S.pend = { date: date, type: ex ? ex.type : "normal", reg: ex ? num(ex.reg) : 8, ot: ex ? num(ex.ot) : 0 };
+    var s = settings();
+    S.pend = { date: date, type: ex ? ex.type : "normal", reg: ex ? num(ex.reg) : s.defReg, ot: ex ? num(ex.ot) : s.defOt, night: ex ? num(ex.night) : s.defNight };
     S.backTo = backTo || "wmenu";
     go("wtype");
   }
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function setDefault(key, val, label) {
+    if (S.pend && S.pend.tour) { toast("ตัวอย่างระหว่างแนะนำ · ยังไม่บันทึกค่าเริ่มต้น"); return; }
+    var o = {}; o[key] = val; saveSettings(o);
+    toast("★ ตั้ง " + label + " เป็นค่าเริ่มต้นแล้ว · ครั้งหน้ากดถัดไปได้เลย"); render();
+  }
 
   function onClick(e) {
     var t = e.target.closest("[data-act],[data-go]"); if (!t || !panel.contains(t)) return;
@@ -537,15 +588,21 @@
       case "m-set": go("wset"); break;
       case "type":
         p.type = v;
-        if (v === "day_off") { p.reg = 0; p.ot = 0; go("wconfirm"); }
-        else { if (!p.reg) p.reg = 8; go("whours"); }
+        if (v === "day_off") { p.reg = 0; p.ot = 0; p.night = 0; go("wconfirm"); }
+        else { if (!p.reg) { var ds = settings(); p.reg = ds.defReg; p.ot = ds.defOt; p.night = ds.defNight; } go("whours"); }
         break;
       case "h-set": p.reg = +v; render(); break;
-      case "h-adj": p.reg = clamp(Math.round((p.reg + +v) * 10) / 10, 0, 24); render(); break;
+      case "h-adj": p.reg = clamp(Math.round((p.reg + +v) * 10) / 10, 0.5, 24); render(); break;
+      case "h-def": setDefault("defReg", p.reg, hrs(p.reg) + " ชม."); break;
+      case "o-def": setDefault("defOt", p.ot, p.ot ? hrs(p.ot) + " ชม." : "ไม่มี OT"); break;
+      case "n-def": setDefault("defNight", p.night, p.night ? hrs(p.night) + " ชม." : "ไม่มีกะกลางคืน"); break;
       case "h-next": go("wot"); break;
       case "o-set": p.ot = +v; render(); break;
       case "o-adj": p.ot = clamp(Math.round((p.ot + +v) * 10) / 10, 0, 24); render(); break;
-      case "o-next": go("wconfirm"); break;
+      case "o-next": go("wnight"); break;
+      case "n-set": p.night = clamp(+v, 0, nightMax(p)); render(); break;
+      case "n-adj": p.night = clamp(Math.round((p.night + +v) * 10) / 10, 0, nightMax(p)); render(); break;
+      case "n-next": go("wconfirm"); break;
       case "w-save": saveWork(); break;
       case "cal-prev": S.calYM = addMonth(S.calYM, -1); render(); break;
       case "cal-next": S.calYM = addMonth(S.calYM, 1); render(); break;
@@ -578,14 +635,15 @@
       }
       /* ตั้งค่า */
       case "set-save": {
-        var ns = { wage: Math.round(num($("sWage").value)), normal: num($("sNormal").value), ot: num($("sOt").value), weekend: num($("sWeekend").value), holiday: num($("sHoliday").value) };
-        if (!(ns.wage > 0) || !(ns.normal > 0) || !(ns.ot > 0) || !(ns.weekend > 0) || !(ns.holiday > 0)) { toast("⚠️ ทุกช่องต้องมากกว่า 0", "warn"); break; }
+        var ns = { wage: Math.round(num($("sWage").value)), normal: num($("sNormal").value), ot: num($("sOt").value), weekend: num($("sWeekend").value), holiday: num($("sHoliday").value), night: num($("sNight").value) };
+        if (!(ns.wage > 0) || !(ns.normal > 0) || !(ns.ot > 0) || !(ns.weekend > 0) || !(ns.holiday > 0)) { toast("⚠️ ค่าแรงและตัวคูณต้องมากกว่า 0", "warn"); break; }
+        if (!(ns.night >= 0) || String($("sNight").value).trim() === "") { toast("⚠️ เงินเพิ่มกลางคืนต้องเป็น 0 ขึ้นไป", "warn"); break; }
         var nIn = $("sNotify"), nRaw = nIn ? String(nIn.value || "").trim() : "";
         if (nRaw && !(/^\d{1,2}$/.test(nRaw) && +nRaw >= 1 && +nRaw <= 31)) { toast("⚠️ วันที่แจ้งเตือนต้องเป็น 1–31", "warn"); break; }
         ns.notifyDay = nIn ? (nRaw ? +nRaw : 0) : settings().notifyDay;
-        store(K_SET, ns); toast("✅ บันทึกการตั้งค่าแล้ว"); go("wmenu"); break;
+        saveSettings(ns); toast("✅ บันทึกการตั้งค่าแล้ว"); go("wmenu"); break;
       }
-      case "set-reset": store(K_SET, Object.assign({}, DEFAULT_SET, { notifyDay: settings().notifyDay })); toast("↺ คืนค่าเริ่มต้นแล้ว"); render(); break;
+      case "set-reset": saveSettings(DEFAULT_SET); toast("↺ คืนค่าแรงและตัวคูณเริ่มต้นแล้ว"); render(); break;
       /* รายจ่าย */
       case "ex-tab": S.ex.tab = v; S.ex.delId = null; renderExpenseList(); break;
       case "exm-prev": if (t.disabled) break; S.ex.month = addMonth(S.ex.month, -1); S.ex.delId = null; renderExpenseList(); break;
@@ -637,7 +695,7 @@
     example: function (p) {
       if (!panel || panel.hidden || S.kind !== "work") return false;
       p = p || {};
-      S.pend = { date: todayStr(), type: p.type || "normal", reg: p.reg == null ? 8 : p.reg, ot: p.ot == null ? 2 : p.ot, tour: true };
+      S.pend = { date: todayStr(), type: p.type || "normal", reg: p.reg == null ? 8 : p.reg, ot: p.ot == null ? 2 : p.ot, night: p.night == null ? 0 : p.night, tour: true };
       S.backTo = "wmenu"; go(p.view || "wtype"); return true;
     },
     close: function () { if (panel && !panel.hidden) { if (S.pend && S.pend.tour) S.pend = null; close(); } },
@@ -645,7 +703,7 @@
     current: function () { return panel && !panel.hidden ? S.view : null; },
     settings: function () { return settings(); },
     rate: function () { return curRate(); },
-    calc: function (type, reg, ot) { return calcWork(type, reg, ot, settings()); }
+    calc: function (type, reg, ot, night) { return calcWork(type, reg, ot, settings(), night); }
   };
 
   window.kfpOpenTool = function (k) { var b = d.querySelector('[data-open-tool="' + k + '"]'); if (b) b.click(); };

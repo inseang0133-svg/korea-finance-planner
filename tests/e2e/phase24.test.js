@@ -171,7 +171,7 @@ const userData = page => page.evaluate(() => {
     ok(await vis(page, ".tl-modal.open .tl-menu") && await spotOn(page, ".tl-modal.open .tl-menu"), "opens the pop-up and highlights its menu");
     await next(page);
     ok(await vis(page, ".tl-modal.open .tl-types") && /×1\.5/.test(await txt(page, "#ktText")), "types screen + the person's real multipliers");
-    await next(page); await next(page); await next(page);
+    await next(page); await next(page); await next(page); await next(page);   // hours → OT → night → wage settings
     ok(/ค่าแรงและตัวคูณ/.test(await title(page)) && /10,320 ₩/.test(await txt(page, ".kt-facts")), "wage settings step shows the saved wage");
     await next(page);
     ok(/ระบบคำนวณรายได้/.test(await title(page)) && /82,560 ₩/.test(await txt(page, ".kt-example")) && /30,960 ₩/.test(await txt(page, ".kt-example")) && /113,520 ₩/.test(await txt(page, ".kt-example")),

@@ -24,7 +24,7 @@
     "🏁": "flag", "🚩": "flag", "🎌": "flag", "🧮": "calculator", "🔢": "calculator", "📋": "list", "📜": "list", "ℹ": "info", "⚠": "warning",
     "💾": "save", "📌": "pin", "📍": "pin", "☁": "cloud", "🔗": "link", "📰": "news", "⛶": "expand", "🎁": "gift", "🔎": "search", "🔍": "search",
     "👀": "eye", "🧩": "grid", "🔑": "key", "📴": "offline", "⏸": "pause", "▶": "play", "🏭": "briefcase", "💼": "briefcase", "🏷": "tag",
-    "🌙": "moon", "💤": "moon", "⭐": "star", "🌟": "star", "✈": "send", "🍜": "bowl", "🍚": "bowl", "🚌": "bus", "🎧": "headphones",
+    "🌙": "moon", "🌃": "moon", "💤": "moon", "⭐": "star", "🌟": "star", "✈": "send", "🍜": "bowl", "🍚": "bowl", "🚌": "bus", "🎧": "headphones",
     "⬇": "download", "⬆": "upload", "↩": "refresh", "✓": "check", "✗": "close", "☑": "check", "⭕": "dot", "🔃": "refresh", "📲": "download", "🖨": "list", "🗃": "archive", "💬": "chat", "📣": "megaphone", "📢": "megaphone", "🎊": "sparkle", "🪪": "card", "🧧": "gift", "🔓": "lock",
     "🟢": "dot", "🔴": "dot", "🟡": "dot", "⚪": "dot", "🟠": "dot"
   };

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'korea-finance-pwa-20261120-saas33';
-const API_CACHE_NAME = 'korea-finance-api-20261120-saas33';
+const CACHE_NAME = 'korea-finance-pwa-20261121-saas34';
+const API_CACHE_NAME = 'korea-finance-api-20261121-saas34';
 
 const ASSETS = [
   'index.html', 'style.css', 'script.js', 'manifest.json',

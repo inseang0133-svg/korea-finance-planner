@@ -323,6 +323,13 @@
   }
 
   /* ---------- ปฏิทิน (ย้อนหลัง / ประวัติ) ---------- */
+  // สีของวัน: หยุดงาน (แดง) > วันหยุดแต่ทำงาน (ส้ม) > เสาร์-อาทิตย์ (เขียว) > มี OT (ม่วง) > ปกติ (ฟ้า) · กะกลางคืนเพิ่มจุดชมพู
+  function dayKind(r, ds) {
+    if (r.type === "day_off") return "dayoff";
+    if (r.type === "holiday") return "hol";
+    if (r.type === "weekend" || dayOfWeek(ds) === 0 || dayOfWeek(ds) === 6) return "wknd";
+    return num(r.ot) > 0 ? "ot" : "has";
+  }
   function vCal() {
     var mode_ = S.calMode, ym = S.calYM, p = parseYM(ym), today = todayStr();
     var recs = {}; records().forEach(function (r) { recs[r.date] = r; });
@@ -335,17 +342,19 @@
       if (future) cls += " off";
       if (r) {
         monthDays++; monthTotal += num(r.krw);
-        if (dayOfWeek(ds) === 0 || dayOfWeek(ds) === 6) cls += " wknd"; else if (num(r.ot) > 0) cls += " ot"; else cls += " has";
-        if (r.type === "day_off") cls += " dayoff";
+        cls += " " + dayKind(r, ds);
+        if (num(r.night) > 0) cls += " night";
       }
-      cells += '<button type="button" class="' + cls + '" ' + (future ? "disabled" : 'data-act="cal-day" data-v="' + ds + '"') + "><span>" + day + "</span>" + (r ? "<i></i>" : "") + "</button>";
+      cells += '<button type="button" class="' + cls + '" ' + (future ? "disabled" : 'data-act="cal-day" data-v="' + ds + '"') + "><span>" + day + "</span>" +
+        (r ? '<em class="tl-dots"><i></i>' + (num(r.night) > 0 ? '<i class="nt"></i>' : "") + "</em>" : "") + "</button>";
     }
     var nextOk = mode_ === "add" ? addMonth(ym, 1) <= ymOf(today) : true;
     return head(mode_ === "add" ? "🗓" : "📋", mode_ === "add" ? "บันทึกย้อนหลัง" : "ประวัติการทำงาน", mode_ === "add" ? "กดวันที่ที่ต้องการบันทึก" : "กดวันที่เพื่อดู แก้ไข หรือลบ", "wmenu") +
       monthNav(ym, nextOk, "cal") +
       '<div class="tl-dow">' + DOW.map(function (x, i) { return '<span class="' + (i === 0 || i === 6 ? "w" : "") + '">' + x + "</span>"; }).join("") + "</div>" +
       '<div class="tl-cal">' + cells + "</div>" +
-      '<div class="tl-legend"><span><i class="lg has"></i>ทำงานปกติ</span><span><i class="lg ot"></i>มี OT</span><span><i class="lg wknd"></i>เสาร์-อาทิตย์</span></div>' +
+      '<div class="tl-legend"><span><i class="lg has"></i>ทำงานปกติ</span><span><i class="lg ot"></i>มี OT</span><span><i class="lg wknd"></i>เสาร์-อาทิตย์</span>' +
+      '<span><i class="lg hol"></i>วันหยุดแต่ทำงาน</span><span><i class="lg dayoff"></i>หยุดงาน (ไม่มีรายได้)</span><span><i class="lg night"></i>มีกะกลางคืน</span></div>' +
       (mode_ === "hist" ? '<div class="tl-mini"><span>📊 ' + monthDays + ' วัน</span><b>' + fmt(monthTotal) + ' ₩</b></div>' : "");
   }
 

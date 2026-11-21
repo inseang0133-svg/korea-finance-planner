@@ -84,7 +84,8 @@
 .kt-miss{display:flex;gap:8px;margin:10px 0 0;padding:8px 10px;border-radius:12px;font-size:13px;line-height:1.5;color:#ffe6b0;background:rgba(255,177,92,.1);border:1px solid rgba(255,177,92,.35)}
 .kt-tip.kt-more .kt-body{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 34px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 34px),transparent)}
 .kt-morehint{display:none;margin:0;padding:2px 0 0;text-align:center;font-size:11.5px;color:var(--kt-gold2);flex:0 0 auto}
-.kt-tip.kt-more .kt-morehint{display:block}
+.kt-tip.kt-scroll .kt-morehint{display:block;visibility:hidden}   /* space kept while the text scrolls, so reaching the end doesn't resize the box */
+.kt-tip.kt-more .kt-morehint{visibility:visible}
 .kt-tip.tight .kt-hint{display:none}
 .kt-tip.tight .kt-head{padding-top:8px}
 .kt-tip.tight .kt-prog{margin-top:6px}

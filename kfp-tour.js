@@ -223,7 +223,8 @@
     var schedule = function () { if (R && !R.raf) R.raf = requestAnimationFrame(function () { R.raf = 0; place(); }); };
     on(w, "resize", schedule, { passive: true });
     on(w, "orientationchange", function () { readSafe(); schedule(); }, { passive: true });
-    on(w, "scroll", schedule, { passive: true, capture: true });
+    // scrolling the page (or a pop-up) moves the target → re-place; scrolling the bubble's own text must not
+    on(w, "scroll", function (e) { if (tip && e && e.target && e.target.nodeType === 1 && tip.contains(e.target)) return; schedule(); }, { passive: true, capture: true });
     if (w.visualViewport) { on(w.visualViewport, "resize", schedule, { passive: true }); on(w.visualViewport, "scroll", schedule, { passive: true }); }
     if (w.ResizeObserver) { R.ro = new ResizeObserver(schedule); R.ro.observe(tip); R.ro.observe(d.body); }
     R.watch = setInterval(function () {                                 // target re-rendered / removed?
@@ -438,7 +439,13 @@
     });
   }
 
+  // re-placing briefly resets the bubble's height, which would throw the reader back to the top of the text
   function place() {
+    var b = tip && tip.querySelector(".kt-body"), keep = b ? b.scrollTop : 0;
+    placeNow();
+    if (b && keep && b.scrollTop !== keep) b.scrollTop = keep;
+  }
+  function placeNow() {
     if (!R || !root) return;
     var vp = viewport(), els = R.els && R.els.filter(function (el) { return el.isConnected; });
     var r = els && els.length ? unionRect(els) : null;
@@ -514,7 +521,9 @@
 
   function moreHint() {
     var b = tip && tip.querySelector(".kt-body"); if (!b) return;
-    tip.classList.toggle("kt-more", b.scrollHeight - b.clientHeight - b.scrollTop > 6);
+    var room = b.scrollHeight - b.clientHeight;
+    tip.classList.toggle("kt-scroll", room > 6);
+    tip.classList.toggle("kt-more", room - b.scrollTop > 6);
   }
   // four click-catchers around the hole (+ one over it unless the step lets you try the real control)
   function setBlocks(s) {

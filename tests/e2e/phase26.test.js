@@ -183,6 +183,49 @@ const view = page => page.getAttribute(".tl-modal.open .tl-view", "data-view").c
   await act(page, "o-next"); await act(page, "n-set", "2"); await settle(page, 300);
   await page.screenshot({ path: path.join(SHOTS, "p26_night.png") });
 
+  await act(page, "close"); await settle(page, 500);
+
+  console.log("W10 calendar colours: day off red, holiday orange, night pink dot");
+  await page.evaluate(() => {
+    const ym = new Date().toISOString().slice(0, 7);
+    const R = [{ date: ym + "-03", type: "day_off", reg: 0, ot: 0, krw: 0 }, { date: ym + "-04", type: "holiday", reg: 8, ot: 0, krw: 123840 },
+      { date: ym + "-05", type: "normal", reg: 8, ot: 2, night: 3, krw: 129000 }, { date: ym + "-06", type: "normal", reg: 8, ot: 0, krw: 82560 }];
+    localStorage.setItem("kfp_work_records_v1", JSON.stringify(R));
+    window.kfpToolsTour.open("work");
+  });
+  await settle(page, 400); await act(page, "m-hist"); await settle(page, 400);
+  const cls = await page.evaluate(() => { const o = {}; document.querySelectorAll('.tl-modal.open .tl-day[data-v]').forEach(b => { o[b.getAttribute("data-v").slice(-2)] = b.className + "|" + b.querySelectorAll(".tl-dots i").length + (b.querySelector("i.nt") ? "nt" : ""); }); return o; });
+  const dow = d => new Date(new Date().toISOString().slice(0, 8) + d + "T12:00:00").getDay();
+  ok(/dayoff/.test(cls["03"]) && !/ wknd/.test(cls["03"]), "day off → red (" + cls["03"] + ")");
+  ok(/ hol/.test(cls["04"]), "holiday worked → orange (" + cls["04"] + ")");
+  ok(/ night/.test(cls["05"]) && /2nt$/.test(cls["05"]), "night shift → extra pink dot (" + cls["05"] + ")");
+  ok(dow("06") % 6 === 0 ? /wknd/.test(cls["06"]) : / has/.test(cls["06"]) && /1$/.test(cls["06"]), "plain day keeps one dot (" + cls["06"] + ")");
+  ok(/วันหยุดแต่ทำงาน/.test(await txt(page, ".tl-modal.open .tl-legend")) && /หยุดงาน/.test(await txt(page, ".tl-modal.open .tl-legend")) && /กะกลางคืน/.test(await txt(page, ".tl-modal.open .tl-legend")), "legend lists the new colours");
+  await page.screenshot({ path: path.join(SHOTS, "p26_calendar.png") });
+  await act(page, "close"); await settle(page, 500);
+
+  console.log("W11 tour bubble keeps its scroll position");
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.evaluate(() => window.KfpTour.start("work")); await settle(page, 1500);
+  let kept = null, scrollable = false;
+  for (let i = 0; i < 9 && !scrollable; i++) {
+    scrollable = await page.evaluate(() => { const b = document.querySelector(".kt-tip .kt-body"); return !!b && b.scrollHeight - b.clientHeight > 40; });
+    if (!scrollable) { await page.click(".kt-tip .kt-next"); await settle(page, 1200); }
+  }
+  ok(scrollable, "found a step whose text scrolls");
+  const want = await page.evaluate(() => { const b = document.querySelector(".kt-tip .kt-body"); b.scrollTop = b.scrollHeight; return b.scrollTop; });
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await settle(page, 1500);
+  kept = await page.evaluate(() => { const b = document.querySelector(".kt-tip .kt-body"); return { top: b.scrollTop, max: b.scrollHeight - b.clientHeight }; });
+  ok(want > 20 && kept.top > 20 && kept.top >= Math.min(want, kept.max) - 2, "still at the end of the text after re-layout (" + want + " → " + kept.top + " of " + kept.max + ")");
+  // half-way position survives too
+  const mid = await page.evaluate(() => { const b = document.querySelector(".kt-tip .kt-body"); b.scrollTop = Math.round((b.scrollHeight - b.clientHeight) / 2); return b.scrollTop; });
+  await settle(page, 300); await page.evaluate(() => window.dispatchEvent(new Event("resize"))); await settle(page, 1200);
+  const mid2 = await page.evaluate(() => document.querySelector(".kt-tip .kt-body").scrollTop);
+  ok(mid > 10 && Math.abs(mid2 - mid) <= 2, "half-way position kept (" + mid + " → " + mid2 + ")");
+  await page.mouse.move(195, 200); await page.mouse.wheel(0, -30); await settle(page, 200);
+  await page.evaluate(() => window.KfpTour.stop()); await settle(page, 300);
+
   ok(!page.errors.length, "no page errors" + (page.errors.length ? ": " + page.errors.join(" | ") : ""));
   await browser.close(); server.close();
   console.log(`Phase 26 e2e: ${pass} passed, ${fail} failed`);
